@@ -174,6 +174,10 @@ claude-usage-systray/
 └── assets/                        # Screenshots for this README
 ```
 
+## Acknowledgements
+
+Originally created by [adntgv](https://github.com/adntgv/claude-usage-systray). This fork adds the Python analytics engine (burn-rate projections, budget advisor, runway calculations), the interactive dashboard, and self-healing token refresh.
+
 ## License
 
 MIT

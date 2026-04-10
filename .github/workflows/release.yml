@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_PART1: ${{ secrets.APPLE_CERTIFICATE_1 }}
+          CERTIFICATE_PART2: ${{ secrets.APPLE_CERTIFICATE_2 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 16)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "${CERTIFICATE_PART1}${CERTIFICATE_PART2}" | base64 --decode -o "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Archive
+        run: |
+          cd claude-usage-systray
+          xcodebuild \
+            -scheme ClaudeUsageSystray \
+            -configuration Release \
+            -archivePath build/ClaudeUsageSystray.xcarchive \
+            archive
+
+      - name: Export (Developer ID signed)
+        run: |
+          cd claude-usage-systray
+          xcodebuild -exportArchive \
+            -archivePath build/ClaudeUsageSystray.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          cd claude-usage-systray
+          ditto -c -k --keepParent build/export/ClaudeUsageSystray.app ClaudeUsageSystray.zip
+          xcrun notarytool submit ClaudeUsageSystray.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+
+      - name: Staple
+        run: |
+          cd claude-usage-systray
+          xcrun stapler staple build/export/ClaudeUsageSystray.app
+          ditto -c -k --keepParent build/export/ClaudeUsageSystray.app ClaudeUsageSystray.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: claude-usage-systray/ClaudeUsageSystray.zip
+          generate_release_notes: true
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION=${TAG#v}
+          SHA=$(shasum -a 256 claude-usage-systray/ClaudeUsageSystray.zip | awk '{print $1}')
+
+          FORMULA="cask \"claude-usage-systray\" do
+            version \"$VERSION\"
+            sha256 \"$SHA\"
+
+            url \"https://github.com/adntgv/claude-usage-systray/releases/download/v#{version}/ClaudeUsageSystray.zip\"
+            name \"Claude Usage Systray\"
+            desc \"macOS menu bar app showing Claude.ai plan usage in real time\"
+            homepage \"https://github.com/adntgv/claude-usage-systray\"
+
+            app \"ClaudeUsageSystray.app\"
+
+            zap trash: [
+              \"~/Library/Preferences/com.adntgv.claude-usage-systray.plist\",
+              \"~/Library/Application Support/ClaudeUsageSystray\",
+            ]
+          end"
+
+          ENCODED=$(echo "$FORMULA" | base64)
+
+          # Get current file SHA (needed for update)
+          CURRENT=$(curl -s \
+            -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
+            https://api.github.com/repos/adntgv/homebrew-tap/contents/Casks/claude-usage-systray.rb)
+          FILE_SHA=$(echo "$CURRENT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha',''))")
+
+          curl -s -X PUT \
+            -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/adntgv/homebrew-tap/contents/Casks/claude-usage-systray.rb \
+            -d "{\"message\":\"Update claude-usage-systray to $VERSION\",\"content\":\"$ENCODED\",\"sha\":\"$FILE_SHA\"}"

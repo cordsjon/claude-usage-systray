@@ -1,0 +1,20 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          cd claude-usage-systray
+          xcodebuild test \
+            -project ClaudeUsageSystray.xcodeproj \
+            -scheme ClaudeUsageSystrayTests \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            | grep -E "(Test Case|passed|failed|SUCCEEDED|FAILED)"

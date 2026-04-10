@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Budget Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1012; --bg-card: #1a1b1e; --bg-elevated: #232428;
+    --border: rgba(255,255,255,0.06); --text: #e4e4e7;
+    --text-dim: #8b8d97; --text-muted: #5c5e66;
+    --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+    --blue: #3b82f6; --cyan: #06b6d4;
+    --green-dim: rgba(34,197,94,0.12);
+    --amber-dim: rgba(245,158,11,0.12);
+    --red-dim: rgba(239,68,68,0.12);
+    --blue-dim: rgba(59,130,246,0.12);
+    --cyan-dim: rgba(6,182,212,0.12);
+    --font: 'SF Pro Display', -apple-system, system-ui, sans-serif;
+    --mono: 'SF Mono', 'Menlo', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; overflow: hidden; height: 100vh; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+  /* Tab bar */
+  .tab-bar { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; z-index: 200; padding: 0 16px; }
+  .tab-bar__tabs { display: flex; gap: 4px; }
+  .tab-btn { background: none; border: none; color: var(--text-muted); font-family: var(--font); font-size: 13px; font-weight: 500; padding: 10px 14px; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+  .tab-btn:hover { color: var(--text-dim); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--cyan); }
+  .tab-bar__right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .conn-dot.offline { background: var(--red); }
+
+  /* Tab panels */
+  .tab-panel { display: none; position: absolute; top: 44px; left: 0; right: 0; bottom: 0; overflow-y: auto; }
+  .tab-panel.active { display: block; }
+
+  /* ═══ TAB 1: RUNWAY HORIZON ═══ */
+  #tab-runway { overflow: hidden; display: flex; flex-direction: column; }
+  #tab-runway.active { display: flex; }
+
+  .runway-hud { display: grid; grid-template-columns: 1fr auto; padding: 20px 24px 0; gap: 24px; z-index: 10; }
+  .runway-hud__left {}
+  .runway-hud__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+  .runway-hud__value { font-size: 52px; font-weight: 800; font-family: var(--mono); letter-spacing: -0.04em; line-height: 1; margin: 2px 0; }
+  .runway-hud__sub { font-size: 12px; color: var(--text-dim); }
+  .runway-hud__sub strong { color: var(--text); }
+
+  .runway-hud__right { display: flex; gap: 20px; align-items: flex-start; }
+  .runway-stat { text-align: right; }
+  .runway-stat__label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .runway-stat__val { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+
+  /* Pacing strip under HUD */
+  .pacing-strip { padding: 12px 24px 0; }
+  .pacing-strip__track { position: relative; height: 6px; background: var(--bg-elevated); border-radius: 3px; }
+  .pacing-strip__fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .pacing-strip__marker { position: absolute; top: -3px; width: 2px; height: 12px; border-radius: 1px; background: var(--cyan); opacity: 0.8; transform: translateX(-50%); }
+  .pacing-strip__info { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .pacing-strip__delta { font-size: 11px; font-weight: 600; font-family: var(--mono); }
+  .pacing-strip__grade { font-size: 11px; font-family: var(--mono); color: var(--text-muted); }
+
+  /* Main SVG chart area */
+  .chart-container { flex: 1; padding: 8px 24px 12px; min-height: 0; }
+  .chart-container svg { width: 100%; height: 100%; }
+
+  /* Chart legend */
+  .chart-legend { display: flex; gap: 20px; padding: 0 24px 12px; justify-content: center; }
+  .chart-legend__item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-dim); }
+  .chart-legend__line { width: 18px; height: 2px; border-radius: 1px; }
+
+  /* ═══ TAB 2: BUDGET CARDS ═══ */
+  #tab-cards { padding: 20px; }
+  .dashboard { max-width: 680px; margin: 0 auto; }
+
+  .hero { background: var(--bg-card); border-radius: 12px; padding: 24px; margin-bottom: 16px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .hero--safe::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .hero--warning::before { background: linear-gradient(90deg, var(--amber), var(--red)); }
+  .hero__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 4px; }
+  .hero__value { font-size: 42px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.03em; line-height: 1.1; }
+  .hero__value--safe { color: var(--green); }
+  .hero__value--warning { color: var(--amber); }
+  .hero__value--danger { color: var(--red); }
+  .hero__sub { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+  .hero__sub strong { color: var(--text); }
+
+  .stoppage { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 12px; }
+  .stoppage__icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .stoppage__text { font-size: 13px; color: #fca5a5; }
+  .stoppage__text strong { color: #fecaca; }
+  .stoppage--hidden { display: none; }
+
+  .gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .gauge { background: var(--bg-card); border-radius: 10px; padding: 16px; border: 1px solid var(--border); text-align: center; }
+  .gauge__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 6px; }
+  .gauge__ring { width: 56px; height: 56px; margin: 0 auto 8px; position: relative; }
+  .gauge__ring svg { transform: rotate(-90deg); }
+  .gauge__ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; font-family: var(--mono); }
+  .gauge__reset { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+
+  .card { background: var(--bg-card); border-radius: 10px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border); }
+  .card__title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 12px; }
+  .card__row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .card__row:last-child { border-bottom: none; }
+  .card__key { font-size: 13px; color: var(--text-dim); }
+  .card__val { font-size: 14px; font-weight: 600; font-family: var(--mono); }
+
+  .chart-section__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .chart-section__title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .chart-section__toggle { display: flex; gap: 4px; }
+  .chart-section__toggle button { font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-family: var(--mono); }
+  .chart-section__toggle button.active { background: var(--blue-dim); color: var(--blue); border-color: rgba(59,130,246,0.3); }
+
+  .sparkline-area { width: 100%; height: 120px; position: relative; }
+  .sparkline-area svg { width: 100%; height: 100%; }
+
+  .heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+  .heatmap__day { text-align: center; }
+  .heatmap__label { font-size: 9px; color: var(--text-muted); margin-bottom: 4px; }
+  .heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: var(--mono); font-weight: 600; background: var(--bg-elevated); }
+
+  .history__bars { display: flex; gap: 3px; align-items: flex-end; height: 60px; }
+  .history__bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 4px; position: relative; transition: opacity 0.15s; }
+  .history__bar:hover { opacity: 0.8; }
+  .history__bar-label { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; }
+  .history__legend { display: flex; gap: 16px; margin-top: 10px; font-size: 10px; color: var(--text-muted); }
+  .history__legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  .heatmap-summary { margin-top: 12px; font-size: 11px; color: var(--text-muted); }
+  .heatmap-summary strong { font-weight: 600; }
+
+  /* Pacing card */
+  .pacing-card__track { position: relative; height: 8px; background: var(--bg-elevated); border-radius: 4px; margin: 8px 0 4px; }
+  .pacing-card__fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .pacing-card__marker { position: absolute; top: -4px; width: 3px; height: 16px; border-radius: 1px; background: var(--cyan); opacity: 0.7; transform: translateX(-50%); }
+  .pacing-card__labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+  .pacing-card__delta { text-align: center; font-size: 13px; font-weight: 600; font-family: var(--mono); margin-top: 4px; }
+
+  /* Grade badge */
+  .grade-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; font-size: 16px; font-weight: 800; font-family: var(--mono); }
+  .grade-badge--A { background: var(--green-dim); color: var(--green); }
+  .grade-badge--B { background: var(--blue-dim); color: var(--blue); }
+  .grade-badge--C { background: var(--amber-dim); color: var(--amber); }
+  .grade-badge--D { background: var(--red-dim); color: var(--red); }
+  .grade-badge--F { background: var(--red-dim); color: var(--red); }
+  .grade-badge--NA { background: var(--bg-elevated); color: var(--text-muted); }
+
+  .card__row--highlight { background: rgba(255,255,255,0.02); border-radius: 6px; padding: 8px 8px !important; margin: 0 -8px; }
+  .card__sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  .footer { text-align: center; padding: 12px 0; font-size: 10px; color: var(--text-muted); }
+
+  /* Session limit warning banner */
+  .session-banner { position: fixed; top: 44px; left: 0; right: 0; z-index: 150; display: none; transition: transform 0.3s ease, opacity 0.3s ease; }
+  .session-banner.visible { display: block; }
+  .session-banner__inner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-size: 13px; font-family: var(--font); }
+  .session-banner--warning .session-banner__inner { background: linear-gradient(135deg, rgba(180,130,40,0.25) 0%, rgba(140,100,30,0.18) 100%); border-bottom: 1px solid rgba(200,160,60,0.25); color: #d4a84a; }
+  .session-banner--danger .session-banner__inner { background: linear-gradient(135deg, rgba(200,60,60,0.22) 0%, rgba(160,40,40,0.16) 100%); border-bottom: 1px solid rgba(220,80,80,0.25); color: #f07070; }
+  .session-banner__text { display: flex; align-items: center; gap: 6px; }
+  .session-banner__text strong { font-weight: 700; }
+  .session-banner__runway { font-family: var(--mono); font-weight: 700; font-size: 12px; margin-left: 4px; padding: 2px 8px; border-radius: 4px; }
+  .session-banner--warning .session-banner__runway { background: rgba(200,160,60,0.15); color: #d4a84a; }
+  .session-banner--danger .session-banner__runway { background: rgba(220,80,80,0.15); color: #f07070; }
+  .session-banner__sep { color: rgba(255,255,255,0.15); margin: 0 2px; }
+  .session-banner__close { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.6; transition: opacity 0.15s; margin-left: 8px; }
+  .session-banner__close:hover { opacity: 1; }
+
+  /* Shift content when banner is visible */
+  body.has-banner .tab-panel { top: 86px; }
+
+  /* Tooltip */
+  .chart-tooltip { position: fixed; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 11px; font-family: var(--mono); color: var(--text); pointer-events: none; z-index: 999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+
+<div role="status" aria-live="polite" class="sr-only" id="a11y-runway">Runway data loading</div>
+<div class="chart-tooltip" id="tooltip"></div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <div class="tab-bar__tabs">
+    <button class="tab-btn active" data-tab="runway">Runway Horizon</button>
+    <button class="tab-btn" data-tab="cards">Budget Cards</button>
+  </div>
+  <div class="tab-bar__right">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-label">Connecting...</span>
+  </div>
+</div>
+
+<!-- Session limit warning banner -->
+<div class="session-banner" id="session-banner" role="alert" aria-live="assertive">
+  <div class="session-banner__inner">
+    <span class="session-banner__text">
+      You've used <strong id="banner-pct">--</strong>% of your session limit
+      <span class="session-banner__sep">&middot;</span>
+      resets in <strong id="banner-reset">--</strong>
+      <span class="session-banner__runway" id="banner-runway">Runway: --</span>
+    </span>
+    <button class="session-banner__close" id="banner-close" aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+
+<!-- ═══ TAB 1: RUNWAY HORIZON ═══ -->
+<div class="tab-panel active" id="tab-runway">
+  <!-- HUD -->
+  <div class="runway-hud">
+    <div class="runway-hud__left">
+      <div class="runway-hud__label">Runway Remaining</div>
+      <div class="runway-hud__value" id="hud-hours" style="color: var(--green)">--h --m</div>
+      <div class="runway-hud__sub">
+        Cycle resets <strong id="hud-reset">--</strong> &middot;
+        Burn rate <strong id="hud-burn">--%/hr</strong>
+      </div>
+    </div>
+    <div class="runway-hud__right">
+      <div class="runway-stat">
+        <div class="runway-stat__label">Weekly</div>
+        <div class="runway-stat__val" id="hud-weekly">--%</div>
+      </div>
+      <div class="runway-stat">
+        <div class="runway-stat__label">5-Hour</div>
+        <div class="runway-stat__val" id="hud-5h">--%</div>
+      </div>
+      <div class="runway-stat">
+        <div class="runway-stat__label">Daily Budget</div>
+        <div class="runway-stat__val" id="hud-budget" style="color: var(--blue)">--%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pacing strip -->
+  <div class="pacing-strip">
+    <div class="pacing-strip__track">
+      <div class="pacing-strip__fill" id="ps-fill" style="width:0%"></div>
+      <div class="pacing-strip__marker" id="ps-marker" style="left:0%"></div>
+    </div>
+    <div class="pacing-strip__info">
+      <span class="pacing-strip__delta" id="ps-delta">--</span>
+      <span class="pacing-strip__grade" id="ps-grade">--</span>
+    </div>
+  </div>
+
+  <!-- SVG Chart -->
+  <div class="chart-container" id="chart-container">
+    <svg id="runway-svg" viewBox="0 0 800 350" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="optimalGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#22c55e" stop-opacity="0.06"/>
+          <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="projGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#ef4444"/>
+        </linearGradient>
+      </defs>
+      <!-- Grid, axes, data layers filled by JS -->
+    </svg>
+  </div>
+
+  <!-- Legend -->
+  <div class="chart-legend">
+    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#06b6d4"></div>Actual</div>
+    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#22c55e;opacity:0.5"></div>Optimal pace</div>
+    <div class="chart-legend__item"><div class="chart-legend__line" style="background:repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)"></div>Projected</div>
+    <div class="chart-legend__item"><div class="chart-legend__line" style="background:rgba(59,130,246,0.5)"></div>Budget target</div>
+    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#ef4444;height:1px"></div>100% exhaustion</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 2: BUDGET CARDS ═══ -->
+<div class="tab-panel" id="tab-cards">
+  <div class="dashboard">
+
+    <!-- Hero -->
+    <div class="hero hero--safe" id="hero">
+      <div class="hero__label">You can continue working for</div>
+      <div class="hero__value hero__value--safe" id="hero-value">--h --m</div>
+      <div class="hero__sub" id="hero-sub">Loading data...</div>
+    </div>
+
+    <!-- Stoppage alert -->
+    <div class="stoppage stoppage--hidden" id="stoppage-alert">
+      <span class="stoppage__icon" role="img" aria-label="Warning">&#9888;</span>
+      <div class="stoppage__text" id="stoppage-text">
+        <strong>FORCED STOPPAGE:</strong> <span id="stoppage-detail">Calculating...</span>
+      </div>
+    </div>
+
+    <!-- Ring gauges -->
+    <div class="gauges">
+      <div class="gauge">
+        <div class="gauge__label">5-Hour</div>
+        <div class="gauge__ring">
+          <svg viewBox="0 0 56 56" role="img" aria-label="5-hour utilization: --%">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="var(--green)" stroke-width="5"
+              stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" id="ring-5h"/>
+          </svg>
+          <div class="gauge__ring-text" id="ring-5h-text" style="color:var(--green)">--%</div>
+        </div>
+        <div class="gauge__reset" id="reset-5h">--</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge__label">Weekly</div>
+        <div class="gauge__ring">
+          <svg viewBox="0 0 56 56" role="img" aria-label="Weekly utilization: --%">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="var(--amber)" stroke-width="5"
+              stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" id="ring-weekly"/>
+          </svg>
+          <div class="gauge__ring-text" id="ring-weekly-text" style="color:var(--amber)">--%</div>
+        </div>
+        <div class="gauge__reset" id="reset-weekly">--</div>
+      </div>
+      <div class="gauge">
+        <div class="gauge__label">Sonnet</div>
+        <div class="gauge__ring">
+          <svg viewBox="0 0 56 56" role="img" aria-label="Sonnet utilization: --%">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="28" cy="28" r="22" fill="none" stroke="var(--blue)" stroke-width="5"
+              stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" id="ring-sonnet"/>
+          </svg>
+          <div class="gauge__ring-text" id="ring-sonnet-text" style="color:var(--blue)">--%</div>
+        </div>
+        <div class="gauge__reset" id="reset-sonnet">--</div>
+      </div>
+    </div>
+
+    <!-- Budget Advisor -->
+    <div class="card">
+      <div class="card__title">Budget Advisor</div>
+      <div class="card__row"><span class="card__key">Current burn rate</span><span class="card__val" id="ba-burn" style="color:var(--amber)">--</span></div>
+      <div class="card__row"><span class="card__key">Daily average (this cycle)</span><span class="card__val" id="ba-daily">--</span></div>
+      <div class="card__row"><span class="card__key">Recommended daily budget</span><span class="card__val" id="ba-rec" style="color:var(--green)">--</span></div>
+      <div class="card__row"><span class="card__key">Days remaining in cycle</span><span class="card__val" id="ba-days" style="color:var(--blue)">--</span></div>
+      <div class="card__row"><span class="card__key">Headroom at reset</span><span class="card__val" id="ba-headroom" style="color:var(--green)">--</span></div>
+    </div>
+
+    <!-- Pacing vs Optimal -->
+    <div class="card" id="pacing-card">
+      <div class="card__title">Pacing vs Optimal</div>
+      <div style="margin-bottom:12px">
+        <div class="pacing-card__track">
+          <div class="pacing-card__fill" id="pacing-fill" style="width:0%;background:var(--green)"></div>
+          <div class="pacing-card__marker" id="pacing-optimal" style="left:0%"></div>
+        </div>
+        <div class="pacing-card__labels">
+          <span>0%</span>
+          <span id="pacing-label">--</span>
+          <span>98%</span>
+        </div>
+        <div class="pacing-card__delta" id="pacing-delta">--</div>
+      </div>
+      <div class="card__row"><span class="card__key">Your weekly utilization</span><span class="card__val" id="pc-actual">--%</span></div>
+      <div class="card__row"><span class="card__key">Optimal at this point</span><span class="card__val" id="pc-optimal" style="color:var(--cyan)">--%</span></div>
+      <div class="card__row"><span class="card__key">Cycle grade</span><span class="card__val" id="pc-grade"><span class="grade-badge grade-badge--A">-</span></span></div>
+    </div>
+
+    <!-- Personal Benchmarks -->
+    <div class="card">
+      <div class="card__title">Personal Benchmarks</div>
+      <div class="card__row"><span class="card__key">Avg peak per cycle</span><span class="card__val" id="bm-avg-peak">--%</span></div>
+      <div class="card__row"><span class="card__key">Best cycle peak</span><span class="card__val" id="bm-best-peak" style="color:var(--green)">--%</span></div>
+      <div class="card__row"><span class="card__key">Stoppage rate</span><span class="card__val" id="bm-stoppage-rate">--%</span></div>
+      <div class="card__row"><span class="card__key">Avg wasted capacity</span><span class="card__val" id="bm-wasted">--%</span></div>
+      <div class="card__row"><span class="card__key">Cycles tracked</span><span class="card__val" id="bm-cycles" style="color:var(--text-dim)">--</span></div>
+      <div class="card__row card__row--highlight">
+        <span class="card__key">Overall grade<div class="card__sub">Sweet spot: high usage, zero stoppages</div></span>
+        <span class="card__val" id="bm-grade"><span class="grade-badge grade-badge--A">-</span></span>
+      </div>
+    </div>
+
+    <!-- Burn Rate Chart -->
+    <div class="card">
+      <div class="chart-section__header">
+        <span class="chart-section__title">Burn Rate &mdash; This Cycle</span>
+      </div>
+      <div class="sparkline-area">
+        <svg viewBox="0 0 640 120" preserveAspectRatio="none" id="burn-svg">
+          <defs>
+            <linearGradient id="burnGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line x1="40" y1="30" x2="640" y2="30" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>
+          <line x1="40" y1="60" x2="640" y2="60" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>
+          <line x1="40" y1="90" x2="640" y2="90" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>
+          <text x="4" y="28" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace">75%</text>
+          <text x="4" y="58" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace">50%</text>
+          <text x="4" y="88" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace">25%</text>
+          <path id="burn-area" d="" fill="url(#burnGrad)" opacity="0.4"/>
+          <path id="burn-line" d="" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
+          <circle id="burn-dot" cx="0" cy="0" r="4" fill="#f59e0b" style="display:none"/>
+          <text id="burn-dot-label" x="0" y="0" fill="#f59e0b" font-size="9" font-family="SF Mono,monospace" text-anchor="end" style="display:none"></text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Weekday Heatmap -->
+    <div class="card">
+      <div class="card__title">Average Daily Consumption &mdash; by Weekday</div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="heatmap-summary" id="heatmap-summary"></div>
+    </div>
+
+    <!-- Weekly Cycle History -->
+    <div class="card">
+      <div class="card__title">Weekly Cycle History &mdash; Peak Utilization</div>
+      <div class="history__bars" id="history-bars"></div>
+      <div class="history__legend">
+        <span><span class="history__legend-dot" style="background:var(--green)"></span>&lt;70%</span>
+        <span><span class="history__legend-dot" style="background:var(--amber)"></span>70&ndash;89%</span>
+        <span><span class="history__legend-dot" style="background:var(--red)"></span>&ge;90%</span>
+      </div>
+    </div>
+
+    <!-- Monthly Rollup -->
+    <div class="card">
+      <div class="card__title" id="rollup-title">Monthly Rollup</div>
+      <div class="card__row"><span class="card__key">Cycles completed</span><span class="card__val" id="mr-cycles">--</span></div>
+      <div class="card__row"><span class="card__key">Avg peak utilization</span><span class="card__val" id="mr-peak" style="color:var(--amber)">--</span></div>
+      <div class="card__row"><span class="card__key">Forced stoppages</span><span class="card__val" id="mr-stoppages">--</span></div>
+      <div class="card__row"><span class="card__key">Unused margin</span><span class="card__val" id="mr-margin" style="color:var(--green)">--</span></div>
+    </div>
+
+    <div class="footer">Token Budget Engine &middot; Polls every 5m &middot; Python + SQLite</div>
+  </div>
+</div>
+
+<script>
+// ─── Global State ────────────────────────────────────────────────
+window.__status = null;
+window.__history = null;
+let connected = false;
+let lastUpdated = null;
+
+// ─── Utilities ───────────────────────────────────────────────────
+function utilColor(pct) {
+  if (pct >= 80) return 'var(--red)';
+  if (pct >= 60) return 'var(--amber)';
+  return 'var(--green)';
+}
+
+function formatRunway(hours) {
+  if (hours <= 0) return '0h 0m';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return h + 'h  ' + (m < 10 ? '0' : '') + m + 'm';
+}
+
+function formatResetDate(iso) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return days[d.getUTCDay()] + ' ' + d.getUTCHours() + ':00 UTC';
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const sec = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (sec < 60) return Math.floor(sec) + 's ago';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  return Math.floor(sec / 3600) + 'h ago';
+}
+
+// ─── Tab Switching ───────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Connection Status ──────────────────────────────────────────
+const connDot = document.getElementById('conn-dot');
+const connLabel = document.getElementById('conn-label');
+
+function setConnected(val) {
+  connected = val;
+  connDot.className = 'conn-dot' + (val ? '' : ' offline');
+  if (!val) connLabel.textContent = 'Offline';
+}
+
+function updateConnLabel() {
+  if (connected && lastUpdated) {
+    connLabel.textContent = 'Updated ' + timeAgo(lastUpdated);
+  }
+}
+setInterval(updateConnLabel, 5000);
+
+// ─── Data Fetching ───────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const res = await fetch('/api/status');
+    if (!res.ok) return;
+    window.__status = await res.json();
+    lastUpdated = window.__status.updated_at || new Date().toISOString();
+    setConnected(true);
+    updateHUD();
+    updateBudgetCards();
+    updateRunwayChart();
+    updateSessionBanner();
+    updateConnLabel();
+  } catch { /* retain last data */ }
+}
+
+async function fetchHistory() {
+  try {
+    const res = await fetch('/api/history?range=7d');
+    if (!res.ok) return;
+    window.__history = await res.json();
+    updateCharts();
+    updateRunwayChart();
+  } catch { /* retain last data */ }
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/api/health');
+    setConnected(res.ok);
+  } catch { setConnected(false); }
+}
+
+fetchStatus();
+fetchHistory();
+checkHealth();
+setInterval(fetchStatus, 60000);
+setInterval(fetchHistory, 300000);
+setInterval(checkHealth, 10000);
+
+// ─── Session Limit Banner ───────────────────────────────────────
+let bannerDismissedForCycle = null; // tracks which 5h reset was dismissed
+
+document.getElementById('banner-close').addEventListener('click', () => {
+  const s = window.__status;
+  if (s) bannerDismissedForCycle = s.current.five_hour_resets_at;
+  const banner = document.getElementById('session-banner');
+  banner.classList.remove('visible');
+  document.body.classList.remove('has-banner');
+});
+
+function updateSessionBanner() {
+  const s = window.__status;
+  if (!s) return;
+
+  const banner = document.getElementById('session-banner');
+  const fiveHourPct = s.current.five_hour_util;
+  const resetAt = s.current.five_hour_resets_at;
+
+  // Don't show if dismissed for this 5h window, or if below threshold
+  if (bannerDismissedForCycle === resetAt || fiveHourPct < 70) {
+    banner.classList.remove('visible');
+    document.body.classList.remove('has-banner');
+    return;
+  }
+
+  // Determine severity
+  const isDanger = fiveHourPct >= 90;
+  banner.className = 'session-banner visible session-banner--' + (isDanger ? 'danger' : 'warning');
+  document.body.classList.add('has-banner');
+
+  document.getElementById('banner-pct').textContent = Math.round(fiveHourPct);
+  document.getElementById('banner-reset').textContent = s.current.five_hour_resets_in || '--';
+
+  const runway = s.projection.runway_hours;
+  const runwayEl = document.getElementById('banner-runway');
+  runwayEl.textContent = 'Runway: ' + formatRunway(runway);
+}
+
+// ─── HUD Update ─────────────────────────────────────────────────
+function updateHUD() {
+  const s = window.__status;
+  if (!s) return;
+  const runway = s.projection.runway_hours;
+  const runwayStr = formatRunway(runway);
+
+  const hudHours = document.getElementById('hud-hours');
+  hudHours.textContent = runwayStr;
+  hudHours.style.color = runway < 12 ? 'var(--red)' : runway < 36 ? 'var(--amber)' : 'var(--green)';
+
+  document.getElementById('hud-reset').textContent = formatResetDate(s.current.seven_day_resets_at);
+  document.getElementById('hud-burn').textContent = s.projection.burn_rate_per_hour.toFixed(1) + '%/hr';
+
+  const weeklyPct = s.current.seven_day_util;
+  const weeklyEl = document.getElementById('hud-weekly');
+  weeklyEl.textContent = Math.round(weeklyPct) + '%';
+  weeklyEl.style.color = utilColor(weeklyPct);
+
+  const fivePct = s.current.five_hour_util;
+  const fiveEl = document.getElementById('hud-5h');
+  fiveEl.textContent = Math.round(fivePct) + '%';
+  fiveEl.style.color = utilColor(fivePct);
+
+  document.getElementById('hud-budget').textContent = '\u2264' + s.budget.recommended_daily.toFixed(0) + '%';
+
+  // Pacing strip
+  if (s.pacing) {
+    const p = s.pacing;
+    const fill = document.getElementById('ps-fill');
+    const marker = document.getElementById('ps-marker');
+    const delta = document.getElementById('ps-delta');
+    const grade = document.getElementById('ps-grade');
+
+    const fillPct = Math.min(weeklyPct / 98 * 100, 100);
+    fill.style.width = fillPct + '%';
+    fill.style.background = p.pacing === 'ahead' ? 'var(--amber)' : p.pacing === 'behind' ? 'var(--cyan)' : 'var(--green)';
+
+    const optPct = Math.min(p.optimal_util / 98 * 100, 100);
+    marker.style.left = optPct + '%';
+
+    const sign = p.delta > 0 ? '+' : '';
+    const dColor = Math.abs(p.delta) < 3 ? 'var(--green)' : p.delta > 0 ? 'var(--amber)' : 'var(--cyan)';
+    const label = p.pacing === 'on_pace' ? 'on pace' : p.pacing === 'ahead' ? 'ahead' : 'behind \u2014 room to push';
+    delta.textContent = sign + p.delta.toFixed(1) + '% (' + label + ')';
+    delta.style.color = dColor;
+
+    grade.textContent = 'Cycle ' + p.grade;
+    grade.style.color = p.grade === 'A' ? 'var(--green)' : p.grade === 'B' ? 'var(--blue)' : 'var(--amber)';
+  }
+
+  document.getElementById('a11y-runway').textContent = 'Runway remaining: ' + runwayStr;
+}
+
+// ─── Runway SVG Chart ───────────────────────────────────────────
+function updateRunwayChart() {
+  const s = window.__status;
+  const h = window.__history;
+  if (!s) return;
+
+  const svg = document.getElementById('runway-svg');
+  const W = 800, H = 350;
+  const M = { top: 20, right: 20, bottom: 30, left: 45 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  const CYCLE_HOURS = 168;
+  const resetDate = new Date(s.current.seven_day_resets_at);
+  const cycleStart = new Date(resetDate.getTime() - CYCLE_HOURS * 3600000);
+  const now = new Date(s.updated_at);
+  const currentHour = Math.min(CYCLE_HOURS, Math.max(0, (now - cycleStart) / 3600000));
+
+  function cx(hour) { return M.left + (hour / CYCLE_HOURS) * plotW; }
+  function cy(pct) { return M.top + plotH * (1 - pct / 105); }
+
+  // Build SVG content
+  let svgContent = '';
+
+  // Defs (keep gradients)
+  svgContent += '<defs>';
+  svgContent += '<linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15"/><stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/></linearGradient>';
+  svgContent += '<linearGradient id="oGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e" stop-opacity="0.06"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient>';
+  svgContent += '<linearGradient id="pGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#ef4444"/></linearGradient>';
+  svgContent += '</defs>';
+
+  // Grid lines
+  for (let pct = 0; pct <= 100; pct += 25) {
+    const y = cy(pct);
+    svgContent += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    svgContent += '<text x="' + (M.left - 6) + '" y="' + (y + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + pct + '%</text>';
+  }
+
+  // Day labels
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for (let d = 0; d < 8; d++) {
+    const x = cx(d * 24);
+    svgContent += '<line x1="' + x + '" y1="' + M.top + '" x2="' + x + '" y2="' + (H - M.bottom) + '" stroke="rgba(255,255,255,0.04)"/>';
+    const dt = new Date(cycleStart.getTime() + d * 24 * 3600000);
+    svgContent += '<text x="' + x + '" y="' + (H - M.bottom + 14) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="middle">' + dayNames[dt.getUTCDay()] + '</text>';
+  }
+
+  // 100% exhaustion line
+  const y100 = cy(100);
+  svgContent += '<line x1="' + M.left + '" y1="' + y100 + '" x2="' + (W - M.right) + '" y2="' + y100 + '" stroke="rgba(239,68,68,0.5)" stroke-dasharray="6,6"/>';
+  svgContent += '<text x="' + (W - M.right - 4) + '" y="' + (y100 - 4) + '" fill="rgba(239,68,68,0.5)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">EXHAUSTION</text>';
+
+  // Optimal pace line (0,0 → 168,98)
+  const target = s.budget.target_at_reset || 98;
+  svgContent += '<path d="M' + cx(0) + ',' + cy(0) + ' L' + cx(CYCLE_HOURS) + ',' + cy(target) + '" fill="none" stroke="rgba(34,197,94,0.35)" stroke-width="1.5" stroke-dasharray="4,6"/>';
+  svgContent += '<text x="' + (cx(CYCLE_HOURS) - 4) + '" y="' + (cy(target) + 12) + '" fill="rgba(34,197,94,0.5)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">OPTIMAL ' + target + '%</text>';
+
+  // Optimal position marker (diamond)
+  if (s.pacing) {
+    const optX = cx(currentHour);
+    const optY = cy(s.pacing.optimal_util);
+    svgContent += '<polygon points="' + optX + ',' + (optY - 5) + ' ' + (optX + 4) + ',' + optY + ' ' + optX + ',' + (optY + 5) + ' ' + (optX - 4) + ',' + optY + '" fill="rgba(34,197,94,0.5)" stroke="none"/>';
+  }
+
+  // Budget envelope line from now to reset
+  const budgetAtReset = target;
+  svgContent += '<path d="M' + cx(currentHour) + ',' + cy(s.current.seven_day_util) + ' L' + cx(CYCLE_HOURS) + ',' + cy(budgetAtReset) + '" fill="none" stroke="rgba(59,130,246,0.3)" stroke-width="1.5" stroke-dasharray="3,5"/>';
+
+  // History data (actual utilization curve)
+  if (h && h.snapshots && h.snapshots.length >= 2) {
+    const pts = [];
+    h.snapshots.forEach(snap => {
+      const t = new Date(snap.timestamp);
+      const hr = (t - cycleStart) / 3600000;
+      if (hr >= 0 && hr <= currentHour) {
+        pts.push({ hour: hr, util: snap.seven_day_util });
+      }
+    });
+    if (pts.length === 0 || pts[pts.length - 1].hour < currentHour - 0.5) {
+      pts.push({ hour: currentHour, util: s.current.seven_day_util });
+    }
+
+    if (pts.length >= 2) {
+      // Area fill
+      let areaPath = 'M' + cx(pts[0].hour) + ',' + cy(0);
+      pts.forEach(p => { areaPath += ' L' + cx(p.hour) + ',' + cy(p.util); });
+      areaPath += ' L' + cx(pts[pts.length - 1].hour) + ',' + cy(0) + ' Z';
+      svgContent += '<path d="' + areaPath + '" fill="url(#aGrad)"/>';
+
+      // Line
+      let linePath = pts.map((p, i) => (i === 0 ? 'M' : 'L') + cx(p.hour).toFixed(1) + ',' + cy(p.util).toFixed(1)).join(' ');
+      svgContent += '<path d="' + linePath + '" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linejoin="round"/>';
+    }
+  }
+
+  // Projection dashed line from now
+  const projUtil = s.projection.projected_util_at_reset;
+  const projPath = 'M' + cx(currentHour) + ',' + cy(s.current.seven_day_util) + ' L' + cx(CYCLE_HOURS) + ',' + cy(Math.max(0, Math.min(projUtil, 105)));
+  svgContent += '<path d="' + projPath + '" fill="none" stroke="url(#pGrad)" stroke-width="2" stroke-dasharray="6,4" opacity="0.7"/>';
+
+  // Stoppage zone
+  if (s.projection.stoppage_likely) {
+    const burnRate = s.projection.burn_rate_per_hour;
+    if (burnRate > 0) {
+      const hoursToExhaust = (100 - s.current.seven_day_util) / burnRate;
+      const exHour = currentHour + hoursToExhaust;
+      if (exHour < CYCLE_HOURS) {
+        svgContent += '<rect x="' + cx(exHour) + '" y="' + M.top + '" width="' + (cx(CYCLE_HOURS) - cx(exHour)) + '" height="' + plotH + '" fill="rgba(239,68,68,0.06)"/>';
+        svgContent += '<line x1="' + cx(exHour) + '" y1="' + M.top + '" x2="' + cx(exHour) + '" y2="' + (H - M.bottom) + '" stroke="rgba(239,68,68,0.4)" stroke-dasharray="3,3"/>';
+        svgContent += '<text x="' + cx(exHour) + '" y="' + (M.top + 14) + '" fill="#ef4444" font-size="9" font-weight="bold" font-family="SF Mono,monospace" text-anchor="middle">STOPPAGE</text>';
+      }
+    }
+  }
+
+  // NOW marker
+  const nowX = cx(currentHour);
+  const nowY = cy(s.current.seven_day_util);
+  svgContent += '<line x1="' + nowX + '" y1="' + M.top + '" x2="' + nowX + '" y2="' + (H - M.bottom) + '" stroke="rgba(6,182,212,0.15)"/>';
+  svgContent += '<circle cx="' + nowX + '" cy="' + nowY + '" r="6" fill="#06b6d4" opacity="0.2"><animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.2;0.05;0.2" dur="2s" repeatCount="indefinite"/></circle>';
+  svgContent += '<circle cx="' + nowX + '" cy="' + nowY + '" r="4" fill="#06b6d4" stroke="#0f1012" stroke-width="1.5"/>';
+  svgContent += '<text x="' + nowX + '" y="' + (nowY - 10) + '" fill="#06b6d4" font-size="9" font-weight="bold" font-family="SF Mono,monospace" text-anchor="middle">NOW ' + Math.round(s.current.seven_day_util) + '%</text>';
+
+  // Reset marker
+  const resetX = cx(CYCLE_HOURS);
+  svgContent += '<text x="' + resetX + '" y="' + (H - M.bottom + 14) + '" fill="rgba(34,197,94,0.6)" font-size="9" font-weight="bold" font-family="SF Mono,monospace" text-anchor="middle">RESET</text>';
+
+  // Projected value at reset
+  svgContent += '<text x="' + (resetX + 2) + '" y="' + (cy(Math.max(0, Math.min(projUtil, 100))) + 3) + '" fill="rgba(245,158,11,0.6)" font-size="9" font-family="SF Mono,monospace" text-anchor="start">' + Math.round(Math.max(0, projUtil)) + '%</text>';
+
+  // Interactive hover overlay
+  svgContent += '<rect x="' + M.left + '" y="' + M.top + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" id="chart-hover-area" style="cursor:crosshair"/>';
+
+  svg.innerHTML = svgContent;
+
+  // Hover tooltip
+  const hoverArea = document.getElementById('chart-hover-area');
+  const tooltip = document.getElementById('tooltip');
+  if (hoverArea) {
+    hoverArea.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      const svgX = (e.clientX - rect.left) / rect.width * W;
+      const hour = ((svgX - M.left) / plotW) * CYCLE_HOURS;
+      if (hour < 0 || hour > CYCLE_HOURS) { tooltip.style.display = 'none'; return; }
+
+      const optimalAtHour = (hour / CYCLE_HOURS) * target;
+      const day = Math.floor(hour / 24);
+      const hourInDay = Math.floor(hour % 24);
+      const dt = new Date(cycleStart.getTime() + hour * 3600000);
+      const dayName = dayNames[dt.getUTCDay()];
+
+      let snapUtil = null;
+      if (h && h.snapshots) {
+        let closest = null, closestDist = Infinity;
+        h.snapshots.forEach(snap => {
+          const t = new Date(snap.timestamp);
+          const hr = (t - cycleStart) / 3600000;
+          const dist = Math.abs(hr - hour);
+          if (dist < closestDist && dist < 2) { closest = snap; closestDist = dist; }
+        });
+        if (closest) snapUtil = closest.seven_day_util;
+      }
+
+      tooltip.innerHTML = '<div style="color:var(--text-dim)">' + dayName + ' ' + hourInDay + ':00</div>' +
+        (snapUtil !== null ? '<div>Actual: <strong style="color:#06b6d4">' + snapUtil.toFixed(1) + '%</strong></div>' : '') +
+        '<div>Optimal: <strong style="color:#22c55e">' + optimalAtHour.toFixed(1) + '%</strong></div>';
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY - 10) + 'px';
+    });
+    hoverArea.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  }
+}
+
+// ─── Budget Cards Update ─────────────────────────────────────────
+function updateBudgetCards() {
+  const s = window.__status;
+  if (!s) return;
+
+  const runway = s.projection.runway_hours;
+  const runwayStr = formatRunway(runway);
+  const heroEl = document.getElementById('hero');
+  const heroVal = document.getElementById('hero-value');
+  const heroSub = document.getElementById('hero-sub');
+
+  heroVal.textContent = runwayStr;
+  heroEl.className = 'hero';
+  heroVal.className = 'hero__value';
+  if (runway < 12) { heroEl.classList.add('hero--warning'); heroVal.classList.add('hero__value--danger'); }
+  else if (runway < 36) { heroEl.classList.add('hero--warning'); heroVal.classList.add('hero__value--warning'); }
+  else { heroEl.classList.add('hero--safe'); heroVal.classList.add('hero__value--safe'); }
+
+  heroSub.innerHTML = 'Weekly reset in <strong>' + s.current.seven_day_resets_in +
+    '</strong> &middot; Projected at reset: <strong>' + s.projection.projected_util_at_reset.toFixed(1) + '%</strong>';
+
+  // Stoppage alert
+  const stoppageEl = document.getElementById('stoppage-alert');
+  const stoppageDetail = document.getElementById('stoppage-detail');
+  if (s.projection.stoppage_likely) {
+    stoppageEl.classList.remove('stoppage--hidden');
+    stoppageDetail.innerHTML = 'At current burn rate, tokens exhaust <strong>~' +
+      Math.abs(s.projection.hours_short).toFixed(0) + 'h before</strong> the weekly reset. Reduce to <strong>&le;' +
+      s.budget.recommended_daily.toFixed(0) + '%/day</strong>.';
+  } else {
+    stoppageEl.classList.add('stoppage--hidden');
+  }
+
+  // Ring gauges
+  updateRing('ring-5h', 'ring-5h-text', s.current.five_hour_util, '5-hour');
+  updateRing('ring-weekly', 'ring-weekly-text', s.current.seven_day_util, 'Weekly');
+  updateRing('ring-sonnet', 'ring-sonnet-text', s.current.sonnet_util, 'Sonnet');
+
+  document.getElementById('reset-5h').textContent = s.current.five_hour_resets_in ? 'resets ' + s.current.five_hour_resets_in : 'not active';
+  document.getElementById('reset-weekly').textContent = s.current.seven_day_resets_in ? 'resets ' + s.current.seven_day_resets_in : '--';
+  document.getElementById('reset-sonnet').textContent = s.current.seven_day_resets_in ? 'resets ' + s.current.seven_day_resets_in : '--';
+
+  // Budget advisor
+  document.getElementById('ba-burn').textContent = s.projection.burn_rate_per_hour.toFixed(1) + '%/hr';
+  document.getElementById('ba-burn').style.color = utilColor(s.projection.burn_rate_per_hour * 10);
+  document.getElementById('ba-daily').textContent = s.budget.daily_avg_this_cycle.toFixed(1) + '%/day';
+  document.getElementById('ba-rec').textContent = '\u2264 ' + s.budget.recommended_daily.toFixed(1) + '%/day';
+  document.getElementById('ba-days').textContent = s.budget.days_remaining.toFixed(1) + ' days';
+  document.getElementById('ba-headroom').textContent = '+' + s.budget.headroom_hours.toFixed(0) + 'h runway';
+
+  // Pacing card
+  if (s.pacing) {
+    const p = s.pacing;
+    const fill = document.getElementById('pacing-fill');
+    const optMarker = document.getElementById('pacing-optimal');
+    const deltaEl = document.getElementById('pacing-delta');
+
+    const fillPct = Math.min(s.current.seven_day_util / 98 * 100, 100);
+    fill.style.width = fillPct + '%';
+    fill.style.background = p.pacing === 'ahead' ? 'var(--amber)' : p.pacing === 'behind' ? 'var(--cyan)' : 'var(--green)';
+
+    const optPct = Math.min(p.optimal_util / 98 * 100, 100);
+    optMarker.style.left = optPct + '%';
+
+    const sign = p.delta > 0 ? '+' : '';
+    const dColor = Math.abs(p.delta) < 3 ? 'var(--green)' : p.delta > 0 ? 'var(--amber)' : 'var(--cyan)';
+    const label = p.pacing === 'on_pace' ? 'on pace' : p.pacing === 'ahead' ? 'ahead' : 'behind \u2014 room to push';
+    deltaEl.textContent = sign + p.delta.toFixed(1) + '% (' + label + ')';
+    deltaEl.style.color = dColor;
+
+    document.getElementById('pacing-label').textContent = p.pacing === 'on_pace' ? 'On pace' : p.pacing === 'ahead' ? 'Ahead' : 'Behind';
+
+    document.getElementById('pc-actual').textContent = s.current.seven_day_util.toFixed(0) + '%';
+    document.getElementById('pc-actual').style.color = utilColor(s.current.seven_day_util);
+    document.getElementById('pc-optimal').textContent = p.optimal_util + '%';
+
+    document.getElementById('pc-grade').innerHTML = '<span class="grade-badge grade-badge--' + p.grade + '">' + p.grade + '</span>';
+  }
+
+  // Personal benchmarks
+  if (s.benchmarks) {
+    const b = s.benchmarks;
+    document.getElementById('bm-avg-peak').textContent = b.avg_peak + '%';
+    document.getElementById('bm-avg-peak').style.color = utilColor(b.avg_peak);
+    document.getElementById('bm-best-peak').textContent = b.best_peak + '%';
+    document.getElementById('bm-stoppage-rate').textContent = b.stoppage_rate + '%';
+    document.getElementById('bm-stoppage-rate').style.color = b.stoppage_rate > 0 ? 'var(--red)' : 'var(--green)';
+    document.getElementById('bm-wasted').textContent = b.wasted_avg + '%';
+    document.getElementById('bm-wasted').style.color = b.wasted_avg > 20 ? 'var(--amber)' : 'var(--green)';
+    document.getElementById('bm-cycles').textContent = b.cycles_total;
+
+    const g = b.overall_grade === 'N/A' ? 'NA' : b.overall_grade;
+    document.getElementById('bm-grade').innerHTML = '<span class="grade-badge grade-badge--' + g + '">' + b.overall_grade + '</span>';
+  }
+}
+
+function updateRing(circleId, textId, pct, label) {
+  const circumference = 2 * Math.PI * 22;
+  const offset = circumference * (1 - pct / 100);
+  const el = document.getElementById(circleId);
+  const txt = document.getElementById(textId);
+  const color = utilColor(pct);
+  el.setAttribute('stroke-dashoffset', offset.toFixed(1));
+  el.setAttribute('stroke', color);
+  txt.textContent = Math.round(pct) + '%';
+  txt.style.color = color;
+  const svg = el.closest('svg');
+  if (svg) svg.setAttribute('aria-label', label + ' utilization: ' + Math.round(pct) + '%');
+}
+
+// ─── Charts Update (Tab 2) ──────────────────────────────────────
+function updateCharts() {
+  const h = window.__history;
+  if (!h) return;
+  updateSparkline(h);
+  updateHeatmap(h);
+  updateHistoryBars(h);
+  updateMonthlyRollup(h);
+}
+
+function updateSparkline(h) {
+  const snaps = h.snapshots || [];
+  if (snaps.length < 2) return;
+
+  const svgW = 640, svgH = 120, padL = 40, padB = 15;
+  const usableW = svgW - padL;
+  const usableH = svgH - padB;
+
+  const pts = snaps.map((s, i) => {
+    const x = padL + (i / (snaps.length - 1)) * usableW;
+    const y = usableH - (s.seven_day_util / 100) * usableH;
+    return { x, y };
+  });
+
+  const lineD = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const areaD = lineD + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + usableH + ' L' + padL + ',' + usableH + ' Z';
+
+  document.getElementById('burn-line').setAttribute('d', lineD);
+  document.getElementById('burn-area').setAttribute('d', areaD);
+
+  const last = pts[pts.length - 1];
+  const lastVal = snaps[snaps.length - 1].seven_day_util;
+  const dot = document.getElementById('burn-dot');
+  dot.setAttribute('cx', last.x); dot.setAttribute('cy', last.y);
+  dot.style.display = '';
+  const lbl = document.getElementById('burn-dot-label');
+  lbl.setAttribute('x', last.x - 8); lbl.setAttribute('y', last.y - 6);
+  lbl.textContent = Math.round(lastVal) + '%';
+  lbl.style.display = '';
+}
+
+function updateHeatmap(h) {
+  const container = document.getElementById('heatmap');
+  const summary = document.getElementById('heatmap-summary');
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const data = h.weekday_avg || {};
+
+  container.innerHTML = '';
+  let max = 0, maxDay = '', min = Infinity, minDay = '', total = 0, count = 0;
+
+  days.forEach(day => {
+    const val = data[day] || 0;
+    if (val > max) { max = val; maxDay = day; }
+    if (val < min) { min = val; minDay = day; }
+    total += val; count++;
+
+    const color = utilColor(val);
+    const div = document.createElement('div');
+    div.className = 'heatmap__day';
+    div.innerHTML = '<div class="heatmap__label">' + day + '</div><div class="heatmap__cell" style="color:' + color + '">' + Math.round(val) + '%</div>';
+    container.appendChild(div);
+  });
+
+  const avg = count ? (total / count).toFixed(1) : 0;
+  summary.innerHTML = 'Heaviest: <strong style="color:var(--amber)">' + maxDay + ' ' + Math.round(max) + '%</strong> &middot; Lightest: <strong style="color:var(--green)">' + minDay + ' ' + Math.round(min) + '%</strong> &middot; Weekly avg: <strong style="color:var(--text-dim)">' + avg + '%/day</strong>';
+}
+
+function updateHistoryBars(h) {
+  const container = document.getElementById('history-bars');
+  const cycles = h.cycles || [];
+  container.innerHTML = '';
+  if (cycles.length === 0) return;
+
+  let worstIdx = 0;
+  cycles.forEach((c, i) => { if (c.peak_util > cycles[worstIdx].peak_util) worstIdx = i; });
+
+  cycles.forEach((c, i) => {
+    const pct = c.peak_util;
+    const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
+    const bar = document.createElement('div');
+    bar.className = 'history__bar';
+    bar.style.height = Math.max(2, pct) + '%';
+    bar.style.background = color;
+    bar.title = c.cycle_id + ': ' + pct.toFixed(0) + '%' + (c.stoppage ? ' (stoppage)' : '');
+
+    if (i === cycles.length - 1 || i === worstIdx) {
+      const lbl = document.createElement('div');
+      lbl.className = 'history__bar-label';
+      lbl.textContent = Math.round(pct) + '%';
+      bar.appendChild(lbl);
+    }
+    container.appendChild(bar);
+  });
+}
+
+function updateMonthlyRollup(h) {
+  const cycles = h.cycles || [];
+  if (cycles.length === 0) return;
+
+  const now = new Date();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('rollup-title').textContent = 'Monthly Rollup \u2014 ' + months[now.getMonth()] + ' ' + now.getFullYear();
+
+  const totalCycles = cycles.length;
+  const avgPeak = cycles.reduce((s, c) => s + c.peak_util, 0) / totalCycles;
+  const stoppages = cycles.reduce((s, c) => s + (c.stoppage || 0), 0);
+
+  document.getElementById('mr-cycles').textContent = totalCycles;
+  document.getElementById('mr-peak').textContent = avgPeak.toFixed(1) + '%';
+  document.getElementById('mr-peak').style.color = utilColor(avgPeak);
+  document.getElementById('mr-stoppages').textContent = stoppages;
+  document.getElementById('mr-stoppages').style.color = stoppages > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('mr-margin').textContent = (100 - avgPeak).toFixed(1) + '% unused';
+}
+</script>
+</body>
+</html>

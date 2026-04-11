@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from engine.db import UsageDB
 from engine.poller import TokenHolder, get_current_status
+from engine.sessions import get_token_history
 
 _START_TIME = time.monotonic()
 
@@ -62,6 +63,8 @@ def _make_handler_class(db: UsageDB, token_holder: TokenHolder):
                 self._handle_status()
             elif path == "/api/history":
                 self._handle_history(query)
+            elif path == "/api/token-history":
+                self._handle_token_history()
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -118,6 +121,10 @@ def _make_handler_class(db: UsageDB, token_holder: TokenHolder):
                 _json_response(self, {"error": "No data yet"}, 503)
                 return
             _json_response(self, status)
+
+        def _handle_token_history(self):
+            data = get_token_history()
+            _json_response(self, data)
 
         def _handle_history(self, query: dict):
             range_key = query.get("range", ["7d"])[0]

@@ -234,6 +234,50 @@
   .cmp-sources { margin-top: 14px; font-size: 9px; color: var(--text-muted); line-height: 1.6; }
   .cmp-sources a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
   .cmp-sources a:hover { color: var(--text-dim); }
+
+  /* ═══ TAB 4: ACTIVITY BURN ═══ */
+  #tab-activity { padding: 20px; }
+  .activity-dash { max-width: 820px; margin: 0 auto; }
+  .cb-hero { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .cb-hero__card { background: var(--bg-card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); text-align: center; }
+  .cb-hero__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .cb-hero__val { font-size: 32px; font-weight: 800; font-family: var(--mono); line-height: 1.2; margin: 4px 0; }
+  .cb-hero__sub { font-size: 11px; color: var(--text-dim); }
+  .cb-range { display: flex; gap: 6px; margin-bottom: 16px; }
+  .cb-range__btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 12px; font-family: var(--mono); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+  .cb-range__btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .cb-range__btn.active { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+  .cb-chart { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .cb-chart__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 10px; }
+  .cb-chart__area { width: 100%; }
+  .cb-table { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+  .cb-table__header { padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  .cb-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cb-table th { padding: 8px 12px; text-align: left; font-weight: 500; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  .cb-table th.num, .cb-table td.num { text-align: right; }
+  .cb-table td { padding: 8px 12px; font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  .cb-table tr:last-child td { border-bottom: none; }
+  .cb-table tr:hover { background: var(--bg-elevated); }
+  .oneshot-good { color: var(--green); }
+  .oneshot-mid { color: var(--amber); }
+  .oneshot-bad { color: var(--red); }
+
+  /* ═══ TAB 5: PROJECT & MODEL ═══ */
+  #tab-projects { padding: 20px; }
+  .proj-dash { max-width: 820px; margin: 0 auto; }
+  .proj-bars { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .proj-bars__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px; }
+  .proj-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .proj-bar__label { width: 140px; font-size: 11px; font-family: var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+  .proj-bar__track { flex: 1; height: 18px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden; }
+  .proj-bar__fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .proj-bar__val { width: 70px; text-align: right; font-size: 11px; font-family: var(--mono); color: var(--text-dim); flex-shrink: 0; }
+  .model-colors { --opus: #a855f7; --sonnet: #3b82f6; --haiku: #22c55e; --other: #8b8d97; }
+  .util-card { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .util-card__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+  .util-card__row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
+  .util-card__name { color: var(--text); }
+  .util-card__count { font-family: var(--mono); color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -247,6 +291,8 @@
     <button class="tab-btn active" data-tab="runway">Runway Horizon</button>
     <button class="tab-btn" data-tab="cards">Budget Cards</button>
     <button class="tab-btn" data-tab="tokens">Token I/O</button>
+    <button class="tab-btn" data-tab="activity">Activity Burn</button>
+    <button class="tab-btn" data-tab="projects">Project &amp; Model</button>
   </div>
   <div class="tab-bar__right">
     <div class="conn-dot" id="conn-dot"></div>
@@ -654,6 +700,123 @@
     </div>
 
     <div class="footer">Token I/O &middot; Scanned from Claude Code session logs &middot; Refreshes hourly</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 4: ACTIVITY BURN ═══ -->
+<div class="tab-panel" id="tab-activity">
+  <div class="activity-dash">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-activity">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="cb-hero">
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Cost</div>
+        <div class="cb-hero__val" id="cb-total-cost" style="color:var(--cyan)">--</div>
+        <div class="cb-hero__sub" id="cb-total-period">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Turns</div>
+        <div class="cb-hero__val" id="cb-total-turns" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="cb-avg-per-day">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">One-Shot Rate</div>
+        <div class="cb-hero__val" id="cb-oneshot-rate">--</div>
+        <div class="cb-hero__sub" id="cb-oneshot-detail">edits without retries</div>
+      </div>
+    </div>
+
+    <!-- Daily cost chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Daily Cost (USD)</div>
+      <div class="cb-chart__area">
+        <svg id="cb-daily-svg" viewBox="0 0 800 250" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Activity table -->
+    <div class="cb-table">
+      <div class="cb-table__header">Activity Breakdown</div>
+      <table>
+        <thead>
+          <tr><th>Activity</th><th class="num">Turns</th><th class="num">Cost</th><th class="num">1-Shot</th><th class="num">Retries</th></tr>
+        </thead>
+        <tbody id="cb-activity-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Activity Burn &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 5: PROJECT & MODEL ═══ -->
+<div class="tab-panel" id="tab-projects">
+  <div class="proj-dash model-colors">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-projects">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Project cost bars -->
+    <div class="proj-bars">
+      <div class="proj-bars__title">Cost by Project</div>
+      <div id="cb-project-bars"></div>
+    </div>
+
+    <!-- Model cost bars -->
+    <div class="proj-bars">
+      <div class="proj-bars__title">Cost by Model</div>
+      <div id="cb-model-bars"></div>
+    </div>
+
+    <!-- Top tools -->
+    <div class="cb-table">
+      <div class="cb-table__header">Top Tools</div>
+      <table>
+        <thead>
+          <tr><th>Tool</th><th class="num">Calls</th></tr>
+        </thead>
+        <tbody id="cb-tools-body"></tbody>
+      </table>
+    </div>
+
+    <!-- MCP servers -->
+    <div class="cb-table" id="cb-mcp-section" style="display:none">
+      <div class="cb-table__header">MCP Servers</div>
+      <table>
+        <thead>
+          <tr><th>Server</th><th class="num">Calls</th></tr>
+        </thead>
+        <tbody id="cb-mcp-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Context Overhead -->
+    <div class="util-card" id="cb-overhead-section" style="display:none">
+      <div class="util-card__title">Context Overhead</div>
+      <div id="cb-overhead-content" style="font-size:12px"></div>
+    </div>
+
+    <!-- Utilization signals -->
+    <div class="util-card" id="cb-util-section" style="display:none">
+      <div class="util-card__title">Tool Utilization Signal</div>
+      <div id="cb-util-summary" style="font-size:11px;color:var(--text-dim);margin-bottom:8px"></div>
+      <div id="cb-util-details"></div>
+    </div>
+
+    <div class="footer">Project &amp; Model &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
   </div>
 </div>
 
@@ -1672,6 +1835,304 @@ function updateTokenTab() {
   updateTokenRatioChart(th.days);
   updateComparison(th.days, totals);
   updateTokenMonthlyTable(th.days);
+}
+
+// ─── CodeBurn: Activity Burn & Project/Model ────────────────────
+var cbRange = '7d';
+var cbData = null;
+var cbLastFetch = 0;
+
+function fmtCost(v) {
+  if (v >= 1000) return '$' + Math.round(v).toLocaleString();
+  if (v >= 10) return '$' + v.toFixed(0);
+  if (v >= 1) return '$' + v.toFixed(1);
+  return '$' + v.toFixed(2);
+}
+
+function fmtPct(v) {
+  if (v === null || v === undefined) return '\u2014';
+  return Math.round(v * 100) + '%';
+}
+
+function oneshotClass(v) {
+  if (v === null || v === undefined) return '';
+  if (v >= 0.8) return 'oneshot-good';
+  if (v >= 0.6) return 'oneshot-mid';
+  return 'oneshot-bad';
+}
+
+// Range selector wiring
+document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var parent = btn.closest('.cb-range');
+    parent.querySelectorAll('.cb-range__btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var newRange = btn.dataset.range;
+    if (newRange !== cbRange) {
+      cbRange = newRange;
+      // Sync both range selectors
+      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.range === cbRange);
+      });
+      fetchCodeburn();
+    }
+  });
+});
+
+async function fetchCodeburn() {
+  try {
+    var res = await fetch('/api/codeburn?range=' + cbRange);
+    if (!res.ok) return;
+    cbData = await res.json();
+    cbLastFetch = Date.now();
+    updateActivityTab();
+    updateProjectTab();
+  } catch(e) { /* retain last data */ }
+}
+
+// Fetch on tab switch if stale
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = btn.dataset.tab;
+    if ((tab === 'activity' || tab === 'projects') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
+      fetchCodeburn();
+    }
+  });
+});
+
+// Initial fetch + periodic refresh
+fetchCodeburn();
+setInterval(function() {
+  var activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab && (activeTab.dataset.tab === 'activity' || activeTab.dataset.tab === 'projects')) {
+    fetchCodeburn();
+  }
+}, 300000);
+
+// ─── Activity Tab Rendering ─────────────────────────────────────
+function updateActivityTab() {
+  if (!cbData) return;
+
+  // Hero cards
+  document.getElementById('cb-total-cost').textContent = fmtCost(cbData.total_cost_usd);
+  document.getElementById('cb-total-period').textContent = cbData.period.from + ' \u2014 ' + cbData.period.to;
+
+  document.getElementById('cb-total-turns').textContent = cbData.total_turns.toLocaleString();
+  var numDays = cbData.daily ? cbData.daily.length : 1;
+  document.getElementById('cb-avg-per-day').textContent = Math.round(cbData.total_turns / numDays) + '/day avg';
+
+  var osr = cbData.oneshot_rate;
+  var osrEl = document.getElementById('cb-oneshot-rate');
+  osrEl.textContent = fmtPct(osr);
+  osrEl.className = 'cb-hero__val ' + oneshotClass(osr);
+  document.getElementById('cb-oneshot-detail').textContent =
+    (cbData.total_oneshot_turns || 0) + '/' + (cbData.total_edit_turns || 0) + ' edits without retries';
+
+  // Daily cost chart
+  updateCbDailyChart();
+
+  // Activity table
+  var tbody = document.getElementById('cb-activity-body');
+  tbody.innerHTML = '';
+  (cbData.categories || []).forEach(function(c) {
+    var tr = document.createElement('tr');
+    var osText = c.oneshot_rate !== null && c.oneshot_rate !== undefined ? fmtPct(c.oneshot_rate) : '\u2014';
+    var osClass = oneshotClass(c.oneshot_rate);
+    tr.innerHTML = '<td>' + c.name + '</td>' +
+      '<td class="num">' + c.turns + '</td>' +
+      '<td class="num">' + fmtCost(c.cost_usd) + '</td>' +
+      '<td class="num ' + osClass + '">' + osText + '</td>' +
+      '<td class="num">' + (c.edit_turns > 0 ? c.retries : '\u2014') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function updateCbDailyChart() {
+  var days = cbData.daily || [];
+  if (days.length === 0) return;
+
+  var svg = document.getElementById('cb-daily-svg');
+  var W = 800, H = 250, pad = { t: 10, r: 20, b: 40, l: 50 };
+  var cW = W - pad.l - pad.r;
+  var cH = H - pad.t - pad.b;
+
+  var maxCost = Math.max.apply(null, days.map(function(d) { return d.cost_usd; })) || 1;
+  maxCost = Math.ceil(maxCost / 10) * 10; // Round up to nearest 10
+
+  var barW = Math.max(2, Math.min(20, (cW / days.length) - 2));
+  var gap = (cW - barW * days.length) / (days.length + 1);
+
+  var parts = [];
+
+  // Y-axis gridlines
+  for (var i = 0; i <= 4; i++) {
+    var yVal = maxCost * i / 4;
+    var yPos = pad.t + cH - (cH * i / 4);
+    parts.push('<line x1="' + pad.l + '" y1="' + yPos + '" x2="' + (W - pad.r) + '" y2="' + yPos + '" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>');
+    parts.push('<text x="' + (pad.l - 6) + '" y="' + (yPos + 3) + '" text-anchor="end" fill="#5c5e66" font-size="10" font-family="var(--mono)">' + fmtCost(yVal) + '</text>');
+  }
+
+  // Bars
+  days.forEach(function(d, idx) {
+    var x = pad.l + gap + idx * (barW + gap);
+    var barH = (d.cost_usd / maxCost) * cH;
+    var y = pad.t + cH - barH;
+
+    parts.push('<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="2" fill="var(--cyan)" opacity="0.8"/>');
+
+    // X-axis labels (show every Nth)
+    var step = Math.max(1, Math.floor(days.length / 10));
+    if (idx % step === 0) {
+      var label = d.date.slice(5); // MM-DD
+      parts.push('<text x="' + (x + barW / 2) + '" y="' + (H - pad.b + 16) + '" text-anchor="middle" fill="#5c5e66" font-size="9" font-family="var(--mono)">' + label + '</text>');
+    }
+  });
+
+  svg.innerHTML = parts.join('');
+}
+
+// ─── Project & Model Tab Rendering ──────────────────────────────
+function updateProjectTab() {
+  if (!cbData) return;
+
+  // Project bars
+  var projDiv = document.getElementById('cb-project-bars');
+  projDiv.innerHTML = '';
+  var projects = (cbData.projects || []).slice(0, 10);
+  var maxProjCost = projects.length > 0 ? projects[0].cost_usd : 1;
+
+  projects.forEach(function(p) {
+    var pct = Math.max(2, (p.cost_usd / maxProjCost) * 100);
+    var bar = document.createElement('div');
+    bar.className = 'proj-bar';
+    bar.innerHTML = '<div class="proj-bar__label" title="' + (p.path || p.name) + '">' + p.name + '</div>' +
+      '<div class="proj-bar__track"><div class="proj-bar__fill" style="width:' + pct + '%;background:var(--cyan)"></div></div>' +
+      '<div class="proj-bar__val">' + fmtCost(p.cost_usd) + '</div>';
+    projDiv.appendChild(bar);
+  });
+
+  // Model bars
+  var modelDiv = document.getElementById('cb-model-bars');
+  modelDiv.innerHTML = '';
+  var models = (cbData.models || []).slice(0, 10);
+  var maxModelCost = models.length > 0 ? models[0].cost_usd : 1;
+
+  models.forEach(function(m) {
+    var pct = Math.max(2, (m.cost_usd / maxModelCost) * 100);
+    var color = 'var(--other)';
+    var name = m.name.toLowerCase();
+    if (name.indexOf('opus') >= 0) color = 'var(--opus)';
+    else if (name.indexOf('sonnet') >= 0) color = 'var(--sonnet)';
+    else if (name.indexOf('haiku') >= 0) color = 'var(--haiku)';
+
+    var bar = document.createElement('div');
+    bar.className = 'proj-bar';
+    bar.innerHTML = '<div class="proj-bar__label">' + m.name + '</div>' +
+      '<div class="proj-bar__track"><div class="proj-bar__fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+      '<div class="proj-bar__val">' + fmtCost(m.cost_usd) + ' <span style="color:var(--text-muted);font-size:10px">' + m.calls + ' calls</span></div>';
+    modelDiv.appendChild(bar);
+  });
+
+  // Tools table
+  var toolsBody = document.getElementById('cb-tools-body');
+  toolsBody.innerHTML = '';
+  (cbData.tools || []).slice(0, 10).forEach(function(t) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + t.name + '</td><td class="num">' + t.calls.toLocaleString() + '</td>';
+    toolsBody.appendChild(tr);
+  });
+
+  // MCP servers
+  var mcpSection = document.getElementById('cb-mcp-section');
+  var mcpServers = cbData.mcp_servers || [];
+  if (mcpServers.length > 0) {
+    mcpSection.style.display = '';
+    var mcpBody = document.getElementById('cb-mcp-body');
+    mcpBody.innerHTML = '';
+    mcpServers.forEach(function(s) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + s.name + '</td><td class="num">' + s.calls.toLocaleString() + '</td>';
+      mcpBody.appendChild(tr);
+    });
+  } else {
+    mcpSection.style.display = 'none';
+  }
+
+  // Context overhead
+  var overheadSection = document.getElementById('cb-overhead-section');
+  var co = cbData.context_overhead;
+  if (co) {
+    overheadSection.style.display = '';
+    var fmtK = function(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); };
+    var totalCtx = co.total_context_tokens || 0;
+    var cacheRead = co.total_cache_read_tokens || 0;
+    var newInput = co.total_input_tokens || 0;
+    var output = co.total_output_tokens || 0;
+    var cacheCreate = co.total_cache_create_tokens || 0;
+    var cacheHit = ((co.cache_hit_rate || 0) * 100).toFixed(1);
+    var overheadPct = co.est_overhead_pct || 0;
+    var overheadPerTurn = co.est_overhead_per_turn || 0;
+
+    // Stacked bar: cache_read | new_input | cache_create relative to total
+    var crPct = totalCtx > 0 ? (cacheRead / totalCtx * 100) : 0;
+    var niPct = totalCtx > 0 ? (newInput / totalCtx * 100) : 0;
+    var ccPct = totalCtx > 0 ? (cacheCreate / totalCtx * 100) : 0;
+
+    var html = '';
+    // Summary stats
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Cache Hit Rate</div><div style="font-size:18px;font-weight:700;color:' + (parseFloat(cacheHit) > 90 ? 'var(--green)' : 'var(--amber)') + '">' + cacheHit + '%</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Full Context Ratio</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (co.full_context_ratio || 0) + ':1</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">I/O Ratio</div><div style="font-size:18px;font-weight:700">' + (co.io_ratio || 0) + 'x</div></div>';
+    html += '</div>';
+
+    // Context composition bar
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Context Composition (total ' + fmtK(totalCtx) + ' tokens)</div>';
+    html += '<div style="display:flex;height:20px;border-radius:4px;overflow:hidden;margin-bottom:4px">';
+    html += '<div style="width:' + crPct + '%;background:var(--green);min-width:1px" title="Cache read: ' + fmtK(cacheRead) + '"></div>';
+    html += '<div style="width:' + niPct + '%;background:var(--amber);min-width:1px" title="New input: ' + fmtK(newInput) + '"></div>';
+    html += '<div style="width:' + ccPct + '%;background:var(--red);min-width:1px" title="Cache create: ' + fmtK(cacheCreate) + '"></div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:12px;font-size:10px;color:var(--text-dim)">';
+    html += '<span>\u25A0 <span style="color:var(--green)">Cache read</span> ' + fmtK(cacheRead) + ' (' + crPct.toFixed(0) + '%)</span>';
+    html += '<span>\u25A0 <span style="color:var(--amber)">New input</span> ' + fmtK(newInput) + ' (' + niPct.toFixed(0) + '%)</span>';
+    html += '<span>\u25A0 <span style="color:var(--red)">Cache create</span> ' + fmtK(cacheCreate) + ' (' + ccPct.toFixed(0) + '%)</span>';
+    html += '</div>';
+
+    // System overhead estimate
+    html += '<div style="margin-top:14px;padding:10px;background:var(--card-bg);border-radius:6px;border:1px solid var(--border)">';
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:6px">Estimated System Overhead (invisible in JSONL)</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">';
+    html += '<div>Per turn: <strong style="color:var(--amber)">~' + fmtK(overheadPerTurn) + '</strong> tokens</div>';
+    html += '<div>Total: <strong>~' + fmtK(co.est_total_overhead || 0) + '</strong> tokens</div>';
+    html += '<div>Share of input: <strong style="color:' + (overheadPct > 40 ? 'var(--red)' : 'var(--text)') + '">' + overheadPct + '%</strong></div>';
+    html += '<div>Avg context/call: <strong>' + fmtK(co.avg_context_per_call || 0) + '</strong></div>';
+    html += '</div>';
+    html += '<div style="font-size:10px;color:var(--text-dim);margin-top:6px">Includes: system prompt, CLAUDE.md, skill catalog, deferred tools, MCP instructions, memory index</div>';
+    html += '</div>';
+
+    // Output stats
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:11px">';
+    html += '<div style="color:var(--text-muted)">Avg input/turn: <strong>' + fmtK(co.avg_input_per_turn || 0) + '</strong></div>';
+    html += '<div style="color:var(--text-muted)">Avg output/turn: <strong>' + fmtK(co.avg_output_per_turn || 0) + '</strong></div>';
+    html += '</div>';
+
+    document.getElementById('cb-overhead-content').innerHTML = html;
+  } else {
+    overheadSection.style.display = 'none';
+  }
+
+  // Utilization signal
+  var utilSection = document.getElementById('cb-util-section');
+  var toolCount = (cbData.tools || []).length;
+  var mcpCount = mcpServers.length;
+  if (toolCount > 0) {
+    utilSection.style.display = '';
+    document.getElementById('cb-util-summary').textContent =
+      toolCount + ' tools invoked \u00b7 ' + mcpCount + ' MCP servers active in this period';
+  } else {
+    utilSection.style.display = 'none';
+  }
 }
 </script>
 </body>

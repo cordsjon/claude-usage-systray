@@ -259,6 +259,37 @@
   .cb-table tr:last-child td { border-bottom: none; }
   .cb-table tr:hover { background: var(--bg-elevated); }
   .oneshot-good { color: var(--green); }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .yellow { color: var(--amber); }
+
+  /* Target hover popover — positioned by JS to stay in viewport */
+  .target-cell { position: relative; cursor: help; }
+  .target-cell .target-pop {
+    display: none; position: fixed; z-index: 100;
+    min-width: 340px; max-width: 400px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: left;
+    line-height: 1.5; font-size: 13px; color: var(--text-muted);
+  }
+  .target-pop__title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .target-pop__goal { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+  .target-pop__goal--up { background: var(--green-dim); color: var(--green); }
+  .target-pop__goal--down { background: var(--red-dim); color: var(--red); }
+  .target-pop__goal--amber { background: var(--amber-dim); color: var(--amber); }
+  .target-pop__goal--neutral { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .target-pop ul { margin: 0; padding-left: 16px; }
+  .target-pop li { margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px; }
+  .target-pop li strong { color: var(--text); }
+  .target-pop__separator { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .target-pop__offload { font-size: 12px; color: var(--text-dim); font-style: italic; }
+  .tip-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+  .tip-dot--green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .tip-dot--yellow { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+  .tip-dot--red { background: var(--red); box-shadow: 0 0 4px var(--red); }
+  .target-pop__legend { display: flex; gap: 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
+  .target-pop__legend span { display: flex; align-items: center; gap: 4px; }
   .oneshot-mid { color: var(--amber); }
   .oneshot-bad { color: var(--red); }
 
@@ -293,6 +324,7 @@
     <button class="tab-btn" data-tab="tokens">Token I/O</button>
     <button class="tab-btn" data-tab="activity">Activity Burn</button>
     <button class="tab-btn" data-tab="projects">Project &amp; Model</button>
+    <button class="tab-btn" data-tab="efficiency">Efficiency</button>
   </div>
   <div class="tab-bar__right">
     <div class="conn-dot" id="conn-dot"></div>
@@ -747,7 +779,7 @@
       <div class="cb-table__header">Activity Breakdown</div>
       <table>
         <thead>
-          <tr><th>Activity</th><th class="num">Turns</th><th class="num">Cost</th><th class="num">1-Shot</th><th class="num">Retries</th></tr>
+          <tr><th>Activity</th><th class="num">Turns</th><th class="num">Cost</th><th class="num">% Cost</th><th class="num">Target</th><th class="num">1-Shot</th><th class="num">Retries</th></tr>
         </thead>
         <tbody id="cb-activity-body"></tbody>
       </table>
@@ -817,6 +849,68 @@
     </div>
 
     <div class="footer">Project &amp; Model &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 6: EFFICIENCY ═══ -->
+<div class="tab-panel" id="tab-efficiency">
+  <div class="activity-dash">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-efficiency">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="cb-hero">
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Mean Tokens / Tool Call</div>
+        <div class="cb-hero__val" id="eff-mean-tpt" style="color:var(--cyan)">--</div>
+        <div class="cb-hero__sub" id="eff-mean-period">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Tool Calls</div>
+        <div class="cb-hero__val" id="eff-total-calls" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="eff-total-calls-sub">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Tokens</div>
+        <div class="cb-hero__val" id="eff-total-tokens" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="eff-total-tokens-sub">--</div>
+      </div>
+    </div>
+
+    <!-- Rolling weekly chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Weekly Rolling Mean: Tokens per Tool Call</div>
+      <div class="cb-chart__area">
+        <svg id="eff-weekly-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Weekly data table -->
+    <div class="cb-table">
+      <div class="cb-table__header">Weekly Breakdown</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th class="num">Tool Calls</th>
+            <th class="num">Input Tokens</th>
+            <th class="num">Output Tokens</th>
+            <th class="num">Cache Read</th>
+            <th class="num">Total Tokens</th>
+            <th class="num">Tokens/Call</th>
+          </tr>
+        </thead>
+        <tbody id="eff-weekly-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Efficiency &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
   </div>
 </div>
 
@@ -1887,6 +1981,7 @@ async function fetchCodeburn() {
     cbLastFetch = Date.now();
     updateActivityTab();
     updateProjectTab();
+    updateEfficiencyTab();
   } catch(e) { /* retain last data */ }
 }
 
@@ -1894,7 +1989,7 @@ async function fetchCodeburn() {
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var tab = btn.dataset.tab;
-    if ((tab === 'activity' || tab === 'projects') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
+    if ((tab === 'activity' || tab === 'projects' || tab === 'efficiency') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
       fetchCodeburn();
     }
   });
@@ -1904,7 +1999,7 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
 fetchCodeburn();
 setInterval(function() {
   var activeTab = document.querySelector('.tab-btn.active');
-  if (activeTab && (activeTab.dataset.tab === 'activity' || activeTab.dataset.tab === 'projects')) {
+  if (activeTab && (activeTab.dataset.tab === 'activity' || activeTab.dataset.tab === 'projects' || activeTab.dataset.tab === 'efficiency')) {
     fetchCodeburn();
   }
 }, 300000);
@@ -1931,19 +2026,270 @@ function updateActivityTab() {
   // Daily cost chart
   updateCbDailyChart();
 
-  // Activity table
+  // Activity table — group children under parents
+  var CHILD_OF = {
+    'feature': 'coding', 'refactoring': 'coding',
+    'brainstorming': 'conversation',
+    'testing': 'qa', 'debugging': 'qa',
+    'git': 'devops', 'build/deploy': 'devops'
+  };
+  // Virtual parents — groups that don't exist as their own category
+  var VIRTUAL_GROUPS = {
+    'qa': { name: 'qa' },
+    'devops': { name: 'devops' }
+  };
+  var cats = cbData.categories || [];
+  var catMap = {};
+  cats.forEach(function(c) { catMap[c.name] = c; });
+
+  // Build ordered list: parent followed by its children, sorted by group cost
+  var parents = [];
+  var childrenOf = {};
+  var virtualSeen = {};
+  cats.forEach(function(c) {
+    var parent = CHILD_OF[c.name];
+    if (parent) {
+      if (!childrenOf[parent]) childrenOf[parent] = [];
+      childrenOf[parent].push(c);
+      // Inject virtual parent into parents list once
+      if (VIRTUAL_GROUPS[parent] && !virtualSeen[parent]) {
+        virtualSeen[parent] = true;
+        parents.push({ name: parent, cost_usd: 0, turns: 0, edit_turns: 0, oneshot_turns: 0, retries: 0, _virtual: true });
+      }
+    } else {
+      parents.push(c);
+    }
+  });
+  // Sort parents by group cost desc (own cost + children cost)
+  parents.sort(function(a, b) {
+    var aCost = a.cost_usd + (childrenOf[a.name] || []).reduce(function(s, c) { return s + c.cost_usd; }, 0);
+    var bCost = b.cost_usd + (childrenOf[b.name] || []).reduce(function(s, c) { return s + c.cost_usd; }, 0);
+    return bCost - aCost;
+  });
+
+  // Compute group subtotals (parent + children)
+  var groupTotals = {};
+  parents.forEach(function(p) {
+    var kids = childrenOf[p.name] || [];
+    groupTotals[p.name] = {
+      turns: p.turns + kids.reduce(function(s, k) { return s + k.turns; }, 0),
+      cost_usd: p.cost_usd + kids.reduce(function(s, k) { return s + k.cost_usd; }, 0)
+    };
+  });
+
   var tbody = document.getElementById('cb-activity-body');
   tbody.innerHTML = '';
-  (cbData.categories || []).forEach(function(c) {
+
+  // Target direction per activity — grounded in KNOWN_PATTERNS.md, session memories, and CLAUDE.md rules
+  // Status: G = enforced (in CLAUDE.md/hooks/memory, verified active)
+  //         Y = partially enabled (rule exists but not consistently followed)
+  //         R = not yet done (aspirational, no enforcement mechanism)
+  // Updated: 2026-04-16
+  var TARGETS = {
+    'coding': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Maximize Coding Output',
+      actions: [
+        ['G', '<strong>KP-402: Parallel subagents halve impl time</strong> — dispatch independent file chunks to parallel-implementer subagents. Validated on Etsy Tag Research: nearly 2x faster.'],
+        ['Y', '<strong>Architecture before code</strong> — brainstorm \u2192 spec-panel (\u2265 7.0) \u2192 sh:plan \u2192 sh:execute. Sometimes skipped for "quick" tasks. [CLAUDE.md rule]'],
+        ['Y', '<strong>Worktree isolation</strong> — sh:execute with worktrees so parallel coding subagents don\'t conflict. Available but not default yet.'],
+        ['Y', '<strong>Sprint batching</strong> — group related user stories into themed sprints. Works when planned, but ad-hoc sessions bypass it. [CLAUDE.md: Sprint batching]']
+      ], offload: null },
+    'feature': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Ship More Features',
+      actions: [
+        ['G', '<strong>360\u00b0 requirements before spec</strong> — brainstorm must exhaust all functional AND nonfunctional requirements before spec. [Memory: feedback_360_requirements]'],
+        ['G', '<strong>KP-402: Parallel dispatch for independent components</strong> — validated pattern that halves wall-clock time. [Memory: feedback_parallel_subagent_scenes]'],
+        ['G', '<strong>Evidence before "done"</strong> — curl health check for APIs, Playwright smoke for frontend. [CLAUDE.md: Evidence before done]'],
+        ['G', '<strong>Backlog is holy</strong> — no implementation without User Story + Acceptance Criteria. [CLAUDE.md rule, enforced by brainstorm skill]']
+      ], offload: null },
+    'refactoring': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Invest in Code Health',
+      actions: [
+        ['Y', '<strong>Run /simplify after each major step</strong> — skill exists but not consistently invoked after every chunk.'],
+        ['G', '<strong>Update KNOWN_PATTERNS.md in same commit</strong> — enforced by CLAUDE.md and panel auto-fix policy. [CLAUDE.md: Learnings are part of the fix]'],
+        ['Y', '<strong>Test structure before count</strong> — rule exists, applied in new projects but legacy tests don\'t follow. [CLAUDE.md rule]']
+      ], offload: null },
+    'delegation': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Scale via Subagents',
+      actions: [
+        ['G', '<strong>model: "sonnet" for all read-only agents</strong> — enforced in CLAUDE.md, verified this session. 3x cheaper. [CLAUDE.md: Subagent model routing]'],
+        ['G', '<strong>Scope every agent prompt to project dir</strong> — enforced after agent wandered into KETO. [Memory: feedback_scope_searches]'],
+        ['Y', '<strong>Background long agents</strong> — run_in_background available but often forgotten in favor of foreground waits. [CLAUDE.md: Parallelize by default]'],
+        ['G', '<strong>KP-402: independent chunks \u2192 parallel subagents</strong> — validated, includes conftest pre-check. [KNOWN_PATTERNS]']
+      ], offload: null },
+    'conversation': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Reduce Conversation Spend \u2014 49% is too high',
+      actions: [
+        ['R', '<strong>Ask ChatGPT/Gemini for Q&A</strong> — 49% conversation share proves this isn\'t happening. Pure Q&A doesn\'t need Opus. 10-50x cheaper.'],
+        ['Y', '<strong>NotebookLM for grounded research</strong> — skill installed, used occasionally. Not default reflex yet. [Skill: notebooklm]'],
+        ['Y', '<strong>Fresh session after every commit</strong> — session-length-guard hook warns at 25 tool calls, but often ignored. [CLAUDE.md: Session cost discipline]'],
+        ['Y', '<strong>Run /compact at ~60% context</strong> — rule exists but manual. No hook to auto-remind. [Memory: feedback_context_optimization, target <$281/day]'],
+        ['G', '<strong>No trailing summaries</strong> — enforced by memory, Claude stops summarizing. [Memory: feedback on response style]']
+      ], offload: 'ChatGPT, Gemini, NotebookLM' },
+    'general': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Eliminate General Overhead',
+      actions: [
+        ['G', '<strong>QMD before asking Claude</strong> — enforced by memory, used this session. 1 QMD query = 10+ greps. [Memory: feedback_use_qmd_before_grep]'],
+        ['Y', '<strong>Wiki first (localhost:3100)</strong> — 38 pages exist but not always checked before exploration. [Memory: reference_governance_wiki]'],
+        ['R', '<strong>Route to ChatGPT</strong> — 16% general spend proves general queries still go to Claude. No routing mechanism.'],
+        ['G', '<strong>KP-219: CLAUDE.md bloat awareness</strong> — skills trimmed 107\u219219. Low-freq blocks moved to commands/. [KNOWN_PATTERNS, Memory: feedback_context_optimization]']
+      ], offload: 'ChatGPT, Gemini, QMD (12 collections), Wiki (38 pages)' },
+    'brainstorming': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Offload Pure Ideation',
+      actions: [
+        ['R', '<strong>Start in Gemini for long-context ideation</strong> — 2.2% brainstorming cost is in Claude. No habit of starting ideation elsewhere.'],
+        ['Y', '<strong>NotebookLM for domain research</strong> — skill exists, used in some sessions. Not default. [Skill: notebooklm]'],
+        ['G', '<strong>Visual companion storyboards</strong> — validated workflow for video content. [Memory: feedback_video_brainstorming_workflow]'],
+        ['R', '<strong>Only Claude when tool access matters</strong> — pure ideation still defaults to Claude. No triage mechanism.']
+      ], offload: 'Gemini, NotebookLM, getdesign.md (for UI/UX)' },
+    'exploration': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Explore Cheaper',
+      actions: [
+        ['G', '<strong>model: "sonnet" for all Explore agents</strong> — enforced in CLAUDE.md, verified. [CLAUDE.md: Subagent model routing]'],
+        ['G', '<strong>QMD before grep for docs</strong> — enforced by memory. Semantic search first, grep for exact symbols. [Memory: feedback_use_qmd_before_grep]'],
+        ['G', '<strong>Scope to project dir always</strong> — enforced after KETO wandering incident. [Memory: feedback_scope_searches]'],
+        ['G', '<strong>Direct tools first</strong> — Glob/Grep before Agent dispatch. Standard practice. [CLAUDE.md: Search scoping]']
+      ], offload: 'Sonnet subagents, QMD (semantic), Wiki' },
+    'planning': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Plan Outside Claude',
+      actions: [
+        ['R', '<strong>Draft plans in Gemini/ChatGPT</strong> — planning still happens in Claude. No routing habit established.'],
+        ['Y', '<strong>getdesign.md for UI/UX ideation</strong> — reference exists, used sometimes. Not reflex. [Memory: reference_getdesign_md]'],
+        ['G', '<strong>spec-panel \u2265 7.0 is the gate</strong> — enforced by DOR governance gate. [Governance: DOR.md]'],
+        ['Y', '<strong>UX-PATTERNS.md before designing</strong> — pattern library exists but not always consulted. [Memory: reference_ux_patterns]']
+      ], offload: 'Gemini, ChatGPT, getdesign.md' },
+    'debugging': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Keep Debugging Lean',
+      actions: [
+        ['Y', '<strong>Use systematic-debugging skill</strong> — skill exists but not always invoked. Sometimes jumps to fix. [Skill: superpowers:systematic-debugging]'],
+        ['G', '<strong>After 2 failed attempts, STOP and reframe</strong> — enforced in CLAUDE.md. [CLAUDE.md rule]'],
+        ['G', '<strong>Read the error, check assumptions</strong> — standard practice, consistently followed.'],
+        ['G', '<strong>Permission denial \u2260 user denial</strong> — enforced by memory. [Memory: feedback_permission_denial]']
+      ], offload: null },
+    'testing': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Test Smart, Not Long',
+      actions: [
+        ['Y', '<strong>TDD: red-green-refactor</strong> — skill exists, used for new features. Skipped for hotfixes. [Skill: superpowers:test-driven-development]'],
+        ['Y', '<strong>Test structure before count</strong> — applied in new projects, legacy tests inconsistent. [CLAUDE.md rule]'],
+        ['G', '<strong>Real DB, no mocks</strong> — enforced after migration incident. [CLAUDE.md rule]'],
+        ['G', '<strong>Never optimize throughput over correctness</strong> — enforced. [CLAUDE.md rule]']
+      ], offload: null },
+    'git': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Git Overhead Is Minimal',
+      actions: [
+        ['G', '<strong>Use /commit skill</strong> — standard flow, consistently used.'],
+        ['G', '<strong>/clean_gone for branch hygiene</strong> — skill available and used. [Skill: commit-commands:clean_gone]'],
+        ['G', '<strong>Commit per user story, not per file</strong> — standard practice. [CLAUDE.md: Sprint batching]'],
+        ['Y', '<strong>DONE-Today after every commit</strong> — rule exists but sometimes forgotten in fast sessions. [Memory: feedback_done_today_mandatory]']
+      ], offload: null },
+    'build/deploy': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Automate Everything',
+      actions: [
+        ['G', '<strong>Dagu DAGs (21 active)</strong> — operational, scheduled. [Memory: reference_dagu_orchestration]'],
+        ['G', '<strong>LaunchAgent watchdogs</strong> — SVG-PAINT auto-restarts within 90s. [Memory: reference_svgpaint_server_lifecycle]'],
+        ['G', '<strong>Always deploy after fixing live services</strong> — enforced by memory. [Memory: feedback_always_deploy]'],
+        ['G', '<strong>Never preview locally</strong> — enforced. Deploy direct, verify via curl. [Memory: feedback_deploy_never_local]']
+      ], offload: null }
+  };
+  // Group-level targets
+  var GROUP_TARGETS = {
+    'coding':       { dir: '\u2191', cls: 'green', goal: 'up', title: 'Coding Group \u2191' },
+    'conversation': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Conversation Group \u2193' },
+    'qa':           { dir: '\u2014', cls: '', goal: 'neutral', title: 'QA Group \u2014' },
+    'devops':       { dir: '\u2014', cls: '', goal: 'neutral', title: 'DevOps Group \u2014' }
+  };
+
+  var STATUS_DOT = { G: 'green', Y: 'yellow', R: 'red' };
+
+  function buildTargetPopover(t) {
+    if (!t || !t.actions) return '<span class="' + (t ? t.cls : '') + '">' + (t ? t.dir : '\u2014') + '</span>';
+    var goalClass = 'target-pop__goal--' + t.goal;
+    var goalLabel = t.goal === 'up' ? '\u2191 INCREASE' : t.goal === 'down' ? '\u2193 REDUCE' : t.goal === 'amber' ? '\u2193 CONSIDER OFFLOAD' : '\u2014 MAINTAIN';
+    // Count statuses for summary
+    var counts = { G: 0, Y: 0, R: 0 };
+    t.actions.forEach(function(a) { counts[a[0]]++; });
+    var html = '<span class="' + t.cls + '">' + t.dir + '</span>';
+    html += '<div class="target-pop">';
+    html += '<div class="target-pop__title">' + t.title + '</div>';
+    html += '<div class="target-pop__goal ' + goalClass + '">' + goalLabel + '</div>';
+    html += '<ul style="list-style:none;padding-left:0">';
+    t.actions.forEach(function(a) {
+      var dotCls = 'tip-dot--' + STATUS_DOT[a[0]];
+      html += '<li><span class="tip-dot ' + dotCls + '"></span><span>' + a[1] + '</span></li>';
+    });
+    html += '</ul>';
+    if (t.offload) {
+      html += '<hr class="target-pop__separator">';
+      html += '<div class="target-pop__offload">\u2192 Offload to: ' + t.offload + '</div>';
+    }
+    html += '<div class="target-pop__legend">' +
+      '<span><span class="tip-dot tip-dot--green"></span>Enforced (' + counts.G + ')</span>' +
+      '<span><span class="tip-dot tip-dot--yellow"></span>Partial (' + counts.Y + ')</span>' +
+      '<span><span class="tip-dot tip-dot--red"></span>Not yet (' + counts.R + ')</span>' +
+      '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderRow(c, indent) {
     var tr = document.createElement('tr');
     var osText = c.oneshot_rate !== null && c.oneshot_rate !== undefined ? fmtPct(c.oneshot_rate) : '\u2014';
     var osClass = oneshotClass(c.oneshot_rate);
-    tr.innerHTML = '<td>' + c.name + '</td>' +
+    var costPct = cbData.total_cost_usd > 0 ? (c.cost_usd / cbData.total_cost_usd * 100).toFixed(1) + '%' : '\u2014';
+    var label = indent ? '<span style="padding-left:1.2em;opacity:0.7">\u2514 ' + c.name + '</span>' : c.name;
+    var t = TARGETS[c.name] || { dir: '\u2014', cls: '', actions: null };
+    tr.innerHTML = '<td>' + label + '</td>' +
       '<td class="num">' + c.turns + '</td>' +
       '<td class="num">' + fmtCost(c.cost_usd) + '</td>' +
+      '<td class="num">' + costPct + '</td>' +
+      '<td class="num target-cell">' + buildTargetPopover(t) + '</td>' +
       '<td class="num ' + osClass + '">' + osText + '</td>' +
       '<td class="num">' + (c.edit_turns > 0 ? c.retries : '\u2014') + '</td>';
     tbody.appendChild(tr);
+  }
+
+  parents.forEach(function(p) {
+    var kids = childrenOf[p.name] || [];
+    if (kids.length > 0) {
+      // Group header with subtotal
+      var gt = groupTotals[p.name];
+      var gtPct = cbData.total_cost_usd > 0 ? (gt.cost_usd / cbData.total_cost_usd * 100).toFixed(1) + '%' : '\u2014';
+      var hdr = document.createElement('tr');
+      hdr.style.borderBottom = 'none';
+      var gTarget = GROUP_TARGETS[p.name] || { dir: '\u2014', cls: '' };
+      hdr.innerHTML = '<td style="font-weight:600;opacity:0.5;font-size:0.85em;text-transform:uppercase;padding-top:0.6em">' +
+        p.name + ' group</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + gt.turns + '</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + fmtCost(gt.cost_usd) + '</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + gtPct + '</td>' +
+        '<td class="num" style="opacity:0.5"><span class="' + gTarget.cls + '">' + gTarget.dir + '</span></td>' +
+        '<td class="num"></td><td class="num"></td>';
+      tbody.appendChild(hdr);
+      // Parent's own row (indented as a member, skip for virtual groups)
+      if (!p._virtual) renderRow(p, true);
+      kids.sort(function(a, b) { return b.cost_usd - a.cost_usd; });
+      kids.forEach(function(k) { renderRow(k, true); });
+    } else {
+      renderRow(p, false);
+    }
+  });
+
+  // Position popovers to stay within viewport
+  tbody.querySelectorAll('.target-cell').forEach(function(cell) {
+    var pop = cell.querySelector('.target-pop');
+    if (!pop) return;
+    cell.addEventListener('mouseenter', function() {
+      pop.style.display = 'block';
+      var rect = cell.getBoundingClientRect();
+      var popH = pop.offsetHeight;
+      var popW = pop.offsetWidth;
+      var vH = window.innerHeight;
+      var vW = window.innerWidth;
+      // Horizontal: align right edge to cell right, clamp to viewport
+      var left = rect.right - popW;
+      if (left < 8) left = 8;
+      if (left + popW > vW - 8) left = vW - popW - 8;
+      // Vertical: prefer below, flip above if would overflow
+      var top;
+      if (rect.bottom + popH + 8 > vH) {
+        top = rect.top - popH - 6;
+        if (top < 8) top = 8;
+      } else {
+        top = rect.bottom + 6;
+      }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    });
+    cell.addEventListener('mouseleave', function() {
+      pop.style.display = 'none';
+    });
   });
 }
 
@@ -2134,6 +2480,178 @@ function updateProjectTab() {
     utilSection.style.display = 'none';
   }
 }
+
+// ─── Efficiency Tab Rendering ──────────────────────────────────
+// Wire up the efficiency range selector to the shared codeburn range
+document.querySelectorAll('#cb-range-efficiency .cb-range__btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#cb-range-efficiency .cb-range__btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var newRange = btn.dataset.range;
+    if (newRange !== cbRange) {
+      cbRange = newRange;
+      // Sync all range selectors
+      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.range === cbRange);
+      });
+      fetchCodeburn();
+    }
+  });
+});
+
+function updateEfficiencyTab() {
+  if (!cbData || !cbData.efficiency) return;
+
+  var eff = cbData.efficiency;
+  var weeks = eff.weekly || [];
+  var totalCalls = eff.total_tool_calls;
+  var totalTokens = eff.total_tokens;
+  var meanTpt = eff.mean_tokens_per_call;
+
+  // Derive sub-totals from precomputed weekly data
+  var totalInput = 0, totalOutput = 0, totalCache = 0, totalCacheCreate = 0;
+  weeks.forEach(function(w) {
+    totalInput += w.input_tokens;
+    totalOutput += w.output_tokens;
+    totalCache += w.cache_read_tokens;
+    totalCacheCreate += w.cache_create_tokens;
+  });
+  var numDays = (cbData.daily || []).length || 1;
+
+  // Hero cards
+  document.getElementById('eff-mean-tpt').textContent = fmtTokens(meanTpt);
+  document.getElementById('eff-mean-period').textContent = cbData.period.from + ' \u2014 ' + cbData.period.to;
+  document.getElementById('eff-total-calls').textContent = totalCalls.toLocaleString();
+  document.getElementById('eff-total-calls-sub').textContent = Math.round(totalCalls / numDays) + '/day avg';
+  document.getElementById('eff-total-tokens').textContent = fmtTokens(totalTokens);
+  document.getElementById('eff-total-tokens-sub').textContent = 'in: ' + fmtTokens(totalInput) + ' out: ' + fmtTokens(totalOutput);
+
+  // Chart
+  updateEfficiencyChart(weeks);
+
+  // Table
+  var tbody = document.getElementById('eff-weekly-body');
+  var html = '';
+  weeks.forEach(function(w) {
+    var tptColor = w.tokens_per_call > meanTpt * 1.5 ? 'var(--red)' : w.tokens_per_call < meanTpt * 0.7 ? 'var(--green)' : 'var(--text)';
+    html += '<tr>' +
+      '<td>' + w.week + '</td>' +
+      '<td class="num">' + w.tool_calls.toLocaleString() + '</td>' +
+      '<td class="num" style="color:#06b6d4">' + fmtTokens(w.input_tokens) + '</td>' +
+      '<td class="num" style="color:#f59e0b">' + fmtTokens(w.output_tokens) + '</td>' +
+      '<td class="num" style="color:var(--green)">' + fmtTokens(w.cache_read_tokens) + '</td>' +
+      '<td class="num">' + fmtTokens(w.total_tokens) + '</td>' +
+      '<td class="num" style="color:' + tptColor + ';font-weight:600">' + fmtTokens(w.tokens_per_call) + '</td>' +
+      '</tr>';
+  });
+
+  // Total row
+  html += '<tr class="total-row">' +
+    '<td>Total / Mean</td>' +
+    '<td class="num">' + totalCalls.toLocaleString() + '</td>' +
+    '<td class="num" style="color:#06b6d4">' + fmtTokens(totalInput) + '</td>' +
+    '<td class="num" style="color:#f59e0b">' + fmtTokens(totalOutput) + '</td>' +
+    '<td class="num" style="color:var(--green)">' + fmtTokens(totalCache) + '</td>' +
+    '<td class="num">' + fmtTokens(totalTokens) + '</td>' +
+    '<td class="num" style="color:var(--cyan);font-weight:700">' + fmtTokens(meanTpt) + '</td>' +
+    '</tr>';
+
+  tbody.innerHTML = html;
+}
+
+function updateEfficiencyChart(weeks) {
+  var svg = document.getElementById('eff-weekly-svg');
+  var W = 800, H = 280;
+  var M = { top: 20, right: 60, bottom: 50, left: 60 };
+  var plotW = W - M.left - M.right;
+  var plotH = H - M.top - M.bottom;
+
+  var n = weeks.length;
+  if (n === 0) { svg.innerHTML = ''; return; }
+
+  var tptValues = weeks.map(function(w) { return w.tokens_per_call; });
+  var callValues = weeks.map(function(w) { return w.tool_calls; });
+  var maxTpt = Math.max.apply(null, tptValues) * 1.15 || 1;
+  var maxCalls = Math.max.apply(null, callValues) * 1.15 || 1;
+
+  // Grand mean
+  var totalTk = 0, totalCl = 0;
+  weeks.forEach(function(w) { totalTk += w.total_tokens; totalCl += w.tool_calls; });
+  var grandMean = totalCl > 0 ? totalTk / totalCl : 0;
+
+  function cx(i) { return M.left + (i / Math.max(n - 1, 1)) * plotW; }
+  function cyTpt(v) { return M.top + plotH * (1 - v / maxTpt); }
+  function cyCalls(v) { return M.top + plotH * (1 - v / maxCalls); }
+
+  var s = '';
+
+  // Defs
+  s += '<defs>';
+  s += '<linearGradient id="effTptGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15"/><stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/></linearGradient>';
+  s += '</defs>';
+
+  // Grid lines (left Y-axis: tokens/call)
+  for (var g = 0; g <= 4; g++) {
+    var gVal = (maxTpt / 4) * g;
+    var gY = cyTpt(gVal);
+    s += '<line x1="' + M.left + '" y1="' + gY + '" x2="' + (W - M.right) + '" y2="' + gY + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    s += '<text x="' + (M.left - 6) + '" y="' + (gY + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + fmtTokens(Math.round(gVal)) + '</text>';
+  }
+
+  // Right Y-axis labels (tool calls)
+  for (var g2 = 0; g2 <= 4; g2++) {
+    var g2Val = (maxCalls / 4) * g2;
+    var g2Y = cyCalls(g2Val);
+    s += '<text x="' + (W - M.right + 6) + '" y="' + (g2Y + 3) + '" fill="rgba(245,158,11,0.3)" font-size="9" font-family="SF Mono,monospace" text-anchor="start">' + fmtTokens(Math.round(g2Val)) + '</text>';
+  }
+
+  // Axis labels
+  s += '<text x="' + (M.left - 6) + '" y="' + (M.top - 6) + '" fill="#06b6d4" font-size="9" font-family="SF Mono,monospace" text-anchor="end" opacity="0.6">tok/call</text>';
+  s += '<text x="' + (W - M.right + 6) + '" y="' + (M.top - 6) + '" fill="#f59e0b" font-size="9" font-family="SF Mono,monospace" text-anchor="start" opacity="0.6">calls</text>';
+
+  // Grand mean line
+  var meanY = cyTpt(grandMean);
+  s += '<line x1="' + M.left + '" y1="' + meanY + '" x2="' + (W - M.right) + '" y2="' + meanY + '" stroke="rgba(6,182,212,0.4)" stroke-dasharray="6,4"/>';
+  s += '<text x="' + (W - M.right - 4) + '" y="' + (meanY - 5) + '" fill="rgba(6,182,212,0.6)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">MEAN ' + fmtTokens(Math.round(grandMean)) + '</text>';
+
+  // Area fill under tokens/call line
+  if (n >= 2) {
+    var areaPath = 'M' + cx(0) + ',' + cyTpt(0);
+    tptValues.forEach(function(v, i) { areaPath += ' L' + cx(i) + ',' + cyTpt(v); });
+    areaPath += ' L' + cx(n - 1) + ',' + cyTpt(0) + ' Z';
+    s += '<path d="' + areaPath + '" fill="url(#effTptGrad)"/>';
+
+    // Line: tokens/call
+    var linePath = tptValues.map(function(v, i) { return (i === 0 ? 'M' : 'L') + cx(i).toFixed(1) + ',' + cyTpt(v).toFixed(1); }).join(' ');
+    s += '<path d="' + linePath + '" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  // Dots: tokens/call
+  tptValues.forEach(function(v, i) {
+    s += '<circle cx="' + cx(i) + '" cy="' + cyTpt(v) + '" r="3" fill="#06b6d4" opacity="0.7"><title>' + weeks[i].week + ': ' + fmtTokens(v) + ' tok/call (' + weeks[i].tool_calls + ' calls)</title></circle>';
+  });
+
+  // Tool calls bars (behind, using right axis)
+  var barW = Math.max(3, Math.min(16, plotW / n * 0.5));
+  callValues.forEach(function(v, i) {
+    var bH = plotH * (v / maxCalls);
+    var bX = cx(i) - barW / 2;
+    var bY = M.top + plotH - bH;
+    s += '<rect x="' + bX + '" y="' + bY + '" width="' + barW + '" height="' + bH + '" fill="#f59e0b" opacity="0.15" rx="1"><title>' + weeks[i].week + ': ' + v + ' tool calls</title></rect>';
+  });
+
+  // X-axis labels
+  weeks.forEach(function(w, i) {
+    var showLabel = n <= 20 || i % Math.ceil(n / 20) === 0 || i === n - 1;
+    if (showLabel) {
+      var label = w.week.replace(/^\d{4}-/, '');
+      s += '<text x="' + cx(i) + '" y="' + (H - M.bottom + 16) + '" fill="rgba(255,255,255,0.2)" font-size="8" font-family="SF Mono,monospace" text-anchor="middle" transform="rotate(-30,' + cx(i) + ',' + (H - M.bottom + 16) + ')">' + label + '</text>';
+    }
+  });
+
+  svg.innerHTML = s;
+}
+
 </script>
 </body>
 </html>

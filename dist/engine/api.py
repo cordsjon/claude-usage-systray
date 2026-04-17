@@ -10,8 +10,10 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from engine.codeburn import get_codeburn_report
 from engine.db import UsageDB
 from engine.poller import TokenHolder, get_current_status
+from engine.sessions import get_token_history
 
 _START_TIME = time.monotonic()
 
@@ -23,6 +25,10 @@ _RANGE_DAYS = {
 }
 
 _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
+
+# In-memory dashboard cache — avoid re-reading 2500-line HTML on every request
+_dashboard_cache: bytes | None = None
+_dashboard_mtime: float = 0.0
 
 
 def _row_to_dict(row) -> dict:
@@ -62,6 +68,10 @@ def _make_handler_class(db: UsageDB, token_holder: TokenHolder):
                 self._handle_status()
             elif path == "/api/history":
                 self._handle_history(query)
+            elif path == "/api/token-history":
+                self._handle_token_history()
+            elif path == "/api/codeburn":
+                self._handle_codeburn(query)
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -75,14 +85,19 @@ def _make_handler_class(db: UsageDB, token_holder: TokenHolder):
                 _json_response(self, {"error": "Not found"}, 404)
 
         def _serve_dashboard(self):
+            global _dashboard_cache, _dashboard_mtime
             try:
-                with open(_DASHBOARD_PATH, "r", encoding="utf-8") as f:
-                    html = f.read().encode("utf-8")
+                mtime = os.path.getmtime(_DASHBOARD_PATH)
+                if _dashboard_cache is None or mtime != _dashboard_mtime:
+                    with open(_DASHBOARD_PATH, "r", encoding="utf-8") as f:
+                        _dashboard_cache = f.read().encode("utf-8")
+                    _dashboard_mtime = mtime
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
-                self.send_header("Content-Length", str(len(html)))
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(_dashboard_cache)))
                 self.end_headers()
-                self.wfile.write(html)
+                self.wfile.write(_dashboard_cache)
             except FileNotFoundError:
                 _json_response(self, {"error": "Dashboard not found"}, 404)
 
@@ -118,6 +133,16 @@ def _make_handler_class(db: UsageDB, token_holder: TokenHolder):
                 _json_response(self, {"error": "No data yet"}, 503)
                 return
             _json_response(self, status)
+
+        def _handle_token_history(self):
+            data = get_token_history()
+            _json_response(self, data)
+
+        def _handle_codeburn(self, query: dict):
+            range_key = query.get("range", ["7d"])[0]
+            days = _RANGE_DAYS.get(range_key, 7)
+            data = get_codeburn_report(days)
+            _json_response(self, data)
 
         def _handle_history(self, query: dict):
             range_key = query.get("range", ["7d"])[0]

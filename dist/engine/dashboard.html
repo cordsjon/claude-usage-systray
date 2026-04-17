@@ -38,7 +38,7 @@
   .tab-panel.active { display: block; }
 
   /* ═══ TAB 1: RUNWAY HORIZON ═══ */
-  #tab-runway { overflow: hidden; display: flex; flex-direction: column; }
+  #tab-runway { overflow: hidden; flex-direction: column; }
   #tab-runway.active { display: flex; }
 
   .runway-hud { display: grid; grid-template-columns: 1fr auto; padding: 20px 24px 0; gap: 24px; z-index: 10; }
@@ -173,6 +173,142 @@
 
   /* Tooltip */
   .chart-tooltip { position: fixed; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 11px; font-family: var(--mono); color: var(--text); pointer-events: none; z-index: 999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+  /* ═══ TAB 3: TOKEN I/O ═══ */
+  #tab-tokens { padding: 20px; overflow-y: auto; }
+  .tokens-dash { max-width: 820px; margin: 0 auto; }
+
+  .tokens-hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .tokens-stat { background: var(--bg-card); border-radius: 10px; padding: 16px; border: 1px solid var(--border); text-align: center; }
+  .tokens-stat__label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 4px; }
+  .tokens-stat__val { font-size: 22px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+  .tokens-stat__sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  .tokens-chart { background: var(--bg-card); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .tokens-chart__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .tokens-chart__title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .tokens-chart__area { width: 100%; height: 280px; position: relative; }
+  .tokens-chart__area svg { width: 100%; height: 100%; }
+
+  .tokens-legend { display: flex; gap: 20px; justify-content: center; margin-top: 12px; }
+  .tokens-legend__item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-dim); }
+  .tokens-legend__swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+  .tokens-ratio-chart { background: var(--bg-card); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+
+  .tokens-table { background: var(--bg-card); border-radius: 10px; padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .tokens-table__header { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 12px; }
+  .tokens-table table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
+  .tokens-table th { text-align: left; color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px; border-bottom: 1px solid var(--border); font-weight: 500; }
+  .tokens-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+  .tokens-table tr:last-child td { border-bottom: none; }
+  .tokens-table .num { text-align: right; }
+  .tokens-table .total-row td { color: var(--text); font-weight: 600; border-top: 2px solid var(--border); }
+
+  /* Comparison section */
+  .cmp-card { background: var(--bg-card); border-radius: 10px; padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .cmp-card__title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 16px; }
+  .cmp-card__subtitle { font-size: 10px; color: var(--text-muted); margin-bottom: 12px; font-style: italic; }
+
+  .cmp-profile { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 14px 16px; border-radius: 8px; background: var(--bg-elevated); }
+  .cmp-profile__badge { font-size: 28px; flex-shrink: 0; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+  .cmp-profile__info { flex: 1; }
+  .cmp-profile__name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .cmp-profile__desc { font-size: 11px; color: var(--text-dim); }
+
+  .cmp-scale { position: relative; margin: 20px 0 28px; }
+  .cmp-scale__track { height: 8px; border-radius: 4px; position: relative; }
+  .cmp-scale__labels { display: flex; justify-content: space-between; margin-top: 6px; }
+  .cmp-scale__label { font-size: 8px; font-family: var(--mono); color: var(--text-muted); text-align: center; max-width: 60px; }
+  .cmp-scale__marker { position: absolute; top: -6px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; transform: translateX(-50%); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .cmp-scale__marker-label { position: absolute; top: -18px; font-size: 9px; font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+
+  .cmp-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .cmp-metric { text-align: center; padding: 12px 8px; border-radius: 8px; background: var(--bg-elevated); }
+  .cmp-metric__label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+  .cmp-metric__val { font-size: 18px; font-weight: 700; font-family: var(--mono); }
+  .cmp-metric__ctx { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .cmp-metric__bar { height: 4px; border-radius: 2px; margin-top: 6px; background: var(--bg); position: relative; overflow: hidden; }
+  .cmp-metric__bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+  .cmp-sources { margin-top: 14px; font-size: 9px; color: var(--text-muted); line-height: 1.6; }
+  .cmp-sources a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+  .cmp-sources a:hover { color: var(--text-dim); }
+
+  /* ═══ TAB 4: ACTIVITY BURN ═══ */
+  #tab-activity { padding: 20px; }
+  .activity-dash { max-width: 820px; margin: 0 auto; }
+  .cb-hero { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .cb-hero__card { background: var(--bg-card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); text-align: center; }
+  .cb-hero__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .cb-hero__val { font-size: 32px; font-weight: 800; font-family: var(--mono); line-height: 1.2; margin: 4px 0; }
+  .cb-hero__sub { font-size: 11px; color: var(--text-dim); }
+  .cb-range { display: flex; gap: 6px; margin-bottom: 16px; }
+  .cb-range__btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 12px; font-family: var(--mono); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+  .cb-range__btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .cb-range__btn.active { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+  .cb-chart { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .cb-chart__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 10px; }
+  .cb-chart__area { width: 100%; }
+  .cb-table { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+  .cb-table__header { padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  .cb-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cb-table th { padding: 8px 12px; text-align: left; font-weight: 500; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  .cb-table th.num, .cb-table td.num { text-align: right; }
+  .cb-table td { padding: 8px 12px; font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  .cb-table tr:last-child td { border-bottom: none; }
+  .cb-table tr:hover { background: var(--bg-elevated); }
+  .oneshot-good { color: var(--green); }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .yellow { color: var(--amber); }
+
+  /* Target hover popover — positioned by JS to stay in viewport */
+  .target-cell { position: relative; cursor: help; }
+  .target-cell .target-pop {
+    display: none; position: fixed; z-index: 100;
+    min-width: 340px; max-width: 400px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: left;
+    line-height: 1.5; font-size: 13px; color: var(--text-muted);
+  }
+  .target-pop__title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .target-pop__goal { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+  .target-pop__goal--up { background: var(--green-dim); color: var(--green); }
+  .target-pop__goal--down { background: var(--red-dim); color: var(--red); }
+  .target-pop__goal--amber { background: var(--amber-dim); color: var(--amber); }
+  .target-pop__goal--neutral { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .target-pop ul { margin: 0; padding-left: 16px; }
+  .target-pop li { margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px; }
+  .target-pop li strong { color: var(--text); }
+  .target-pop__separator { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .target-pop__offload { font-size: 12px; color: var(--text-dim); font-style: italic; }
+  .tip-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+  .tip-dot--green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .tip-dot--yellow { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+  .tip-dot--red { background: var(--red); box-shadow: 0 0 4px var(--red); }
+  .target-pop__legend { display: flex; gap: 14px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
+  .target-pop__legend span { display: flex; align-items: center; gap: 4px; }
+  .oneshot-mid { color: var(--amber); }
+  .oneshot-bad { color: var(--red); }
+
+  /* ═══ TAB 5: PROJECT & MODEL ═══ */
+  #tab-projects { padding: 20px; }
+  .proj-dash { max-width: 820px; margin: 0 auto; }
+  .proj-bars { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .proj-bars__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px; }
+  .proj-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .proj-bar__label { width: 140px; font-size: 11px; font-family: var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+  .proj-bar__track { flex: 1; height: 18px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden; }
+  .proj-bar__fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .proj-bar__val { width: 70px; text-align: right; font-size: 11px; font-family: var(--mono); color: var(--text-dim); flex-shrink: 0; }
+  .model-colors { --opus: #a855f7; --sonnet: #3b82f6; --haiku: #22c55e; --other: #8b8d97; }
+  .util-card { background: var(--bg-card); border-radius: 12px; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .util-card__title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+  .util-card__row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
+  .util-card__name { color: var(--text); }
+  .util-card__count { font-family: var(--mono); color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -185,6 +321,10 @@
   <div class="tab-bar__tabs">
     <button class="tab-btn active" data-tab="runway">Runway Horizon</button>
     <button class="tab-btn" data-tab="cards">Budget Cards</button>
+    <button class="tab-btn" data-tab="tokens">Token I/O</button>
+    <button class="tab-btn" data-tab="activity">Activity Burn</button>
+    <button class="tab-btn" data-tab="projects">Project &amp; Model</button>
+    <button class="tab-btn" data-tab="efficiency">Efficiency</button>
   </div>
   <div class="tab-bar__right">
     <div class="conn-dot" id="conn-dot"></div>
@@ -434,6 +574,343 @@
     </div>
 
     <div class="footer">Token Budget Engine &middot; Polls every 5m &middot; Python + SQLite</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 3: TOKEN I/O ═══ -->
+<div class="tab-panel" id="tab-tokens">
+  <div class="tokens-dash">
+
+    <!-- YTD summary cards -->
+    <div class="tokens-hero">
+      <div class="tokens-stat">
+        <div class="tokens-stat__label">YTD Input</div>
+        <div class="tokens-stat__val" id="tk-input" style="color:var(--cyan)">--</div>
+        <div class="tokens-stat__sub">tokens sent</div>
+      </div>
+      <div class="tokens-stat">
+        <div class="tokens-stat__label">YTD Output</div>
+        <div class="tokens-stat__val" id="tk-output" style="color:var(--amber)">--</div>
+        <div class="tokens-stat__sub">tokens received</div>
+      </div>
+      <div class="tokens-stat">
+        <div class="tokens-stat__label">I/O Ratio</div>
+        <div class="tokens-stat__val" id="tk-ratio" style="color:var(--green)">--</div>
+        <div class="tokens-stat__sub">input per output</div>
+      </div>
+      <div class="tokens-stat">
+        <div class="tokens-stat__label">Sessions</div>
+        <div class="tokens-stat__val" id="tk-sessions" style="color:var(--text-dim)">--</div>
+        <div class="tokens-stat__sub">YTD total</div>
+      </div>
+    </div>
+
+    <!-- Daily I/O bar chart -->
+    <div class="tokens-chart">
+      <div class="tokens-chart__header">
+        <span class="tokens-chart__title">Daily Token Volume &mdash; Input vs Output</span>
+      </div>
+      <div class="tokens-chart__area">
+        <svg id="tokens-bar-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="tokens-legend">
+        <div class="tokens-legend__item"><div class="tokens-legend__swatch" style="background:#06b6d4"></div>Input tokens</div>
+        <div class="tokens-legend__item"><div class="tokens-legend__swatch" style="background:#f59e0b"></div>Output tokens</div>
+      </div>
+    </div>
+
+    <!-- Ratio trend line -->
+    <div class="tokens-ratio-chart">
+      <div class="tokens-chart__header">
+        <span class="tokens-chart__title">Input / Output Ratio &mdash; Daily Trend</span>
+      </div>
+      <div class="tokens-chart__area" style="height:180px">
+        <svg id="tokens-ratio-svg" viewBox="0 0 800 180" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Comparison vs benchmarks -->
+    <div class="cmp-card">
+      <div class="cmp-card__title">Your Usage vs Benchmarks</div>
+      <div class="cmp-card__subtitle">Sources: OpenRouter 100T Token Study (arXiv:2601.10088), onprem.ai 64-task dataset, Anthropic published cost data</div>
+
+      <!-- Profile badge -->
+      <div class="cmp-profile" id="cmp-profile">
+        <div class="cmp-profile__badge" id="cmp-badge" style="background:var(--cyan-dim)">--</div>
+        <div class="cmp-profile__info">
+          <div class="cmp-profile__name" id="cmp-name">Calculating...</div>
+          <div class="cmp-profile__desc" id="cmp-desc">--</div>
+        </div>
+      </div>
+
+      <!-- Full context ratio vs OpenRouter benchmark -->
+      <div class="cmp-scale">
+        <div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Full Context Ratio &mdash; total input (incl. cache) per output token</div>
+        <div class="cmp-scale__track" id="cmp-full-track" style="background:linear-gradient(90deg, rgba(34,197,94,0.3) 0%, rgba(6,182,212,0.3) 40%, rgba(245,158,11,0.3) 70%, rgba(239,68,68,0.3) 100%)">
+          <div class="cmp-scale__marker" id="cmp-openrouter-marker" style="left:0%;background:var(--text-muted);width:16px;height:16px;border-width:1px">
+            <div class="cmp-scale__marker-label" style="color:var(--text-muted)"></div>
+          </div>
+          <div class="cmp-scale__marker" id="cmp-full-marker" style="left:0%"></div>
+        </div>
+        <div class="cmp-scale__labels">
+          <div class="cmp-scale__label">Lean<br/>1&ndash;5:1</div>
+          <div class="cmp-scale__label">Typical<br/>5&ndash;20:1</div>
+          <div class="cmp-scale__label">OpenRouter avg<br/>15:1</div>
+          <div class="cmp-scale__label">Heavy context<br/>50&ndash;200:1</div>
+          <div class="cmp-scale__label">Deep caching<br/>&gt;200:1</div>
+        </div>
+      </div>
+
+      <!-- Per-task ratio vs onprem.ai benchmarks -->
+      <div class="cmp-scale" style="margin-top:8px">
+        <div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Uncached Input Ratio &mdash; new tokens only, per onprem.ai task benchmarks</div>
+        <div class="cmp-scale__track" id="cmp-ratio-track" style="background:linear-gradient(90deg, rgba(245,158,11,0.3) 0%, rgba(6,182,212,0.3) 25%, rgba(34,197,94,0.3) 50%, rgba(59,130,246,0.3) 100%)">
+          <div class="cmp-scale__marker" id="cmp-ratio-marker" style="left:0%"></div>
+        </div>
+        <div class="cmp-scale__labels">
+          <div class="cmp-scale__label">Cached sessions<br/>&lt;0.5x</div>
+          <div class="cmp-scale__label">Coding tasks<br/>1&ndash;3x<br/><span style="font-size:7px">(onprem.ai)</span></div>
+          <div class="cmp-scale__label">Analysis<br/>3&ndash;8x<br/><span style="font-size:7px">(onprem.ai)</span></div>
+          <div class="cmp-scale__label">Documents<br/>8&ndash;20x<br/><span style="font-size:7px">(onprem.ai)</span></div>
+        </div>
+      </div>
+
+      <!-- Comparison metrics -->
+      <div class="cmp-metrics">
+        <div class="cmp-metric">
+          <div class="cmp-metric__label">Daily Output</div>
+          <div class="cmp-metric__val" id="cmp-daily-out">--</div>
+          <div class="cmp-metric__ctx" id="cmp-daily-ctx">--</div>
+          <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-daily-bar" style="width:0%;background:var(--amber)"></div></div>
+        </div>
+        <div class="cmp-metric">
+          <div class="cmp-metric__label">Billable Cost Equiv</div>
+          <div class="cmp-metric__val" id="cmp-cost-val" style="color:var(--green)">--</div>
+          <div class="cmp-metric__ctx" id="cmp-cost-ctx">--</div>
+          <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-cost-bar" style="width:0%;background:var(--green)"></div></div>
+        </div>
+        <div class="cmp-metric">
+          <div class="cmp-metric__label">Est. Percentile</div>
+          <div class="cmp-metric__val" id="cmp-pct-val" style="color:var(--cyan)">--</div>
+          <div class="cmp-metric__ctx" id="cmp-pct-ctx">--</div>
+          <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-pct-bar" style="width:0%;background:var(--cyan)"></div></div>
+        </div>
+      </div>
+
+      <!-- Full cost breakdown -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:11px;font-family:var(--mono)">
+        <div style="padding:8px 12px;border-radius:6px;background:var(--bg-elevated)">
+          <div style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Billable (input + output)</div>
+          <div id="cmp-cost-billable" style="font-weight:600">--</div>
+        </div>
+        <div style="padding:8px 12px;border-radius:6px;background:var(--bg-elevated)">
+          <div style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Full (incl. cache)</div>
+          <div id="cmp-cost-full" style="font-weight:600">--</div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--text-muted);margin-top:6px;font-style:italic">
+        Percentile based on billable cost only (input + output at Sonnet 4.6 rates). Anthropic's avg/P90 likely measures billable spend, not cache cost. Estimated from only 2 published data points &mdash; treat as directional, not precise.
+      </div>
+
+      <div class="cmp-sources">
+        Sources: <a href="https://arxiv.org/abs/2601.10088" target="_blank">OpenRouter 100T Study (arXiv)</a> &middot;
+        <a href="https://www.onprem.ai/en/knowhow/llm-token-usage-dataset/" target="_blank">onprem.ai 64-Task Dataset</a> &middot;
+        <a href="https://docs.anthropic.com/en/docs/claude-code/costs" target="_blank">Anthropic Cost Docs</a> &middot;
+        <a href="https://claudeapipricing.com/" target="_blank">Sonnet 4.6 Pricing</a>
+      </div>
+    </div>
+
+    <!-- Monthly breakdown table -->
+    <div class="tokens-table">
+      <div class="tokens-table__header">Monthly Breakdown</div>
+      <table id="tk-monthly-table">
+        <thead>
+          <tr><th>Month</th><th class="num">Input</th><th class="num">Output</th><th class="num">Ratio</th><th class="num">Sessions</th></tr>
+        </thead>
+        <tbody id="tk-monthly-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Token I/O &middot; Scanned from Claude Code session logs &middot; Refreshes hourly</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 4: ACTIVITY BURN ═══ -->
+<div class="tab-panel" id="tab-activity">
+  <div class="activity-dash">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-activity">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="cb-hero">
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Cost</div>
+        <div class="cb-hero__val" id="cb-total-cost" style="color:var(--cyan)">--</div>
+        <div class="cb-hero__sub" id="cb-total-period">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Turns</div>
+        <div class="cb-hero__val" id="cb-total-turns" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="cb-avg-per-day">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">One-Shot Rate</div>
+        <div class="cb-hero__val" id="cb-oneshot-rate">--</div>
+        <div class="cb-hero__sub" id="cb-oneshot-detail">edits without retries</div>
+      </div>
+    </div>
+
+    <!-- Daily cost chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Daily Cost (USD)</div>
+      <div class="cb-chart__area">
+        <svg id="cb-daily-svg" viewBox="0 0 800 250" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Activity table -->
+    <div class="cb-table">
+      <div class="cb-table__header">Activity Breakdown</div>
+      <table>
+        <thead>
+          <tr><th>Activity</th><th class="num">Turns</th><th class="num">Cost</th><th class="num">% Cost</th><th class="num">Target</th><th class="num">1-Shot</th><th class="num">Retries</th></tr>
+        </thead>
+        <tbody id="cb-activity-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Activity Burn &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 5: PROJECT & MODEL ═══ -->
+<div class="tab-panel" id="tab-projects">
+  <div class="proj-dash model-colors">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-projects">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Project cost bars -->
+    <div class="proj-bars">
+      <div class="proj-bars__title">Cost by Project</div>
+      <div id="cb-project-bars"></div>
+    </div>
+
+    <!-- Model cost bars -->
+    <div class="proj-bars">
+      <div class="proj-bars__title">Cost by Model</div>
+      <div id="cb-model-bars"></div>
+    </div>
+
+    <!-- Top tools -->
+    <div class="cb-table">
+      <div class="cb-table__header">Top Tools</div>
+      <table>
+        <thead>
+          <tr><th>Tool</th><th class="num">Calls</th></tr>
+        </thead>
+        <tbody id="cb-tools-body"></tbody>
+      </table>
+    </div>
+
+    <!-- MCP servers -->
+    <div class="cb-table" id="cb-mcp-section" style="display:none">
+      <div class="cb-table__header">MCP Servers</div>
+      <table>
+        <thead>
+          <tr><th>Server</th><th class="num">Calls</th></tr>
+        </thead>
+        <tbody id="cb-mcp-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Context Overhead -->
+    <div class="util-card" id="cb-overhead-section" style="display:none">
+      <div class="util-card__title">Context Overhead</div>
+      <div id="cb-overhead-content" style="font-size:12px"></div>
+    </div>
+
+    <!-- Utilization signals -->
+    <div class="util-card" id="cb-util-section" style="display:none">
+      <div class="util-card__title">Tool Utilization Signal</div>
+      <div id="cb-util-summary" style="font-size:11px;color:var(--text-dim);margin-bottom:8px"></div>
+      <div id="cb-util-details"></div>
+    </div>
+
+    <div class="footer">Project &amp; Model &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 6: EFFICIENCY ═══ -->
+<div class="tab-panel" id="tab-efficiency">
+  <div class="activity-dash">
+
+    <!-- Range selector -->
+    <div class="cb-range" id="cb-range-efficiency">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="cb-hero">
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Mean Tokens / Tool Call</div>
+        <div class="cb-hero__val" id="eff-mean-tpt" style="color:var(--cyan)">--</div>
+        <div class="cb-hero__sub" id="eff-mean-period">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Tool Calls</div>
+        <div class="cb-hero__val" id="eff-total-calls" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="eff-total-calls-sub">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Tokens</div>
+        <div class="cb-hero__val" id="eff-total-tokens" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="eff-total-tokens-sub">--</div>
+      </div>
+    </div>
+
+    <!-- Rolling weekly chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Weekly Rolling Mean: Tokens per Tool Call</div>
+      <div class="cb-chart__area">
+        <svg id="eff-weekly-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Weekly data table -->
+    <div class="cb-table">
+      <div class="cb-table__header">Weekly Breakdown</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th class="num">Tool Calls</th>
+            <th class="num">Input Tokens</th>
+            <th class="num">Output Tokens</th>
+            <th class="num">Cache Read</th>
+            <th class="num">Total Tokens</th>
+            <th class="num">Tokens/Call</th>
+          </tr>
+        </thead>
+        <tbody id="eff-weekly-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Efficiency &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
   </div>
 </div>
 
@@ -1030,6 +1507,1151 @@ function updateMonthlyRollup(h) {
   document.getElementById('mr-stoppages').style.color = stoppages > 0 ? 'var(--red)' : 'var(--green)';
   document.getElementById('mr-margin').textContent = (100 - avgPeak).toFixed(1) + '% unused';
 }
+
+// ─── Token I/O Tab (Tab 3) ──────────────────────────────────────
+window.__tokenHistory = null;
+
+function fmtTokens(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function fmtTokensLong(n) {
+  return n.toLocaleString();
+}
+
+async function fetchTokenHistory() {
+  try {
+    const res = await fetch('/api/token-history');
+    if (!res.ok) return;
+    window.__tokenHistory = await res.json();
+    updateTokenTab();
+  } catch { /* retain last data */ }
+}
+
+// Fetch on load and every 30 min (data refreshes hourly server-side)
+fetchTokenHistory();
+setInterval(fetchTokenHistory, 1800000);
+
+// updateTokenTab defined after updateComparison below
+
+function updateTokenBarChart(days) {
+  const svg = document.getElementById('tokens-bar-svg');
+  const W = 800, H = 280;
+  const M = { top: 20, right: 20, bottom: 40, left: 55 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  const n = days.length;
+  if (n === 0) return;
+
+  const maxVal = Math.max(...days.map(d => Math.max(d.input, d.output)));
+  const barGroupW = plotW / n;
+  const barW = Math.max(2, barGroupW * 0.35);
+  const gap = barGroupW * 0.06;
+
+  function cy(val) { return M.top + plotH * (1 - val / (maxVal * 1.1)); }
+
+  let s = '';
+
+  // Defs for gradients
+  s += '<defs>';
+  s += '<linearGradient id="tkInGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9"/><stop offset="100%" stop-color="#06b6d4" stop-opacity="0.5"/></linearGradient>';
+  s += '<linearGradient id="tkOutGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b" stop-opacity="0.9"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0.5"/></linearGradient>';
+  s += '</defs>';
+
+  // Grid lines
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const val = (maxVal * 1.1 / gridSteps) * i;
+    const y = cy(val);
+    s += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    s += '<text x="' + (M.left - 6) + '" y="' + (y + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + fmtTokens(Math.round(val)) + '</text>';
+  }
+
+  // Bars
+  days.forEach((d, i) => {
+    const x = M.left + i * barGroupW + barGroupW * 0.12;
+    const inputH = plotH * (d.input / (maxVal * 1.1));
+    const outputH = plotH * (d.output / (maxVal * 1.1));
+    const baseline = M.top + plotH;
+
+    // Input bar (left)
+    s += '<rect x="' + x + '" y="' + (baseline - inputH) + '" width="' + barW + '" height="' + Math.max(1, inputH) + '" fill="url(#tkInGrad)" rx="1">';
+    s += '<title>' + d.date + ' Input: ' + fmtTokensLong(d.input) + '</title></rect>';
+
+    // Output bar (right)
+    s += '<rect x="' + (x + barW + gap) + '" y="' + (baseline - outputH) + '" width="' + barW + '" height="' + Math.max(1, outputH) + '" fill="url(#tkOutGrad)" rx="1">';
+    s += '<title>' + d.date + ' Output: ' + fmtTokensLong(d.output) + '</title></rect>';
+
+    // Date label (show every Nth or for few days)
+    const showLabel = n <= 14 || i % Math.ceil(n / 14) === 0 || i === n - 1;
+    if (showLabel) {
+      const label = d.date.substring(5); // MM-DD
+      s += '<text x="' + (x + barW + gap / 2) + '" y="' + (baseline + 14) + '" fill="rgba(255,255,255,0.2)" font-size="8" font-family="SF Mono,monospace" text-anchor="middle" transform="rotate(-30,' + (x + barW + gap / 2) + ',' + (baseline + 14) + ')">' + label + '</text>';
+    }
+  });
+
+  // Interactive hover overlay
+  s += '<rect x="' + M.left + '" y="' + M.top + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" style="cursor:crosshair" id="tk-bar-hover"/>';
+
+  svg.innerHTML = s;
+
+  // Tooltip on hover
+  const hoverArea = document.getElementById('tk-bar-hover');
+  const tooltip = document.getElementById('tooltip');
+  if (hoverArea) {
+    hoverArea.addEventListener('mousemove', function(e) {
+      const rect = svg.getBoundingClientRect();
+      const svgX = (e.clientX - rect.left) / rect.width * W;
+      const idx = Math.floor((svgX - M.left) / barGroupW);
+      if (idx < 0 || idx >= n) { tooltip.style.display = 'none'; return; }
+      const d = days[idx];
+      const r = d.output > 0 ? (d.input / d.output).toFixed(2) : '0';
+      tooltip.innerHTML = '<div style="color:var(--text-dim)">' + d.date + '</div>' +
+        '<div>Input: <strong style="color:#06b6d4">' + fmtTokensLong(d.input) + '</strong></div>' +
+        '<div>Output: <strong style="color:#f59e0b">' + fmtTokensLong(d.output) + '</strong></div>' +
+        '<div>Ratio: <strong style="color:var(--green)">' + r + 'x</strong></div>' +
+        '<div style="color:var(--text-muted)">' + d.sessions + ' sessions</div>';
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY - 10) + 'px';
+    });
+    hoverArea.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
+  }
+}
+
+function updateTokenRatioChart(days) {
+  const svg = document.getElementById('tokens-ratio-svg');
+  const W = 800, H = 180;
+  const M = { top: 15, right: 20, bottom: 30, left: 55 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  const n = days.length;
+  if (n === 0) return;
+
+  // Compute daily ratios
+  const ratios = days.map(d => d.output > 0 ? d.input / d.output : 0);
+  const maxRatio = Math.max(0.6, ...ratios) * 1.15;
+
+  function cx(i) { return M.left + (i / Math.max(n - 1, 1)) * plotW; }
+  function cy(val) { return M.top + plotH * (1 - val / maxRatio); }
+
+  let s = '';
+
+  // Defs
+  s += '<defs>';
+  s += '<linearGradient id="ratioGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e" stop-opacity="0.15"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient>';
+  s += '</defs>';
+
+  // Grid lines
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const val = (maxRatio / gridSteps) * i;
+    const y = cy(val);
+    s += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    s += '<text x="' + (M.left - 6) + '" y="' + (y + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + val.toFixed(2) + 'x</text>';
+  }
+
+  // Average line
+  const avgRatio = ratios.reduce((a, b) => a + b, 0) / n;
+  const avgY = cy(avgRatio);
+  s += '<line x1="' + M.left + '" y1="' + avgY + '" x2="' + (W - M.right) + '" y2="' + avgY + '" stroke="rgba(34,197,94,0.3)" stroke-dasharray="6,4"/>';
+  s += '<text x="' + (W - M.right - 4) + '" y="' + (avgY - 4) + '" fill="rgba(34,197,94,0.5)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">AVG ' + avgRatio.toFixed(2) + 'x</text>';
+
+  // Area fill
+  if (n >= 2) {
+    let areaPath = 'M' + cx(0) + ',' + cy(0);
+    ratios.forEach((r, i) => { areaPath += ' L' + cx(i) + ',' + cy(r); });
+    areaPath += ' L' + cx(n - 1) + ',' + cy(0) + ' Z';
+    s += '<path d="' + areaPath + '" fill="url(#ratioGrad)"/>';
+
+    // Line
+    let linePath = ratios.map((r, i) => (i === 0 ? 'M' : 'L') + cx(i).toFixed(1) + ',' + cy(r).toFixed(1)).join(' ');
+    s += '<path d="' + linePath + '" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  // Dots for each day
+  ratios.forEach((r, i) => {
+    s += '<circle cx="' + cx(i) + '" cy="' + cy(r) + '" r="3" fill="#22c55e" opacity="0.6"><title>' + days[i].date + ': ' + r.toFixed(2) + 'x</title></circle>';
+  });
+
+  // Date labels
+  days.forEach((d, i) => {
+    const showLabel = n <= 14 || i % Math.ceil(n / 14) === 0 || i === n - 1;
+    if (showLabel) {
+      const label = d.date.substring(5);
+      s += '<text x="' + cx(i) + '" y="' + (H - M.bottom + 14) + '" fill="rgba(255,255,255,0.2)" font-size="8" font-family="SF Mono,monospace" text-anchor="middle">' + label + '</text>';
+    }
+  });
+
+  svg.innerHTML = s;
+}
+
+function updateTokenMonthlyTable(days) {
+  // Aggregate by month
+  const monthly = {};
+  days.forEach(d => {
+    const month = d.date.substring(0, 7);
+    if (!monthly[month]) monthly[month] = { input: 0, output: 0, sessions: 0 };
+    monthly[month].input += d.input;
+    monthly[month].output += d.output;
+    monthly[month].sessions += d.sessions;
+  });
+
+  const tbody = document.getElementById('tk-monthly-body');
+  let html = '';
+  let tInput = 0, tOutput = 0, tSessions = 0;
+
+  const monthNames = { '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec' };
+
+  Object.keys(monthly).sort().forEach(month => {
+    const m = monthly[month];
+    const ratio = m.output > 0 ? (m.input / m.output).toFixed(2) : '0';
+    const mLabel = monthNames[month.substring(5)] + ' ' + month.substring(0, 4);
+    html += '<tr><td>' + mLabel + '</td><td class="num" style="color:#06b6d4">' + fmtTokensLong(m.input) + '</td><td class="num" style="color:#f59e0b">' + fmtTokensLong(m.output) + '</td><td class="num" style="color:var(--green)">' + ratio + 'x</td><td class="num">' + m.sessions.toLocaleString() + '</td></tr>';
+    tInput += m.input; tOutput += m.output; tSessions += m.sessions;
+  });
+
+  const tRatio = tOutput > 0 ? (tInput / tOutput).toFixed(2) : '0';
+  html += '<tr class="total-row"><td>YTD Total</td><td class="num" style="color:#06b6d4">' + fmtTokensLong(tInput) + '</td><td class="num" style="color:#f59e0b">' + fmtTokensLong(tOutput) + '</td><td class="num" style="color:var(--green)">' + tRatio + 'x</td><td class="num">' + tSessions.toLocaleString() + '</td></tr>';
+  tbody.innerHTML = html;
+}
+
+// ─── Benchmark Comparison ───────────────────────────────────────
+// Sources:
+//   Anthropic Cost Docs: avg Claude Code user ~$6/day, P90 $12/day
+//   Anthropic blog: enterprise avg $13/dev/day
+//   Artificial Analysis: 3:1 input:output blended industry ratio
+//   API pricing: Opus $15/$75 in/out, Sonnet $3/$15 in/out per 1M tokens
+//   Faros.ai: 500K-1M tokens per avg session
+//
+// Usage profiles (new-input:output ratio, excluding cache):
+//   Automation:    < 0.15x  (batch generation, minimal prompts)
+//   Code Gen:      0.15-0.5x (agentic coding, output-heavy)
+//   Balanced:      0.5-1.5x (mix of analysis and generation)
+//   Chat-heavy:    1.5-3.0x (conversational, long prompts)
+//   Context-heavy: > 3.0x   (RAG, reviews, large context)
+
+function updateComparison(days, totals) {
+  if (!days || days.length === 0) return;
+
+  const ratio = totals.output > 0 ? totals.input / totals.output : 0;
+  const numDays = days.length;
+  const dailyOutput = totals.output / numDays;
+  const dailyInput = totals.input / numDays;
+
+  // ── Profile classification ──
+  // Note: ratio is uncached-input / output. Most real input is cached.
+  // Total context ratio (including cache) is ~500:1 — very input-heavy.
+  // The uncached ratio reflects new-input efficiency, not true I/O balance.
+  var totalContext = totals.input + totals.cache_create + totals.cache_read;
+  var fullRatio = totals.output > 0 ? totalContext / totals.output : 0;
+  var cachePct = totalContext > 0 ? ((totals.cache_read + totals.cache_create) / totalContext * 100) : 0;
+
+  var profileEmoji, profileName, profileDesc, profileColor;
+  if (ratio < 0.15) {
+    profileEmoji = '\u2699\ufe0f'; profileName = 'Automation Engine';
+    profileDesc = 'Very low new-input per output. Most context is cached (' + cachePct.toFixed(0) + '% cache hit). Full context ratio is ' + fullRatio.toFixed(0) + ':1 \u2014 the model processes vast context but you send minimal new tokens per turn.';
+    profileColor = 'var(--amber)';
+  } else if (ratio < 0.5) {
+    profileEmoji = '\u{1f4bb}'; profileName = 'Code Generator';
+    profileDesc = 'Low new-input, high output. ' + cachePct.toFixed(0) + '% of context is cached. Full context ratio is ' + fullRatio.toFixed(0) + ':1. Claude reuses prior context heavily and generates more code than you prompt per turn.';
+    profileColor = 'var(--cyan)';
+  } else if (ratio < 1.5) {
+    profileEmoji = '\u2696\ufe0f'; profileName = 'Balanced Builder';
+    profileDesc = 'Moderate new-input per output. ' + cachePct.toFixed(0) + '% cache hit rate. Mix of fresh context and generation \u2014 research, refactoring, design.';
+    profileColor = 'var(--green)';
+  } else if (ratio < 3.0) {
+    profileEmoji = '\u{1f4ac}'; profileName = 'Conversationalist';
+    profileDesc = 'High new-input per output. Frequent context changes, shorter responses. ' + cachePct.toFixed(0) + '% cache hit rate.';
+    profileColor = 'var(--blue)';
+  } else {
+    profileEmoji = '\u{1f4da}'; profileName = 'Context Architect';
+    profileDesc = 'Very high new-input per output. Large fresh context per turn. ' + cachePct.toFixed(0) + '% cache hit rate.';
+    profileColor = 'var(--blue)';
+  }
+
+  document.getElementById('cmp-badge').textContent = profileEmoji;
+  document.getElementById('cmp-badge').style.background = profileColor.replace(')', ',0.12)').replace('var(', 'rgba(');
+  // Simpler badge bg approach:
+  var badgeEl = document.getElementById('cmp-badge');
+  badgeEl.style.background = 'rgba(255,255,255,0.04)';
+  badgeEl.style.fontSize = '28px';
+  document.getElementById('cmp-name').textContent = profileName;
+  document.getElementById('cmp-name').style.color = profileColor;
+  document.getElementById('cmp-desc').textContent = profileDesc;
+
+  // ── Full context ratio scale ──
+  // OpenRouter benchmark: 15:1 average across 100T tokens
+  // Scale: 1:1 = 0%, 5:1 = 20%, 15:1 = 40%, 50:1 = 60%, 200:1 = 80%, 1000:1 = 100%
+  // Using log scale for better distribution
+  var logFullRatio = Math.log10(Math.max(fullRatio, 1));
+  var fullPct = Math.max(2, Math.min(98, (logFullRatio / 3) * 100)); // log10(1)=0 to log10(1000)=3
+
+  var fullMarker = document.getElementById('cmp-full-marker');
+  fullMarker.style.left = fullPct + '%';
+  fullMarker.style.background = profileColor;
+  var fullLabel = fullMarker.querySelector('.cmp-scale__marker-label');
+  if (!fullLabel) {
+    fullLabel = document.createElement('div');
+    fullLabel.className = 'cmp-scale__marker-label';
+    fullMarker.appendChild(fullLabel);
+  }
+  fullLabel.textContent = 'YOU ' + Math.round(fullRatio) + ':1';
+  fullLabel.style.color = profileColor;
+
+  // OpenRouter 15:1 benchmark marker
+  var orLogRatio = Math.log10(15);
+  var orPct = Math.max(2, Math.min(98, (orLogRatio / 3) * 100));
+  var orMarker = document.getElementById('cmp-openrouter-marker');
+  orMarker.style.left = orPct + '%';
+  var orLabel = orMarker.querySelector('.cmp-scale__marker-label');
+  orLabel.textContent = 'AVG 15:1';
+
+  // ── Uncached ratio scale ──
+  // onprem.ai benchmarks: coding 1-3x, analysis 3-8x, docs 8-20x
+  // User's uncached ratio is < 1x because of heavy caching
+  // Scale: 0x = 0%, 0.5x = 12.5%, 1x = 25%, 3x = 50%, 8x = 75%, 20x = 100%
+  var uncachedPct;
+  if (ratio <= 0.5) uncachedPct = (ratio / 0.5) * 12.5;
+  else if (ratio <= 1) uncachedPct = 12.5 + ((ratio - 0.5) / 0.5) * 12.5;
+  else if (ratio <= 3) uncachedPct = 25 + ((ratio - 1) / 2) * 25;
+  else if (ratio <= 8) uncachedPct = 50 + ((ratio - 3) / 5) * 25;
+  else uncachedPct = 75 + Math.min(25, ((ratio - 8) / 12) * 25);
+  uncachedPct = Math.max(2, Math.min(98, uncachedPct));
+
+  var marker = document.getElementById('cmp-ratio-marker');
+  marker.style.left = uncachedPct + '%';
+  marker.style.background = profileColor;
+
+  var markerLabel = marker.querySelector('.cmp-scale__marker-label');
+  if (!markerLabel) {
+    markerLabel = document.createElement('div');
+    markerLabel.className = 'cmp-scale__marker-label';
+    marker.appendChild(markerLabel);
+  }
+  markerLabel.textContent = 'YOU ' + ratio.toFixed(2) + 'x';
+  markerLabel.style.color = profileColor;
+
+  // ── Daily output vs Anthropic benchmarks ──
+  // Anthropic: avg $6/day => at Sonnet $15/M output => ~400K output tokens/day avg
+  // P90: $12/day => ~800K output tokens/day
+  // (Simplified: assumes most cost is output at Sonnet pricing)
+  var anthropicAvgDaily = 400000;  // ~400K output tokens/day (avg user)
+  var anthropicP90Daily = 800000;  // ~800K (P90 user)
+  var dailyMultiple = dailyOutput / anthropicAvgDaily;
+
+  document.getElementById('cmp-daily-out').textContent = fmtTokens(Math.round(dailyOutput));
+  document.getElementById('cmp-daily-out').style.color = dailyMultiple > 3 ? 'var(--red)' : dailyMultiple > 1.5 ? 'var(--amber)' : 'var(--green)';
+
+  var dailyCtx;
+  if (dailyMultiple >= 2) dailyCtx = dailyMultiple.toFixed(1) + 'x avg user';
+  else if (dailyMultiple >= 1) dailyCtx = 'above average';
+  else dailyCtx = 'below average';
+  document.getElementById('cmp-daily-ctx').textContent = dailyCtx + ' (' + fmtTokens(anthropicAvgDaily) + '/day avg)';
+
+  // Bar: cap at 5x average = 100%
+  var dailyBarPct = Math.min(100, (dailyMultiple / 5) * 100);
+  document.getElementById('cmp-daily-bar').style.width = dailyBarPct + '%';
+  document.getElementById('cmp-daily-bar').style.background = dailyMultiple > 3 ? 'var(--red)' : dailyMultiple > 1.5 ? 'var(--amber)' : 'var(--green)';
+
+  // ── API cost equivalent ──
+  // Sonnet 4.6 pricing: $3/M input, $15/M output
+  // Cache reads: $0.30/M, Cache creation: $3.75/M
+  var costInput = (totals.input / 1e6) * 3;
+  var costOutput = (totals.output / 1e6) * 15;
+  var costCacheCreate = (totals.cache_create / 1e6) * 3.75;
+  var costCacheRead = (totals.cache_read / 1e6) * 0.30;
+
+  var billableCost = costInput + costOutput;         // what Anthropic likely measures as "spend"
+  var fullCost = billableCost + costCacheCreate + costCacheRead;
+  var dailyBillable = billableCost / numDays;
+  var dailyFull = fullCost / numDays;
+
+  // Use BILLABLE cost for comparison (Anthropic's $6/day avg likely excludes cache)
+  document.getElementById('cmp-cost-val').textContent = '$' + Math.round(dailyBillable) + '/day';
+  document.getElementById('cmp-cost-val').style.color = dailyBillable > 12 ? 'var(--red)' : dailyBillable > 6 ? 'var(--amber)' : 'var(--green)';
+  document.getElementById('cmp-cost-ctx').textContent = '$' + Math.round(billableCost) + ' YTD \u00b7 avg $6/day \u00b7 P90 $12/day';
+
+  // Cost breakdown
+  document.getElementById('cmp-cost-billable').innerHTML = '$' + Math.round(dailyBillable) + '/day <span style="color:var(--text-muted)">($' + Math.round(billableCost) + ' YTD)</span>';
+  document.getElementById('cmp-cost-billable').style.color = dailyBillable > 12 ? 'var(--red)' : dailyBillable > 6 ? 'var(--amber)' : 'var(--green)';
+  document.getElementById('cmp-cost-full').innerHTML = '$' + Math.round(dailyFull) + '/day <span style="color:var(--text-muted)">($' + Math.round(fullCost) + ' YTD)</span>';
+  document.getElementById('cmp-cost-full').style.color = 'var(--text-dim)';
+
+  // Bar: cap at $30/day = 100%
+  var costBarPct = Math.min(100, (dailyBillable / 30) * 100);
+  document.getElementById('cmp-cost-bar').style.width = costBarPct + '%';
+  document.getElementById('cmp-cost-bar').style.background = dailyBillable > 12 ? 'var(--red)' : dailyBillable > 6 ? 'var(--amber)' : 'var(--green)';
+
+  // ── Percentile estimate ──
+  // Based on Anthropic's published distribution (2 data points only):
+  //   avg $6/day, 90% under $12/day
+  //   Interpolated: P50~$4, P75~$8, P90=$12, P95~$20
+  //   Using BILLABLE cost (not full) for fairer comparison.
+  //   Confidence: low — only 2 anchor points, unknown population mix.
+  var percentile;
+  if (dailyBillable <= 2) percentile = Math.round((dailyBillable / 2) * 25);
+  else if (dailyBillable <= 4) percentile = 25 + Math.round(((dailyBillable - 2) / 2) * 25);
+  else if (dailyBillable <= 8) percentile = 50 + Math.round(((dailyBillable - 4) / 4) * 25);
+  else if (dailyBillable <= 12) percentile = 75 + Math.round(((dailyBillable - 8) / 4) * 15);
+  else if (dailyBillable <= 20) percentile = 90 + Math.round(((dailyBillable - 12) / 8) * 5);
+  else percentile = Math.min(99, 95 + Math.round(((dailyBillable - 20) / 30) * 4));
+
+  // Cap display and add confidence qualifier
+  var pctLabel = 'P' + percentile;
+  if (percentile >= 95) pctLabel = '>P95';
+  else if (percentile >= 90) pctLabel = '~P' + percentile;
+
+  document.getElementById('cmp-pct-val').textContent = pctLabel;
+  document.getElementById('cmp-pct-ctx').textContent = 'Est. top ' + (100 - Math.min(percentile, 95)) + '% \u00b7 low confidence (2 data points)';
+  document.getElementById('cmp-pct-bar').style.width = Math.min(percentile, 98) + '%';
+}
+
+function updateTokenTab() {
+  var th = window.__tokenHistory;
+  if (!th || !th.days || th.days.length === 0) return;
+
+  var totals = th.totals;
+  var ratio = totals.output > 0 ? (totals.input / totals.output) : 0;
+
+  // Summary cards
+  document.getElementById('tk-input').textContent = fmtTokens(totals.input);
+  document.getElementById('tk-output').textContent = fmtTokens(totals.output);
+  document.getElementById('tk-ratio').textContent = ratio.toFixed(2) + 'x';
+  document.getElementById('tk-sessions').textContent = fmtTokens(totals.sessions);
+
+  updateTokenBarChart(th.days);
+  updateTokenRatioChart(th.days);
+  updateComparison(th.days, totals);
+  updateTokenMonthlyTable(th.days);
+}
+
+// ─── CodeBurn: Activity Burn & Project/Model ────────────────────
+var cbRange = '7d';
+var cbData = null;
+var cbLastFetch = 0;
+
+function fmtCost(v) {
+  if (v >= 1000) return '$' + Math.round(v).toLocaleString();
+  if (v >= 10) return '$' + v.toFixed(0);
+  if (v >= 1) return '$' + v.toFixed(1);
+  return '$' + v.toFixed(2);
+}
+
+function fmtPct(v) {
+  if (v === null || v === undefined) return '\u2014';
+  return Math.round(v * 100) + '%';
+}
+
+function oneshotClass(v) {
+  if (v === null || v === undefined) return '';
+  if (v >= 0.8) return 'oneshot-good';
+  if (v >= 0.6) return 'oneshot-mid';
+  return 'oneshot-bad';
+}
+
+// Range selector wiring
+document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var parent = btn.closest('.cb-range');
+    parent.querySelectorAll('.cb-range__btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var newRange = btn.dataset.range;
+    if (newRange !== cbRange) {
+      cbRange = newRange;
+      // Sync both range selectors
+      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.range === cbRange);
+      });
+      fetchCodeburn();
+    }
+  });
+});
+
+async function fetchCodeburn() {
+  try {
+    var res = await fetch('/api/codeburn?range=' + cbRange);
+    if (!res.ok) return;
+    cbData = await res.json();
+    cbLastFetch = Date.now();
+    updateActivityTab();
+    updateProjectTab();
+    updateEfficiencyTab();
+  } catch(e) { /* retain last data */ }
+}
+
+// Fetch on tab switch if stale
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = btn.dataset.tab;
+    if ((tab === 'activity' || tab === 'projects' || tab === 'efficiency') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
+      fetchCodeburn();
+    }
+  });
+});
+
+// Initial fetch + periodic refresh
+fetchCodeburn();
+setInterval(function() {
+  var activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab && (activeTab.dataset.tab === 'activity' || activeTab.dataset.tab === 'projects' || activeTab.dataset.tab === 'efficiency')) {
+    fetchCodeburn();
+  }
+}, 300000);
+
+// ─── Activity Tab Rendering ─────────────────────────────────────
+function updateActivityTab() {
+  if (!cbData) return;
+
+  // Hero cards
+  document.getElementById('cb-total-cost').textContent = fmtCost(cbData.total_cost_usd);
+  document.getElementById('cb-total-period').textContent = cbData.period.from + ' \u2014 ' + cbData.period.to;
+
+  document.getElementById('cb-total-turns').textContent = cbData.total_turns.toLocaleString();
+  var numDays = cbData.daily ? cbData.daily.length : 1;
+  document.getElementById('cb-avg-per-day').textContent = Math.round(cbData.total_turns / numDays) + '/day avg';
+
+  var osr = cbData.oneshot_rate;
+  var osrEl = document.getElementById('cb-oneshot-rate');
+  osrEl.textContent = fmtPct(osr);
+  osrEl.className = 'cb-hero__val ' + oneshotClass(osr);
+  document.getElementById('cb-oneshot-detail').textContent =
+    (cbData.total_oneshot_turns || 0) + '/' + (cbData.total_edit_turns || 0) + ' edits without retries';
+
+  // Daily cost chart
+  updateCbDailyChart();
+
+  // Activity table — group children under parents
+  var CHILD_OF = {
+    'feature': 'coding', 'refactoring': 'coding',
+    'brainstorming': 'conversation',
+    'testing': 'qa', 'debugging': 'qa',
+    'git': 'devops', 'build/deploy': 'devops'
+  };
+  // Virtual parents — groups that don't exist as their own category
+  var VIRTUAL_GROUPS = {
+    'qa': { name: 'qa' },
+    'devops': { name: 'devops' }
+  };
+  var cats = cbData.categories || [];
+  var catMap = {};
+  cats.forEach(function(c) { catMap[c.name] = c; });
+
+  // Build ordered list: parent followed by its children, sorted by group cost
+  var parents = [];
+  var childrenOf = {};
+  var virtualSeen = {};
+  cats.forEach(function(c) {
+    var parent = CHILD_OF[c.name];
+    if (parent) {
+      if (!childrenOf[parent]) childrenOf[parent] = [];
+      childrenOf[parent].push(c);
+      // Inject virtual parent into parents list once
+      if (VIRTUAL_GROUPS[parent] && !virtualSeen[parent]) {
+        virtualSeen[parent] = true;
+        parents.push({ name: parent, cost_usd: 0, turns: 0, edit_turns: 0, oneshot_turns: 0, retries: 0, _virtual: true });
+      }
+    } else {
+      parents.push(c);
+    }
+  });
+  // Sort parents by group cost desc (own cost + children cost)
+  parents.sort(function(a, b) {
+    var aCost = a.cost_usd + (childrenOf[a.name] || []).reduce(function(s, c) { return s + c.cost_usd; }, 0);
+    var bCost = b.cost_usd + (childrenOf[b.name] || []).reduce(function(s, c) { return s + c.cost_usd; }, 0);
+    return bCost - aCost;
+  });
+
+  // Compute group subtotals (parent + children)
+  var groupTotals = {};
+  parents.forEach(function(p) {
+    var kids = childrenOf[p.name] || [];
+    groupTotals[p.name] = {
+      turns: p.turns + kids.reduce(function(s, k) { return s + k.turns; }, 0),
+      cost_usd: p.cost_usd + kids.reduce(function(s, k) { return s + k.cost_usd; }, 0)
+    };
+  });
+
+  var tbody = document.getElementById('cb-activity-body');
+  tbody.innerHTML = '';
+
+  // Target direction per activity — grounded in KNOWN_PATTERNS.md, session memories, and CLAUDE.md rules
+  // Status: G = enforced (in CLAUDE.md/hooks/memory, verified active)
+  //         Y = partially enabled (rule exists but not consistently followed)
+  //         R = not yet done (aspirational, no enforcement mechanism)
+  // Updated: 2026-04-16
+  var TARGETS = {
+    'coding': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Maximize Coding Output',
+      actions: [
+        ['G', '<strong>KP-402: Parallel subagents halve impl time</strong> — dispatch independent file chunks to parallel-implementer subagents. Validated on Etsy Tag Research: nearly 2x faster.'],
+        ['Y', '<strong>Architecture before code</strong> — brainstorm \u2192 spec-panel (\u2265 7.0) \u2192 sh:plan \u2192 sh:execute. Sometimes skipped for "quick" tasks. [CLAUDE.md rule]'],
+        ['Y', '<strong>Worktree isolation</strong> — sh:execute with worktrees so parallel coding subagents don\'t conflict. Available but not default yet.'],
+        ['Y', '<strong>Sprint batching</strong> — group related user stories into themed sprints. Works when planned, but ad-hoc sessions bypass it. [CLAUDE.md: Sprint batching]']
+      ], offload: null },
+    'feature': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Ship More Features',
+      actions: [
+        ['G', '<strong>360\u00b0 requirements before spec</strong> — brainstorm must exhaust all functional AND nonfunctional requirements before spec. [Memory: feedback_360_requirements]'],
+        ['G', '<strong>KP-402: Parallel dispatch for independent components</strong> — validated pattern that halves wall-clock time. [Memory: feedback_parallel_subagent_scenes]'],
+        ['G', '<strong>Evidence before "done"</strong> — curl health check for APIs, Playwright smoke for frontend. [CLAUDE.md: Evidence before done]'],
+        ['G', '<strong>Backlog is holy</strong> — no implementation without User Story + Acceptance Criteria. [CLAUDE.md rule, enforced by brainstorm skill]']
+      ], offload: null },
+    'refactoring': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Invest in Code Health',
+      actions: [
+        ['Y', '<strong>Run /simplify after each major step</strong> — skill exists but not consistently invoked after every chunk.'],
+        ['G', '<strong>Update KNOWN_PATTERNS.md in same commit</strong> — enforced by CLAUDE.md and panel auto-fix policy. [CLAUDE.md: Learnings are part of the fix]'],
+        ['Y', '<strong>Test structure before count</strong> — rule exists, applied in new projects but legacy tests don\'t follow. [CLAUDE.md rule]']
+      ], offload: null },
+    'delegation': { dir: '\u2191', cls: 'green', goal: 'up', title: 'Scale via Subagents',
+      actions: [
+        ['G', '<strong>model: "sonnet" for all read-only agents</strong> — enforced in CLAUDE.md, verified this session. 3x cheaper. [CLAUDE.md: Subagent model routing]'],
+        ['G', '<strong>Scope every agent prompt to project dir</strong> — enforced after agent wandered into KETO. [Memory: feedback_scope_searches]'],
+        ['Y', '<strong>Background long agents</strong> — run_in_background available but often forgotten in favor of foreground waits. [CLAUDE.md: Parallelize by default]'],
+        ['G', '<strong>KP-402: independent chunks \u2192 parallel subagents</strong> — validated, includes conftest pre-check. [KNOWN_PATTERNS]']
+      ], offload: null },
+    'conversation': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Reduce Conversation Spend \u2014 49% is too high',
+      actions: [
+        ['R', '<strong>Ask ChatGPT/Gemini for Q&A</strong> — 49% conversation share proves this isn\'t happening. Pure Q&A doesn\'t need Opus. 10-50x cheaper.'],
+        ['Y', '<strong>NotebookLM for grounded research</strong> — skill installed, used occasionally. Not default reflex yet. [Skill: notebooklm]'],
+        ['Y', '<strong>Fresh session after every commit</strong> — session-length-guard hook warns at 25 tool calls, but often ignored. [CLAUDE.md: Session cost discipline]'],
+        ['Y', '<strong>Run /compact at ~60% context</strong> — rule exists but manual. No hook to auto-remind. [Memory: feedback_context_optimization, target <$281/day]'],
+        ['G', '<strong>No trailing summaries</strong> — enforced by memory, Claude stops summarizing. [Memory: feedback on response style]']
+      ], offload: 'ChatGPT, Gemini, NotebookLM' },
+    'general': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Eliminate General Overhead',
+      actions: [
+        ['G', '<strong>QMD before asking Claude</strong> — enforced by memory, used this session. 1 QMD query = 10+ greps. [Memory: feedback_use_qmd_before_grep]'],
+        ['Y', '<strong>Wiki first (localhost:3100)</strong> — 38 pages exist but not always checked before exploration. [Memory: reference_governance_wiki]'],
+        ['R', '<strong>Route to ChatGPT</strong> — 16% general spend proves general queries still go to Claude. No routing mechanism.'],
+        ['G', '<strong>KP-219: CLAUDE.md bloat awareness</strong> — skills trimmed 107\u219219. Low-freq blocks moved to commands/. [KNOWN_PATTERNS, Memory: feedback_context_optimization]']
+      ], offload: 'ChatGPT, Gemini, QMD (12 collections), Wiki (38 pages)' },
+    'brainstorming': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Offload Pure Ideation',
+      actions: [
+        ['R', '<strong>Start in Gemini for long-context ideation</strong> — 2.2% brainstorming cost is in Claude. No habit of starting ideation elsewhere.'],
+        ['Y', '<strong>NotebookLM for domain research</strong> — skill exists, used in some sessions. Not default. [Skill: notebooklm]'],
+        ['G', '<strong>Visual companion storyboards</strong> — validated workflow for video content. [Memory: feedback_video_brainstorming_workflow]'],
+        ['R', '<strong>Only Claude when tool access matters</strong> — pure ideation still defaults to Claude. No triage mechanism.']
+      ], offload: 'Gemini, NotebookLM, getdesign.md (for UI/UX)' },
+    'exploration': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Explore Cheaper',
+      actions: [
+        ['G', '<strong>model: "sonnet" for all Explore agents</strong> — enforced in CLAUDE.md, verified. [CLAUDE.md: Subagent model routing]'],
+        ['G', '<strong>QMD before grep for docs</strong> — enforced by memory. Semantic search first, grep for exact symbols. [Memory: feedback_use_qmd_before_grep]'],
+        ['G', '<strong>Scope to project dir always</strong> — enforced after KETO wandering incident. [Memory: feedback_scope_searches]'],
+        ['G', '<strong>Direct tools first</strong> — Glob/Grep before Agent dispatch. Standard practice. [CLAUDE.md: Search scoping]']
+      ], offload: 'Sonnet subagents, QMD (semantic), Wiki' },
+    'planning': { dir: '\u2193', cls: 'yellow', goal: 'amber', title: 'Plan Outside Claude',
+      actions: [
+        ['R', '<strong>Draft plans in Gemini/ChatGPT</strong> — planning still happens in Claude. No routing habit established.'],
+        ['Y', '<strong>getdesign.md for UI/UX ideation</strong> — reference exists, used sometimes. Not reflex. [Memory: reference_getdesign_md]'],
+        ['G', '<strong>spec-panel \u2265 7.0 is the gate</strong> — enforced by DOR governance gate. [Governance: DOR.md]'],
+        ['Y', '<strong>UX-PATTERNS.md before designing</strong> — pattern library exists but not always consulted. [Memory: reference_ux_patterns]']
+      ], offload: 'Gemini, ChatGPT, getdesign.md' },
+    'debugging': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Keep Debugging Lean',
+      actions: [
+        ['Y', '<strong>Use systematic-debugging skill</strong> — skill exists but not always invoked. Sometimes jumps to fix. [Skill: superpowers:systematic-debugging]'],
+        ['G', '<strong>After 2 failed attempts, STOP and reframe</strong> — enforced in CLAUDE.md. [CLAUDE.md rule]'],
+        ['G', '<strong>Read the error, check assumptions</strong> — standard practice, consistently followed.'],
+        ['G', '<strong>Permission denial \u2260 user denial</strong> — enforced by memory. [Memory: feedback_permission_denial]']
+      ], offload: null },
+    'testing': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Test Smart, Not Long',
+      actions: [
+        ['Y', '<strong>TDD: red-green-refactor</strong> — skill exists, used for new features. Skipped for hotfixes. [Skill: superpowers:test-driven-development]'],
+        ['Y', '<strong>Test structure before count</strong> — applied in new projects, legacy tests inconsistent. [CLAUDE.md rule]'],
+        ['G', '<strong>Real DB, no mocks</strong> — enforced after migration incident. [CLAUDE.md rule]'],
+        ['G', '<strong>Never optimize throughput over correctness</strong> — enforced. [CLAUDE.md rule]']
+      ], offload: null },
+    'git': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Git Overhead Is Minimal',
+      actions: [
+        ['G', '<strong>Use /commit skill</strong> — standard flow, consistently used.'],
+        ['G', '<strong>/clean_gone for branch hygiene</strong> — skill available and used. [Skill: commit-commands:clean_gone]'],
+        ['G', '<strong>Commit per user story, not per file</strong> — standard practice. [CLAUDE.md: Sprint batching]'],
+        ['Y', '<strong>DONE-Today after every commit</strong> — rule exists but sometimes forgotten in fast sessions. [Memory: feedback_done_today_mandatory]']
+      ], offload: null },
+    'build/deploy': { dir: '\u2014', cls: '', goal: 'neutral', title: 'Automate Everything',
+      actions: [
+        ['G', '<strong>Dagu DAGs (21 active)</strong> — operational, scheduled. [Memory: reference_dagu_orchestration]'],
+        ['G', '<strong>LaunchAgent watchdogs</strong> — SVG-PAINT auto-restarts within 90s. [Memory: reference_svgpaint_server_lifecycle]'],
+        ['G', '<strong>Always deploy after fixing live services</strong> — enforced by memory. [Memory: feedback_always_deploy]'],
+        ['G', '<strong>Never preview locally</strong> — enforced. Deploy direct, verify via curl. [Memory: feedback_deploy_never_local]']
+      ], offload: null }
+  };
+  // Group-level targets
+  var GROUP_TARGETS = {
+    'coding':       { dir: '\u2191', cls: 'green', goal: 'up', title: 'Coding Group \u2191' },
+    'conversation': { dir: '\u2193', cls: 'red', goal: 'down', title: 'Conversation Group \u2193' },
+    'qa':           { dir: '\u2014', cls: '', goal: 'neutral', title: 'QA Group \u2014' },
+    'devops':       { dir: '\u2014', cls: '', goal: 'neutral', title: 'DevOps Group \u2014' }
+  };
+
+  var STATUS_DOT = { G: 'green', Y: 'yellow', R: 'red' };
+
+  function buildTargetPopover(t) {
+    if (!t || !t.actions) return '<span class="' + (t ? t.cls : '') + '">' + (t ? t.dir : '\u2014') + '</span>';
+    var goalClass = 'target-pop__goal--' + t.goal;
+    var goalLabel = t.goal === 'up' ? '\u2191 INCREASE' : t.goal === 'down' ? '\u2193 REDUCE' : t.goal === 'amber' ? '\u2193 CONSIDER OFFLOAD' : '\u2014 MAINTAIN';
+    // Count statuses for summary
+    var counts = { G: 0, Y: 0, R: 0 };
+    t.actions.forEach(function(a) { counts[a[0]]++; });
+    var html = '<span class="' + t.cls + '">' + t.dir + '</span>';
+    html += '<div class="target-pop">';
+    html += '<div class="target-pop__title">' + t.title + '</div>';
+    html += '<div class="target-pop__goal ' + goalClass + '">' + goalLabel + '</div>';
+    html += '<ul style="list-style:none;padding-left:0">';
+    t.actions.forEach(function(a) {
+      var dotCls = 'tip-dot--' + STATUS_DOT[a[0]];
+      html += '<li><span class="tip-dot ' + dotCls + '"></span><span>' + a[1] + '</span></li>';
+    });
+    html += '</ul>';
+    if (t.offload) {
+      html += '<hr class="target-pop__separator">';
+      html += '<div class="target-pop__offload">\u2192 Offload to: ' + t.offload + '</div>';
+    }
+    html += '<div class="target-pop__legend">' +
+      '<span><span class="tip-dot tip-dot--green"></span>Enforced (' + counts.G + ')</span>' +
+      '<span><span class="tip-dot tip-dot--yellow"></span>Partial (' + counts.Y + ')</span>' +
+      '<span><span class="tip-dot tip-dot--red"></span>Not yet (' + counts.R + ')</span>' +
+      '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderRow(c, indent) {
+    var tr = document.createElement('tr');
+    var osText = c.oneshot_rate !== null && c.oneshot_rate !== undefined ? fmtPct(c.oneshot_rate) : '\u2014';
+    var osClass = oneshotClass(c.oneshot_rate);
+    var costPct = cbData.total_cost_usd > 0 ? (c.cost_usd / cbData.total_cost_usd * 100).toFixed(1) + '%' : '\u2014';
+    var label = indent ? '<span style="padding-left:1.2em;opacity:0.7">\u2514 ' + c.name + '</span>' : c.name;
+    var t = TARGETS[c.name] || { dir: '\u2014', cls: '', actions: null };
+    tr.innerHTML = '<td>' + label + '</td>' +
+      '<td class="num">' + c.turns + '</td>' +
+      '<td class="num">' + fmtCost(c.cost_usd) + '</td>' +
+      '<td class="num">' + costPct + '</td>' +
+      '<td class="num target-cell">' + buildTargetPopover(t) + '</td>' +
+      '<td class="num ' + osClass + '">' + osText + '</td>' +
+      '<td class="num">' + (c.edit_turns > 0 ? c.retries : '\u2014') + '</td>';
+    tbody.appendChild(tr);
+  }
+
+  parents.forEach(function(p) {
+    var kids = childrenOf[p.name] || [];
+    if (kids.length > 0) {
+      // Group header with subtotal
+      var gt = groupTotals[p.name];
+      var gtPct = cbData.total_cost_usd > 0 ? (gt.cost_usd / cbData.total_cost_usd * 100).toFixed(1) + '%' : '\u2014';
+      var hdr = document.createElement('tr');
+      hdr.style.borderBottom = 'none';
+      var gTarget = GROUP_TARGETS[p.name] || { dir: '\u2014', cls: '' };
+      hdr.innerHTML = '<td style="font-weight:600;opacity:0.5;font-size:0.85em;text-transform:uppercase;padding-top:0.6em">' +
+        p.name + ' group</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + gt.turns + '</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + fmtCost(gt.cost_usd) + '</td>' +
+        '<td class="num" style="opacity:0.5;font-size:0.85em">' + gtPct + '</td>' +
+        '<td class="num" style="opacity:0.5"><span class="' + gTarget.cls + '">' + gTarget.dir + '</span></td>' +
+        '<td class="num"></td><td class="num"></td>';
+      tbody.appendChild(hdr);
+      // Parent's own row (indented as a member, skip for virtual groups)
+      if (!p._virtual) renderRow(p, true);
+      kids.sort(function(a, b) { return b.cost_usd - a.cost_usd; });
+      kids.forEach(function(k) { renderRow(k, true); });
+    } else {
+      renderRow(p, false);
+    }
+  });
+
+  // Position popovers to stay within viewport
+  tbody.querySelectorAll('.target-cell').forEach(function(cell) {
+    var pop = cell.querySelector('.target-pop');
+    if (!pop) return;
+    cell.addEventListener('mouseenter', function() {
+      pop.style.display = 'block';
+      var rect = cell.getBoundingClientRect();
+      var popH = pop.offsetHeight;
+      var popW = pop.offsetWidth;
+      var vH = window.innerHeight;
+      var vW = window.innerWidth;
+      // Horizontal: align right edge to cell right, clamp to viewport
+      var left = rect.right - popW;
+      if (left < 8) left = 8;
+      if (left + popW > vW - 8) left = vW - popW - 8;
+      // Vertical: prefer below, flip above if would overflow
+      var top;
+      if (rect.bottom + popH + 8 > vH) {
+        top = rect.top - popH - 6;
+        if (top < 8) top = 8;
+      } else {
+        top = rect.bottom + 6;
+      }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    });
+    cell.addEventListener('mouseleave', function() {
+      pop.style.display = 'none';
+    });
+  });
+}
+
+function updateCbDailyChart() {
+  var days = cbData.daily || [];
+  if (days.length === 0) return;
+
+  var svg = document.getElementById('cb-daily-svg');
+  var W = 800, H = 250, pad = { t: 10, r: 20, b: 40, l: 50 };
+  var cW = W - pad.l - pad.r;
+  var cH = H - pad.t - pad.b;
+
+  var maxCost = Math.max.apply(null, days.map(function(d) { return d.cost_usd; })) || 1;
+  maxCost = Math.ceil(maxCost / 10) * 10; // Round up to nearest 10
+
+  var barW = Math.max(2, Math.min(20, (cW / days.length) - 2));
+  var gap = (cW - barW * days.length) / (days.length + 1);
+
+  var parts = [];
+
+  // Y-axis gridlines
+  for (var i = 0; i <= 4; i++) {
+    var yVal = maxCost * i / 4;
+    var yPos = pad.t + cH - (cH * i / 4);
+    parts.push('<line x1="' + pad.l + '" y1="' + yPos + '" x2="' + (W - pad.r) + '" y2="' + yPos + '" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>');
+    parts.push('<text x="' + (pad.l - 6) + '" y="' + (yPos + 3) + '" text-anchor="end" fill="#5c5e66" font-size="10" font-family="var(--mono)">' + fmtCost(yVal) + '</text>');
+  }
+
+  // Bars
+  days.forEach(function(d, idx) {
+    var x = pad.l + gap + idx * (barW + gap);
+    var barH = (d.cost_usd / maxCost) * cH;
+    var y = pad.t + cH - barH;
+
+    parts.push('<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="2" fill="var(--cyan)" opacity="0.8"/>');
+
+    // X-axis labels (show every Nth)
+    var step = Math.max(1, Math.floor(days.length / 10));
+    if (idx % step === 0) {
+      var label = d.date.slice(5); // MM-DD
+      parts.push('<text x="' + (x + barW / 2) + '" y="' + (H - pad.b + 16) + '" text-anchor="middle" fill="#5c5e66" font-size="9" font-family="var(--mono)">' + label + '</text>');
+    }
+  });
+
+  svg.innerHTML = parts.join('');
+}
+
+// ─── Project & Model Tab Rendering ──────────────────────────────
+function updateProjectTab() {
+  if (!cbData) return;
+
+  // Project bars
+  var projDiv = document.getElementById('cb-project-bars');
+  projDiv.innerHTML = '';
+  var projects = (cbData.projects || []).slice(0, 10);
+  var maxProjCost = projects.length > 0 ? projects[0].cost_usd : 1;
+
+  projects.forEach(function(p) {
+    var pct = Math.max(2, (p.cost_usd / maxProjCost) * 100);
+    var bar = document.createElement('div');
+    bar.className = 'proj-bar';
+    bar.innerHTML = '<div class="proj-bar__label" title="' + (p.path || p.name) + '">' + p.name + '</div>' +
+      '<div class="proj-bar__track"><div class="proj-bar__fill" style="width:' + pct + '%;background:var(--cyan)"></div></div>' +
+      '<div class="proj-bar__val">' + fmtCost(p.cost_usd) + '</div>';
+    projDiv.appendChild(bar);
+  });
+
+  // Model bars
+  var modelDiv = document.getElementById('cb-model-bars');
+  modelDiv.innerHTML = '';
+  var models = (cbData.models || []).slice(0, 10);
+  var maxModelCost = models.length > 0 ? models[0].cost_usd : 1;
+
+  models.forEach(function(m) {
+    var pct = Math.max(2, (m.cost_usd / maxModelCost) * 100);
+    var color = 'var(--other)';
+    var name = m.name.toLowerCase();
+    if (name.indexOf('opus') >= 0) color = 'var(--opus)';
+    else if (name.indexOf('sonnet') >= 0) color = 'var(--sonnet)';
+    else if (name.indexOf('haiku') >= 0) color = 'var(--haiku)';
+
+    var bar = document.createElement('div');
+    bar.className = 'proj-bar';
+    bar.innerHTML = '<div class="proj-bar__label">' + m.name + '</div>' +
+      '<div class="proj-bar__track"><div class="proj-bar__fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+      '<div class="proj-bar__val">' + fmtCost(m.cost_usd) + ' <span style="color:var(--text-muted);font-size:10px">' + m.calls + ' calls</span></div>';
+    modelDiv.appendChild(bar);
+  });
+
+  // Tools table
+  var toolsBody = document.getElementById('cb-tools-body');
+  toolsBody.innerHTML = '';
+  (cbData.tools || []).slice(0, 10).forEach(function(t) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + t.name + '</td><td class="num">' + t.calls.toLocaleString() + '</td>';
+    toolsBody.appendChild(tr);
+  });
+
+  // MCP servers
+  var mcpSection = document.getElementById('cb-mcp-section');
+  var mcpServers = cbData.mcp_servers || [];
+  if (mcpServers.length > 0) {
+    mcpSection.style.display = '';
+    var mcpBody = document.getElementById('cb-mcp-body');
+    mcpBody.innerHTML = '';
+    mcpServers.forEach(function(s) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + s.name + '</td><td class="num">' + s.calls.toLocaleString() + '</td>';
+      mcpBody.appendChild(tr);
+    });
+  } else {
+    mcpSection.style.display = 'none';
+  }
+
+  // Context overhead
+  var overheadSection = document.getElementById('cb-overhead-section');
+  var co = cbData.context_overhead;
+  if (co) {
+    overheadSection.style.display = '';
+    var fmtK = function(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); };
+    var totalCtx = co.total_context_tokens || 0;
+    var cacheRead = co.total_cache_read_tokens || 0;
+    var newInput = co.total_input_tokens || 0;
+    var output = co.total_output_tokens || 0;
+    var cacheCreate = co.total_cache_create_tokens || 0;
+    var cacheHit = ((co.cache_hit_rate || 0) * 100).toFixed(1);
+    var overheadPct = co.est_overhead_pct || 0;
+    var overheadPerTurn = co.est_overhead_per_turn || 0;
+
+    // Stacked bar: cache_read | new_input | cache_create relative to total
+    var crPct = totalCtx > 0 ? (cacheRead / totalCtx * 100) : 0;
+    var niPct = totalCtx > 0 ? (newInput / totalCtx * 100) : 0;
+    var ccPct = totalCtx > 0 ? (cacheCreate / totalCtx * 100) : 0;
+
+    var html = '';
+    // Summary stats
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Cache Hit Rate</div><div style="font-size:18px;font-weight:700;color:' + (parseFloat(cacheHit) > 90 ? 'var(--green)' : 'var(--amber)') + '">' + cacheHit + '%</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Full Context Ratio</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (co.full_context_ratio || 0) + ':1</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">I/O Ratio</div><div style="font-size:18px;font-weight:700">' + (co.io_ratio || 0) + 'x</div></div>';
+    html += '</div>';
+
+    // Context composition bar
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Context Composition (total ' + fmtK(totalCtx) + ' tokens)</div>';
+    html += '<div style="display:flex;height:20px;border-radius:4px;overflow:hidden;margin-bottom:4px">';
+    html += '<div style="width:' + crPct + '%;background:var(--green);min-width:1px" title="Cache read: ' + fmtK(cacheRead) + '"></div>';
+    html += '<div style="width:' + niPct + '%;background:var(--amber);min-width:1px" title="New input: ' + fmtK(newInput) + '"></div>';
+    html += '<div style="width:' + ccPct + '%;background:var(--red);min-width:1px" title="Cache create: ' + fmtK(cacheCreate) + '"></div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:12px;font-size:10px;color:var(--text-dim)">';
+    html += '<span>\u25A0 <span style="color:var(--green)">Cache read</span> ' + fmtK(cacheRead) + ' (' + crPct.toFixed(0) + '%)</span>';
+    html += '<span>\u25A0 <span style="color:var(--amber)">New input</span> ' + fmtK(newInput) + ' (' + niPct.toFixed(0) + '%)</span>';
+    html += '<span>\u25A0 <span style="color:var(--red)">Cache create</span> ' + fmtK(cacheCreate) + ' (' + ccPct.toFixed(0) + '%)</span>';
+    html += '</div>';
+
+    // System overhead estimate
+    html += '<div style="margin-top:14px;padding:10px;background:var(--card-bg);border-radius:6px;border:1px solid var(--border)">';
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:6px">Estimated System Overhead (invisible in JSONL)</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">';
+    html += '<div>Per turn: <strong style="color:var(--amber)">~' + fmtK(overheadPerTurn) + '</strong> tokens</div>';
+    html += '<div>Total: <strong>~' + fmtK(co.est_total_overhead || 0) + '</strong> tokens</div>';
+    html += '<div>Share of input: <strong style="color:' + (overheadPct > 40 ? 'var(--red)' : 'var(--text)') + '">' + overheadPct + '%</strong></div>';
+    html += '<div>Avg context/call: <strong>' + fmtK(co.avg_context_per_call || 0) + '</strong></div>';
+    html += '</div>';
+    html += '<div style="font-size:10px;color:var(--text-dim);margin-top:6px">Includes: system prompt, CLAUDE.md, skill catalog, deferred tools, MCP instructions, memory index</div>';
+    html += '</div>';
+
+    // Output stats
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:11px">';
+    html += '<div style="color:var(--text-muted)">Avg input/turn: <strong>' + fmtK(co.avg_input_per_turn || 0) + '</strong></div>';
+    html += '<div style="color:var(--text-muted)">Avg output/turn: <strong>' + fmtK(co.avg_output_per_turn || 0) + '</strong></div>';
+    html += '</div>';
+
+    document.getElementById('cb-overhead-content').innerHTML = html;
+  } else {
+    overheadSection.style.display = 'none';
+  }
+
+  // Utilization signal
+  var utilSection = document.getElementById('cb-util-section');
+  var toolCount = (cbData.tools || []).length;
+  var mcpCount = mcpServers.length;
+  if (toolCount > 0) {
+    utilSection.style.display = '';
+    document.getElementById('cb-util-summary').textContent =
+      toolCount + ' tools invoked \u00b7 ' + mcpCount + ' MCP servers active in this period';
+  } else {
+    utilSection.style.display = 'none';
+  }
+}
+
+// ─── Efficiency Tab Rendering ──────────────────────────────────
+// Wire up the efficiency range selector to the shared codeburn range
+document.querySelectorAll('#cb-range-efficiency .cb-range__btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#cb-range-efficiency .cb-range__btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    var newRange = btn.dataset.range;
+    if (newRange !== cbRange) {
+      cbRange = newRange;
+      // Sync all range selectors
+      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.range === cbRange);
+      });
+      fetchCodeburn();
+    }
+  });
+});
+
+function updateEfficiencyTab() {
+  if (!cbData || !cbData.efficiency) return;
+
+  var eff = cbData.efficiency;
+  var weeks = eff.weekly || [];
+  var totalCalls = eff.total_tool_calls;
+  var totalTokens = eff.total_tokens;
+  var meanTpt = eff.mean_tokens_per_call;
+
+  // Derive sub-totals from precomputed weekly data
+  var totalInput = 0, totalOutput = 0, totalCache = 0, totalCacheCreate = 0;
+  weeks.forEach(function(w) {
+    totalInput += w.input_tokens;
+    totalOutput += w.output_tokens;
+    totalCache += w.cache_read_tokens;
+    totalCacheCreate += w.cache_create_tokens;
+  });
+  var numDays = (cbData.daily || []).length || 1;
+
+  // Hero cards
+  document.getElementById('eff-mean-tpt').textContent = fmtTokens(meanTpt);
+  document.getElementById('eff-mean-period').textContent = cbData.period.from + ' \u2014 ' + cbData.period.to;
+  document.getElementById('eff-total-calls').textContent = totalCalls.toLocaleString();
+  document.getElementById('eff-total-calls-sub').textContent = Math.round(totalCalls / numDays) + '/day avg';
+  document.getElementById('eff-total-tokens').textContent = fmtTokens(totalTokens);
+  document.getElementById('eff-total-tokens-sub').textContent = 'in: ' + fmtTokens(totalInput) + ' out: ' + fmtTokens(totalOutput);
+
+  // Chart
+  updateEfficiencyChart(weeks);
+
+  // Table
+  var tbody = document.getElementById('eff-weekly-body');
+  var html = '';
+  weeks.forEach(function(w) {
+    var tptColor = w.tokens_per_call > meanTpt * 1.5 ? 'var(--red)' : w.tokens_per_call < meanTpt * 0.7 ? 'var(--green)' : 'var(--text)';
+    html += '<tr>' +
+      '<td>' + w.week + '</td>' +
+      '<td class="num">' + w.tool_calls.toLocaleString() + '</td>' +
+      '<td class="num" style="color:#06b6d4">' + fmtTokens(w.input_tokens) + '</td>' +
+      '<td class="num" style="color:#f59e0b">' + fmtTokens(w.output_tokens) + '</td>' +
+      '<td class="num" style="color:var(--green)">' + fmtTokens(w.cache_read_tokens) + '</td>' +
+      '<td class="num">' + fmtTokens(w.total_tokens) + '</td>' +
+      '<td class="num" style="color:' + tptColor + ';font-weight:600">' + fmtTokens(w.tokens_per_call) + '</td>' +
+      '</tr>';
+  });
+
+  // Total row
+  html += '<tr class="total-row">' +
+    '<td>Total / Mean</td>' +
+    '<td class="num">' + totalCalls.toLocaleString() + '</td>' +
+    '<td class="num" style="color:#06b6d4">' + fmtTokens(totalInput) + '</td>' +
+    '<td class="num" style="color:#f59e0b">' + fmtTokens(totalOutput) + '</td>' +
+    '<td class="num" style="color:var(--green)">' + fmtTokens(totalCache) + '</td>' +
+    '<td class="num">' + fmtTokens(totalTokens) + '</td>' +
+    '<td class="num" style="color:var(--cyan);font-weight:700">' + fmtTokens(meanTpt) + '</td>' +
+    '</tr>';
+
+  tbody.innerHTML = html;
+}
+
+function updateEfficiencyChart(weeks) {
+  var svg = document.getElementById('eff-weekly-svg');
+  var W = 800, H = 280;
+  var M = { top: 20, right: 60, bottom: 50, left: 60 };
+  var plotW = W - M.left - M.right;
+  var plotH = H - M.top - M.bottom;
+
+  var n = weeks.length;
+  if (n === 0) { svg.innerHTML = ''; return; }
+
+  var tptValues = weeks.map(function(w) { return w.tokens_per_call; });
+  var callValues = weeks.map(function(w) { return w.tool_calls; });
+  var maxTpt = Math.max.apply(null, tptValues) * 1.15 || 1;
+  var maxCalls = Math.max.apply(null, callValues) * 1.15 || 1;
+
+  // Grand mean
+  var totalTk = 0, totalCl = 0;
+  weeks.forEach(function(w) { totalTk += w.total_tokens; totalCl += w.tool_calls; });
+  var grandMean = totalCl > 0 ? totalTk / totalCl : 0;
+
+  function cx(i) { return M.left + (i / Math.max(n - 1, 1)) * plotW; }
+  function cyTpt(v) { return M.top + plotH * (1 - v / maxTpt); }
+  function cyCalls(v) { return M.top + plotH * (1 - v / maxCalls); }
+
+  var s = '';
+
+  // Defs
+  s += '<defs>';
+  s += '<linearGradient id="effTptGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15"/><stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/></linearGradient>';
+  s += '</defs>';
+
+  // Grid lines (left Y-axis: tokens/call)
+  for (var g = 0; g <= 4; g++) {
+    var gVal = (maxTpt / 4) * g;
+    var gY = cyTpt(gVal);
+    s += '<line x1="' + M.left + '" y1="' + gY + '" x2="' + (W - M.right) + '" y2="' + gY + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    s += '<text x="' + (M.left - 6) + '" y="' + (gY + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + fmtTokens(Math.round(gVal)) + '</text>';
+  }
+
+  // Right Y-axis labels (tool calls)
+  for (var g2 = 0; g2 <= 4; g2++) {
+    var g2Val = (maxCalls / 4) * g2;
+    var g2Y = cyCalls(g2Val);
+    s += '<text x="' + (W - M.right + 6) + '" y="' + (g2Y + 3) + '" fill="rgba(245,158,11,0.3)" font-size="9" font-family="SF Mono,monospace" text-anchor="start">' + fmtTokens(Math.round(g2Val)) + '</text>';
+  }
+
+  // Axis labels
+  s += '<text x="' + (M.left - 6) + '" y="' + (M.top - 6) + '" fill="#06b6d4" font-size="9" font-family="SF Mono,monospace" text-anchor="end" opacity="0.6">tok/call</text>';
+  s += '<text x="' + (W - M.right + 6) + '" y="' + (M.top - 6) + '" fill="#f59e0b" font-size="9" font-family="SF Mono,monospace" text-anchor="start" opacity="0.6">calls</text>';
+
+  // Grand mean line
+  var meanY = cyTpt(grandMean);
+  s += '<line x1="' + M.left + '" y1="' + meanY + '" x2="' + (W - M.right) + '" y2="' + meanY + '" stroke="rgba(6,182,212,0.4)" stroke-dasharray="6,4"/>';
+  s += '<text x="' + (W - M.right - 4) + '" y="' + (meanY - 5) + '" fill="rgba(6,182,212,0.6)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">MEAN ' + fmtTokens(Math.round(grandMean)) + '</text>';
+
+  // Area fill under tokens/call line
+  if (n >= 2) {
+    var areaPath = 'M' + cx(0) + ',' + cyTpt(0);
+    tptValues.forEach(function(v, i) { areaPath += ' L' + cx(i) + ',' + cyTpt(v); });
+    areaPath += ' L' + cx(n - 1) + ',' + cyTpt(0) + ' Z';
+    s += '<path d="' + areaPath + '" fill="url(#effTptGrad)"/>';
+
+    // Line: tokens/call
+    var linePath = tptValues.map(function(v, i) { return (i === 0 ? 'M' : 'L') + cx(i).toFixed(1) + ',' + cyTpt(v).toFixed(1); }).join(' ');
+    s += '<path d="' + linePath + '" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  // Dots: tokens/call
+  tptValues.forEach(function(v, i) {
+    s += '<circle cx="' + cx(i) + '" cy="' + cyTpt(v) + '" r="3" fill="#06b6d4" opacity="0.7"><title>' + weeks[i].week + ': ' + fmtTokens(v) + ' tok/call (' + weeks[i].tool_calls + ' calls)</title></circle>';
+  });
+
+  // Tool calls bars (behind, using right axis)
+  var barW = Math.max(3, Math.min(16, plotW / n * 0.5));
+  callValues.forEach(function(v, i) {
+    var bH = plotH * (v / maxCalls);
+    var bX = cx(i) - barW / 2;
+    var bY = M.top + plotH - bH;
+    s += '<rect x="' + bX + '" y="' + bY + '" width="' + barW + '" height="' + bH + '" fill="#f59e0b" opacity="0.15" rx="1"><title>' + weeks[i].week + ': ' + v + ' tool calls</title></rect>';
+  });
+
+  // X-axis labels
+  weeks.forEach(function(w, i) {
+    var showLabel = n <= 20 || i % Math.ceil(n / 20) === 0 || i === n - 1;
+    if (showLabel) {
+      var label = w.week.replace(/^\d{4}-/, '');
+      s += '<text x="' + cx(i) + '" y="' + (H - M.bottom + 16) + '" fill="rgba(255,255,255,0.2)" font-size="8" font-family="SF Mono,monospace" text-anchor="middle" transform="rotate(-30,' + cx(i) + ',' + (H - M.bottom + 16) + ')">' + label + '</text>';
+    }
+  });
+
+  svg.innerHTML = s;
+}
+
 </script>
 </body>
 </html>

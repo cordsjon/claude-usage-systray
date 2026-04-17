@@ -20,6 +20,8 @@ from logging.handlers import RotatingFileHandler
 from engine.db import UsageDB
 from engine.poller import TokenHolder, poll_loop
 from engine.api import create_server
+from engine.codeburn import get_codeburn_report
+from engine.sessions import get_token_history
 
 DEFAULT_PORT = 17420
 DEFAULT_DB_DIR = os.path.expanduser("~/.local/share/token-budget")
@@ -87,6 +89,19 @@ def main():
     )
     poller_thread.start()
     log.info("Poller started")
+
+    # Warm codeburn + token history caches in background so first page load is fast
+    def _warm_caches():
+        try:
+            get_codeburn_report(7)
+            get_codeburn_report(355)
+            get_token_history()
+            log.info("Cache warmup complete (7d + all + token-history)")
+        except Exception as exc:
+            log.warning("Cache warmup failed: %s", exc)
+
+    warmup_thread = threading.Thread(target=_warm_caches, daemon=True)
+    warmup_thread.start()
 
     # Start HTTP server (blocks main thread)
     server = create_server(db, token_holder, port=args.port)

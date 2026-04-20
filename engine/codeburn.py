@@ -680,6 +680,9 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         "input_tokens": 0, "output_tokens": 0,
         "cache_read_tokens": 0, "cache_create_tokens": 0,
     })
+    daily_cat_agg: dict[str, dict[str, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
 
     for turn in turns:
         # Collect all tools and bash commands across API calls
@@ -763,9 +766,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         if not project_agg[proj]["path"]:
             project_agg[proj]["path"] = turn["file_path"]
 
-        # Aggregate daily
+        # Aggregate daily (total + per-category cost)
         daily_agg[turn["date"]]["turns"] += 1
         daily_agg[turn["date"]]["cost_usd"] += turn_cost
+        daily_cat_agg[turn["date"]][category] += turn_cost
         daily_agg[turn["date"]]["tool_calls"] += len(all_tools)
         for api_call in turn["api_calls"]:
             usage = api_call.get("usage", {})
@@ -835,6 +839,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
             "output_tokens": v["output_tokens"],
             "cache_read_tokens": v["cache_read_tokens"],
             "cache_create_tokens": v["cache_create_tokens"],
+            "cat_costs": {
+                k: round(c, 2)
+                for k, c in daily_cat_agg[d].items()
+            },
         }
         for d, v in sorted(daily_agg.items())
     ]

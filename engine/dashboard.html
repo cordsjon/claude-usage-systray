@@ -905,6 +905,14 @@
       </div>
     </div>
 
+    <!-- Dev Work % trend chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Weekly Dev Work % (Coding + Delegation vs Total Cost)</div>
+      <div class="cb-chart__area">
+        <svg id="devwork-weekly-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
     <!-- Weekly data table -->
     <div class="cb-table">
       <div class="cb-table__header">Weekly Breakdown</div>
@@ -2573,8 +2581,9 @@ function updateEfficiencyTab() {
   document.getElementById('eff-total-tokens').textContent = fmtTokens(totalTokens);
   document.getElementById('eff-total-tokens-sub').textContent = 'in: ' + fmtTokens(totalInput) + ' out: ' + fmtTokens(totalOutput);
 
-  // Chart
+  // Charts
   updateEfficiencyChart(weeks);
+  updateDevWorkChart();
 
   // Table
   var tbody = document.getElementById('eff-weekly-body');
@@ -2685,6 +2694,135 @@ function updateEfficiencyChart(weeks) {
     var bX = cx(i) - barW / 2;
     var bY = M.top + plotH - bH;
     s += '<rect x="' + bX + '" y="' + bY + '" width="' + barW + '" height="' + bH + '" fill="#f59e0b" opacity="0.15" rx="1"><title>' + weeks[i].week + ': ' + v + ' tool calls</title></rect>';
+  });
+
+  // X-axis labels
+  weeks.forEach(function(w, i) {
+    var showLabel = n <= 20 || i % Math.ceil(n / 20) === 0 || i === n - 1;
+    if (showLabel) {
+      var label = w.week.replace(/^\d{4}-/, '');
+      s += '<text x="' + cx(i) + '" y="' + (H - M.bottom + 16) + '" fill="rgba(255,255,255,0.2)" font-size="8" font-family="SF Mono,monospace" text-anchor="middle" transform="rotate(-30,' + cx(i) + ',' + (H - M.bottom + 16) + ')">' + label + '</text>';
+    }
+  });
+
+  setSvgContent(svg, s);
+}
+
+// ─── Dev Work % Trend Chart ────────────────────────────────────
+function updateDevWorkChart() {
+  if (!cbData || !cbData.daily) return;
+
+  var DEV_CATS = ['coding', 'feature', 'refactoring', 'delegation'];
+  var daily = cbData.daily;
+
+  // Aggregate into weeks
+  var weekMap = {};
+  var weekOrder = [];
+  daily.forEach(function(d) {
+    var dt = new Date(d.date + 'T00:00:00');
+    var thu = new Date(dt);
+    thu.setDate(thu.getDate() + 3 - ((thu.getDay() + 6) % 7));
+    var year = thu.getFullYear();
+    var weekNum = Math.ceil((((thu - new Date(year, 0, 4)) / 86400000) + new Date(year, 0, 4).getDay() + 1) / 7);
+    var wk = year + '-W' + (weekNum < 10 ? '0' : '') + weekNum;
+
+    if (!weekMap[wk]) {
+      weekMap[wk] = { devCost: 0, totalCost: 0 };
+      weekOrder.push(wk);
+    }
+    var catCosts = d.cat_costs || {};
+    var devCost = 0;
+    DEV_CATS.forEach(function(cat) { devCost += catCosts[cat] || 0; });
+    weekMap[wk].devCost += devCost;
+    weekMap[wk].totalCost += d.cost_usd;
+  });
+
+  var weeks = weekOrder.map(function(wk) {
+    var w = weekMap[wk];
+    return {
+      week: wk,
+      pct: w.totalCost > 0 ? (w.devCost / w.totalCost) * 100 : 0,
+      devCost: w.devCost,
+      totalCost: w.totalCost
+    };
+  });
+
+  var svg = document.getElementById('devwork-weekly-svg');
+  var W = 800, H = 280;
+  var M = { top: 20, right: 60, bottom: 50, left: 60 };
+  var plotW = W - M.left - M.right;
+  var plotH = H - M.top - M.bottom;
+
+  var n = weeks.length;
+  if (n === 0) { setSvgContent(svg, ''); return; }
+
+  var pctValues = weeks.map(function(w) { return w.pct; });
+  var costValues = weeks.map(function(w) { return w.devCost; });
+  var maxPct = Math.min(Math.max.apply(null, pctValues) * 1.3, 100) || 100;
+  var maxCost = Math.max.apply(null, costValues) * 1.15 || 1;
+
+  // Grand mean
+  var totalDev = 0, totalAll = 0;
+  weeks.forEach(function(w) { totalDev += w.devCost; totalAll += w.totalCost; });
+  var grandMeanPct = totalAll > 0 ? (totalDev / totalAll) * 100 : 0;
+
+  function cx(i) { return M.left + (i / Math.max(n - 1, 1)) * plotW; }
+  function cyPct(v) { return M.top + plotH * (1 - v / maxPct); }
+  function cyCost(v) { return M.top + plotH * (1 - v / maxCost); }
+
+  var s = '';
+
+  s += '<defs>';
+  s += '<linearGradient id="devWorkGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e" stop-opacity="0.2"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient>';
+  s += '</defs>';
+
+  // Grid lines (left Y-axis: %)
+  for (var g = 0; g <= 4; g++) {
+    var gVal = (maxPct / 4) * g;
+    var gY = cyPct(gVal);
+    s += '<line x1="' + M.left + '" y1="' + gY + '" x2="' + (W - M.right) + '" y2="' + gY + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4"/>';
+    s += '<text x="' + (M.left - 6) + '" y="' + (gY + 3) + '" fill="rgba(255,255,255,0.2)" font-size="9" font-family="SF Mono,monospace" text-anchor="end">' + Math.round(gVal) + '%</text>';
+  }
+
+  // Right Y-axis labels (dev cost $)
+  for (var g2 = 0; g2 <= 4; g2++) {
+    var g2Val = (maxCost / 4) * g2;
+    var g2Y = cyCost(g2Val);
+    s += '<text x="' + (W - M.right + 6) + '" y="' + (g2Y + 3) + '" fill="rgba(245,158,11,0.3)" font-size="9" font-family="SF Mono,monospace" text-anchor="start">$' + Math.round(g2Val) + '</text>';
+  }
+
+  // Axis labels
+  s += '<text x="' + (M.left - 6) + '" y="' + (M.top - 6) + '" fill="#22c55e" font-size="9" font-family="SF Mono,monospace" text-anchor="end" opacity="0.6">dev %</text>';
+  s += '<text x="' + (W - M.right + 6) + '" y="' + (M.top - 6) + '" fill="#f59e0b" font-size="9" font-family="SF Mono,monospace" text-anchor="start" opacity="0.6">dev $</text>';
+
+  // Grand mean line
+  var meanY = cyPct(grandMeanPct);
+  s += '<line x1="' + M.left + '" y1="' + meanY + '" x2="' + (W - M.right) + '" y2="' + meanY + '" stroke="rgba(34,197,94,0.4)" stroke-dasharray="6,4"/>';
+  s += '<text x="' + (W - M.right - 4) + '" y="' + (meanY - 5) + '" fill="rgba(34,197,94,0.6)" font-size="8" font-family="SF Mono,monospace" text-anchor="end">MEAN ' + grandMeanPct.toFixed(1) + '%</text>';
+
+  // Area fill under dev work % line
+  if (n >= 2) {
+    var areaPath = 'M' + cx(0) + ',' + cyPct(0);
+    pctValues.forEach(function(v, i) { areaPath += ' L' + cx(i) + ',' + cyPct(v); });
+    areaPath += ' L' + cx(n - 1) + ',' + cyPct(0) + ' Z';
+    s += '<path d="' + areaPath + '" fill="url(#devWorkGrad)"/>';
+
+    var linePath = pctValues.map(function(v, i) { return (i === 0 ? 'M' : 'L') + cx(i).toFixed(1) + ',' + cyPct(v).toFixed(1); }).join(' ');
+    s += '<path d="' + linePath + '" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  // Dots: dev work %
+  pctValues.forEach(function(v, i) {
+    s += '<circle cx="' + cx(i) + '" cy="' + cyPct(v) + '" r="3" fill="#22c55e" opacity="0.7"><title>' + weeks[i].week + ': ' + v.toFixed(1) + '% dev ($' + weeks[i].devCost.toFixed(0) + ' / $' + weeks[i].totalCost.toFixed(0) + ')</title></circle>';
+  });
+
+  // Dev cost bars (behind, using right axis)
+  var barW = Math.max(3, Math.min(16, plotW / n * 0.5));
+  costValues.forEach(function(v, i) {
+    var bH = plotH * (v / maxCost);
+    var bX = cx(i) - barW / 2;
+    var bY = M.top + plotH - bH;
+    s += '<rect x="' + bX + '" y="' + bY + '" width="' + barW + '" height="' + bH + '" fill="#f59e0b" opacity="0.15" rx="1"><title>' + weeks[i].week + ': $' + v.toFixed(0) + ' dev cost</title></rect>';
   });
 
   // X-axis labels

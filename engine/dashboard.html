@@ -171,6 +171,14 @@
   /* Shift content when banner is visible */
   body.has-banner .tab-panel { top: 86px; }
 
+  /* Loading overlay */
+  .loading-overlay { position: fixed; inset: 0; z-index: 500; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
+  .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .loading-label { margin-top: 12px; font-size: 12px; color: var(--text-muted); font-family: var(--mono); }
+  .loading-error { color: var(--red); font-size: 12px; font-family: var(--mono); margin-top: 8px; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* Tooltip */
   .chart-tooltip { position: fixed; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 11px; font-family: var(--mono); color: var(--text); pointer-events: none; z-index: 999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 
@@ -312,6 +320,12 @@
 </style>
 </head>
 <body>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-label">Connecting to engine...</div>
+  <div class="loading-error" id="loading-error">Failed to load data. Retrying...</div>
+</div>
 
 <div role="status" aria-live="polite" class="sr-only" id="a11y-runway">Runway data loading</div>
 <div class="chart-tooltip" id="tooltip"></div>
@@ -922,6 +936,16 @@ let connected = false;
 let lastUpdated = null;
 
 // ─── Utilities ───────────────────────────────────────────────────
+// Safari-safe SVG innerHTML replacement — parses via a <div> wrapper
+// to avoid WebKit bugs with direct svg.innerHTML assignment.
+function setSvgContent(svgEl, content) {
+  var tmp = document.createElement('div');
+  tmp.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg">' + content + '</svg>';
+  var parsed = tmp.querySelector('svg');
+  while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+  while (parsed.firstChild) svgEl.appendChild(parsed.firstChild);
+}
+
 function utilColor(pct) {
   if (pct >= 80) return 'var(--red)';
   if (pct >= 60) return 'var(--amber)';
@@ -977,20 +1001,43 @@ function updateConnLabel() {
 }
 setInterval(updateConnLabel, 5000);
 
+// ─── Loading Overlay ────────────────────────────────────────────
+var loadingOverlay = document.getElementById('loading-overlay');
+var loadingError = document.getElementById('loading-error');
+var initialLoadDone = false;
+var fetchFailCount = 0;
+
+function dismissLoading() {
+  if (!initialLoadDone) {
+    initialLoadDone = true;
+    fetchFailCount = 0;
+    loadingOverlay.classList.add('hidden');
+    setTimeout(function() { loadingOverlay.style.display = 'none'; }, 500);
+  }
+}
+
+function showLoadingError() {
+  fetchFailCount++;
+  if (!initialLoadDone && fetchFailCount >= 2) {
+    loadingError.style.display = 'block';
+  }
+}
+
 // ─── Data Fetching ───────────────────────────────────────────────
 async function fetchStatus() {
   try {
     const res = await fetch('/api/status');
-    if (!res.ok) return;
+    if (!res.ok) { showLoadingError(); return; }
     window.__status = await res.json();
     lastUpdated = window.__status.updated_at || new Date().toISOString();
     setConnected(true);
+    dismissLoading();
     updateHUD();
     updateBudgetCards();
     updateRunwayChart();
     updateSessionBanner();
     updateConnLabel();
-  } catch { /* retain last data */ }
+  } catch (_e) { showLoadingError(); }
 }
 
 async function fetchHistory() {
@@ -1000,7 +1047,7 @@ async function fetchHistory() {
     window.__history = await res.json();
     updateCharts();
     updateRunwayChart();
-  } catch { /* retain last data */ }
+  } catch (_e) { /* retain last data */ }
 }
 
 async function checkHealth() {
@@ -1242,7 +1289,7 @@ function updateRunwayChart() {
   // Interactive hover overlay
   svgContent += '<rect x="' + M.left + '" y="' + M.top + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" id="chart-hover-area" style="cursor:crosshair"/>';
 
-  svg.innerHTML = svgContent;
+  setSvgContent(svg, svgContent);
 
   // Hover tooltip
   const hoverArea = document.getElementById('chart-hover-area');
@@ -1528,7 +1575,7 @@ async function fetchTokenHistory() {
     if (!res.ok) return;
     window.__tokenHistory = await res.json();
     updateTokenTab();
-  } catch { /* retain last data */ }
+  } catch (_e) { /* retain last data */ }
 }
 
 // Fetch on load and every 30 min (data refreshes hourly server-side)
@@ -1597,7 +1644,7 @@ function updateTokenBarChart(days) {
   // Interactive hover overlay
   s += '<rect x="' + M.left + '" y="' + M.top + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" style="cursor:crosshair" id="tk-bar-hover"/>';
 
-  svg.innerHTML = s;
+  setSvgContent(svg, s);
 
   // Tooltip on hover
   const hoverArea = document.getElementById('tk-bar-hover');
@@ -1688,7 +1735,7 @@ function updateTokenRatioChart(days) {
     }
   });
 
-  svg.innerHTML = s;
+  setSvgContent(svg, s);
 }
 
 function updateTokenMonthlyTable(days) {
@@ -1758,7 +1805,7 @@ function updateComparison(days, totals) {
     profileDesc = 'Very low new-input per output. Most context is cached (' + cachePct.toFixed(0) + '% cache hit). Full context ratio is ' + fullRatio.toFixed(0) + ':1 \u2014 the model processes vast context but you send minimal new tokens per turn.';
     profileColor = 'var(--amber)';
   } else if (ratio < 0.5) {
-    profileEmoji = '\u{1f4bb}'; profileName = 'Code Generator';
+    profileEmoji = '\uD83D\uDCBB'; profileName = 'Code Generator';
     profileDesc = 'Low new-input, high output. ' + cachePct.toFixed(0) + '% of context is cached. Full context ratio is ' + fullRatio.toFixed(0) + ':1. Claude reuses prior context heavily and generates more code than you prompt per turn.';
     profileColor = 'var(--cyan)';
   } else if (ratio < 1.5) {
@@ -1766,11 +1813,11 @@ function updateComparison(days, totals) {
     profileDesc = 'Moderate new-input per output. ' + cachePct.toFixed(0) + '% cache hit rate. Mix of fresh context and generation \u2014 research, refactoring, design.';
     profileColor = 'var(--green)';
   } else if (ratio < 3.0) {
-    profileEmoji = '\u{1f4ac}'; profileName = 'Conversationalist';
+    profileEmoji = '\uD83D\uDCAC'; profileName = 'Conversationalist';
     profileDesc = 'High new-input per output. Frequent context changes, shorter responses. ' + cachePct.toFixed(0) + '% cache hit rate.';
     profileColor = 'var(--blue)';
   } else {
-    profileEmoji = '\u{1f4da}'; profileName = 'Context Architect';
+    profileEmoji = '\uD83D\uDCDA'; profileName = 'Context Architect';
     profileDesc = 'Very high new-input per output. Large fresh context per turn. ' + cachePct.toFixed(0) + '% cache hit rate.';
     profileColor = 'var(--blue)';
   }
@@ -2334,7 +2381,7 @@ function updateCbDailyChart() {
     }
   });
 
-  svg.innerHTML = parts.join('');
+  setSvgContent(svg, parts.join(''));
 }
 
 // ─── Project & Model Tab Rendering ──────────────────────────────
@@ -2567,7 +2614,7 @@ function updateEfficiencyChart(weeks) {
   var plotH = H - M.top - M.bottom;
 
   var n = weeks.length;
-  if (n === 0) { svg.innerHTML = ''; return; }
+  if (n === 0) { setSvgContent(svg, ''); return; }
 
   var tptValues = weeks.map(function(w) { return w.tokens_per_call; });
   var callValues = weeks.map(function(w) { return w.tool_calls; });
@@ -2649,7 +2696,7 @@ function updateEfficiencyChart(weeks) {
     }
   });
 
-  svg.innerHTML = s;
+  setSvgContent(svg, s);
 }
 
 </script>

@@ -5,7 +5,7 @@
   <key>Label</key><string>com.jcords.prompt-usage-ingest</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string><string>python3</string>
+    <string>__PYTHON_BIN__</string>
     <string>-m</string><string>engine.ingest_prompts</string>
   </array>
   <key>WorkingDirectory</key>

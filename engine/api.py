@@ -155,6 +155,8 @@ def _make_handler_class(
                 self._handle_codeburn(query)
             elif path == "/api/prompts":
                 self._handle_prompts()
+            elif path == "/api/prompts/unmatched":
+                self._handle_unmatched(query)
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -324,6 +326,40 @@ def _make_handler_class(
                     "case_by_case": case_by_case,
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 },
+                200,
+            )
+
+        def _handle_unmatched(self, query):
+            """GET /api/prompts/unmatched — top excerpts with no regex match.
+
+            Query params: ?limit=10&days=7. Groups identical excerpts, orders
+            by hit count desc. Feeds the Habits tab's candidate-patterns panel.
+            """
+            try:
+                limit = min(int(query.get("limit", ["10"])[0]), 100)
+                days = min(int(query.get("days", ["7"])[0]), 365)
+            except (TypeError, ValueError):
+                _json_response(self, {"error": "bad limit or days"}, 400)
+                return
+            since = (date.today() - timedelta(days=days)).isoformat()
+            rows = db._conn.execute(
+                """
+                SELECT text_excerpt, COUNT(*) AS hits, MAX(date) AS last_seen
+                FROM prompt_unmatched
+                WHERE date >= ?
+                GROUP BY text_excerpt
+                ORDER BY hits DESC, last_seen DESC
+                LIMIT ?
+                """,
+                (since, limit),
+            ).fetchall()
+            items = [
+                {"text_excerpt": r[0], "hits": r[1], "last_seen": r[2]}
+                for r in rows
+            ]
+            _json_response(
+                self,
+                {"items": items, "window_days": days, "limit": limit},
                 200,
             )
 

@@ -365,6 +365,19 @@
   .candidates-panel__placeholder code { font-family: var(--mono); color: var(--cyan); background: var(--bg-elevated); padding: 1px 5px; border-radius: 4px; font-size: 10px; }
   .candidates-panel__note { font-size: 10px; color: var(--text-muted); margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-family: var(--mono); }
 
+  /* Candidate rows (AC-12a data-wired) */
+  .cand-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg-elevated); }
+  .cand-row__excerpt { font-size: 11px; color: var(--text); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cand-row__meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-top: 4px; }
+  .cand-row__controls { display: flex; gap: 6px; margin-top: 8px; }
+  .cand-row__regex { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 4px 6px; border-radius: 6px; }
+  .cand-row__btn { background: var(--cyan-dim); border: none; color: var(--cyan); font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-family: var(--mono); }
+  .cand-row__btn--add { background: rgba(0, 200, 100, 0.15); color: var(--green); }
+  .cand-row__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cand-row__preview { font-size: 10px; color: var(--text-dim); font-family: var(--mono); margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }
+  .cand-row__preview--ok { color: var(--green); }
+  .cand-row__preview--err { color: var(--red); }
+
   .habits-meta { font-size: 10px; color: var(--text-muted); font-family: var(--mono); text-align: right; padding: 4px 8px 0; }
   .habits-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); box-shadow: 0 4px 12px rgba(0,0,0,0.35); z-index: 500; opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; }
   .habits-toast--visible { opacity: 1; transform: translateY(0); }
@@ -1051,12 +1064,10 @@
         <button class="candidates-panel__toggle" id="candidates-panel-toggle" aria-label="Collapse candidates">&minus;</button>
       </div>
       <div class="candidates-panel__body" id="candidates-panel-body">
-        <div class="candidates-panel__placeholder">
-          <strong style="color: var(--text);">v2 deferred.</strong><br>
-          Add <code>GET /api/prompts/unmatched</code> endpoint to populate this panel with the top 10 unmatched prompts from the last 7 days.<br><br>
-          The dry-run (<code>POST /api/prompts/dry-run</code>) and YAML-append (<code>POST /api/prompts/pattern</code>) endpoints already exist on the server and will be wired here when the source list is available.
+        <div id="candidates-list" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="candidates-panel__placeholder">Loading&hellip;</div>
         </div>
-        <div class="candidates-panel__note">US-TB-01 AC-12a</div>
+        <div class="candidates-panel__note">US-TB-01 AC-12a &middot; top-10 unmatched / 7d</div>
       </div>
     </aside>
 
@@ -3195,6 +3206,114 @@ setInterval(function() {
 
 // Initial fetch so the tab has data when first opened
 loadHabits();
+
+// ── Candidate patterns panel (AC-12a) ──────────────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function loadCandidates() {
+  var list = document.getElementById('candidates-list');
+  if (!list) return;
+  fetch('/api/prompts/unmatched?limit=10&days=7')
+    .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function(data) {
+      if (!data.items || data.items.length === 0) {
+        list.innerHTML = '<div class="candidates-panel__placeholder">No unmatched prompts in the last 7 days.</div>';
+        return;
+      }
+      list.innerHTML = data.items.map(function(item, idx) {
+        return (
+          '<div class="cand-row" data-idx="' + idx + '">' +
+            '<div class="cand-row__excerpt" title="' + escapeHtml(item.text_excerpt) + '">' + escapeHtml(item.text_excerpt.slice(0, 100)) + '</div>' +
+            '<div class="cand-row__meta"><span>' + item.hits + ' hits</span><span>' + escapeHtml(item.last_seen) + '</span></div>' +
+            '<div class="cand-row__controls">' +
+              '<input class="cand-row__regex" placeholder="regex…" aria-label="Regex to try">' +
+              '<button class="cand-row__btn" data-action="preview">Preview</button>' +
+              '<button class="cand-row__btn cand-row__btn--add" data-action="add" disabled>Add</button>' +
+            '</div>' +
+            '<div class="cand-row__preview" style="display:none"></div>' +
+          '</div>'
+        );
+      }).join('');
+    })
+    .catch(function(err) {
+      list.innerHTML = '<div class="candidates-panel__placeholder cand-row__preview--err">Failed to load unmatched: ' + escapeHtml(String(err)) + '</div>';
+    });
+}
+
+// Event delegation inside the candidates panel
+document.addEventListener('click', function(ev) {
+  var btn = ev.target.closest('.cand-row__btn');
+  if (!btn) return;
+  var row = btn.closest('.cand-row');
+  if (!row) return;
+  var input = row.querySelector('.cand-row__regex');
+  var preview = row.querySelector('.cand-row__preview');
+  var addBtn = row.querySelector('.cand-row__btn--add');
+  var action = btn.dataset.action;
+
+  if (action === 'preview') {
+    var regex = input.value.trim();
+    if (!regex) { preview.style.display = 'block'; preview.className = 'cand-row__preview cand-row__preview--err'; preview.textContent = 'enter a regex'; return; }
+    preview.style.display = 'block';
+    preview.className = 'cand-row__preview';
+    preview.textContent = 'checking…';
+    fetch('/api/prompts/dry-run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ regex: regex })
+    })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, body: j }; }); })
+      .then(function(res) {
+        if (!res.ok) {
+          preview.className = 'cand-row__preview cand-row__preview--err';
+          preview.textContent = 'error: ' + (res.body.error || 'unknown');
+          addBtn.disabled = true;
+          return;
+        }
+        var samples = (res.body.sample_matches || []).slice(0, 3);
+        preview.className = 'cand-row__preview cand-row__preview--ok';
+        preview.innerHTML = res.body.hit_count + ' hits over ' + res.body.window_days + 'd' + (samples.length ? '<br>· ' + samples.map(escapeHtml).join('<br>· ') : '');
+        addBtn.disabled = res.body.hit_count < 1;
+        addBtn.dataset.regex = regex;
+      })
+      .catch(function(err) {
+        preview.className = 'cand-row__preview cand-row__preview--err';
+        preview.textContent = 'error: ' + err;
+      });
+  } else if (action === 'add') {
+    var regex2 = btn.dataset.regex;
+    if (!regex2) return;
+    var id = window.prompt('Pattern id (lowercase, no spaces):', '');
+    if (!id) return;
+    var intent = window.prompt('One-line intent:', '') || '';
+    fetch('/api/prompts/pattern', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, intent: intent, regex: regex2, type: 'unstructured', version: 1 })
+    })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, body: j }; }); })
+      .then(function(res) {
+        if (!res.ok) {
+          preview.className = 'cand-row__preview cand-row__preview--err';
+          preview.textContent = 'add failed: ' + (res.body.error || 'unknown');
+          return;
+        }
+        preview.className = 'cand-row__preview cand-row__preview--ok';
+        preview.textContent = 'added. Re-ingest to see it in rankings.';
+        addBtn.disabled = true;
+      });
+  }
+});
+
+// Load candidates on initial open and on Habits tab activation
+loadCandidates();
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  if (btn.dataset.tab === 'habits') btn.addEventListener('click', function() { loadCandidates(); });
+});
 
 </script>
 </body>

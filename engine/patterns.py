@@ -14,6 +14,18 @@ import yaml
 
 
 _SLASH_RE = re.compile(r"^/([a-z][a-z0-9:_\-]*)")
+# Claude Code wraps slash-command invocations as
+# <command-name>/sh:plan</command-name> blocks inside the user message body,
+# not as the literal `/sh:plan` string. Detect both shapes.
+_COMMAND_TAG_RE = re.compile(
+    r"<command-name>\s*/([a-z][a-z0-9:_\-]*)", re.IGNORECASE
+)
+# Claude Code machinery that floods user-role entries — classify as
+# pattern_id="<machinery>" so it never counts as a real prompt.
+_MACHINERY_RE = re.compile(
+    r"^\s*(?:<ide_opened_file>|<task-notification>|\[Image:|<local-command-stdout>)",
+    re.IGNORECASE,
+)
 
 
 def load_patterns(yaml_path):
@@ -41,7 +53,12 @@ def classify_message(text, patterns):
     Unmatched messages get ``pattern_id=None``.
     """
     stripped = text.lstrip()
+    if _MACHINERY_RE.match(stripped):
+        return {"pattern_id": "_machinery", "is_structured": False, "version": 0}
     m = _SLASH_RE.match(stripped)
+    if m:
+        return {"pattern_id": m.group(1), "is_structured": True, "version": 0}
+    m = _COMMAND_TAG_RE.search(stripped)
     if m:
         return {"pattern_id": m.group(1), "is_structured": True, "version": 0}
     for p in patterns:

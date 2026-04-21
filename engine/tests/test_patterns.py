@@ -31,6 +31,21 @@ class TestPatterns(unittest.TestCase):
         p = classify_message("no idea what this is", self.patterns)
         self.assertIsNone(p["pattern_id"])
 
+    def test_command_name_tag_is_structured(self):
+        """Claude Code wraps slash invocations as <command-name>/foo</command-name>."""
+        p = classify_message("<command-name>/sh:plan</command-name>", self.patterns)
+        self.assertEqual(p["pattern_id"], "sh:plan")
+        self.assertTrue(p["is_structured"])
+
+    def test_ide_opened_file_is_machinery(self):
+        p = classify_message("<ide_opened_file>foo.py</ide_opened_file>", self.patterns)
+        self.assertEqual(p["pattern_id"], "_machinery")
+        self.assertFalse(p["is_structured"])
+
+    def test_image_paste_is_machinery(self):
+        p = classify_message("[Image: original 3840x2160, ...]", self.patterns)
+        self.assertEqual(p["pattern_id"], "_machinery")
+
 
 if __name__ == "__main__":
     unittest.main()

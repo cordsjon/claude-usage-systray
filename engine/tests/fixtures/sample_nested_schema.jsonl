@@ -1,0 +1,5 @@
+{"type":"queue-operation","operation":"start","sessionId":"S2","timestamp":"2026-04-21T12:00:00Z"}
+{"type":"user","message":{"role":"user","content":"/kickoff"},"sessionId":"S2","timestamp":"2026-04-21T12:00:01Z"}
+{"type":"assistant","message":{"role":"assistant","content":"ok"},"sessionId":"S2"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"x","content":"done"}]},"sessionId":"S2"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"<ide_opened_file>foo.py</ide_opened_file>"},{"type":"text","text":"deploy to gtxs"}]},"sessionId":"S2","timestamp":"2026-04-21T12:05:00Z"}

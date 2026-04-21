@@ -18,6 +18,9 @@ FIXT = Path(__file__).parent / "fixtures" / "sample_conversation.jsonl"
 PATTERNS_YAML = Path(__file__).parent / "fixtures" / "patterns_test.yaml"
 
 
+NESTED_FIXT = Path(__file__).parent / "fixtures" / "sample_nested_schema.jsonl"
+
+
 class TestIterUserMessages(unittest.TestCase):
     def test_extracts_only_text_user_messages(self):
         msgs = list(iter_user_messages(FIXT, start_offset=0))
@@ -32,6 +35,19 @@ class TestIterUserMessages(unittest.TestCase):
     def test_end_offset_reported(self):
         msgs = list(iter_user_messages(FIXT, start_offset=0))
         self.assertGreater(msgs[-1]["byte_offset_after"], 0)
+
+    def test_nested_schema_type_user_with_message_field(self):
+        """Claude Code 2026+ uses {type:'user', message:{role:'user', content:...}}."""
+        msgs = list(iter_user_messages(NESTED_FIXT, start_offset=0))
+        texts = [m["text"] for m in msgs]
+        # Expect /kickoff and the joined IDE+deploy block; tool_result line skipped
+        self.assertEqual(len(msgs), 2)
+        self.assertEqual(texts[0], "/kickoff")
+        self.assertIn("deploy to gtxs", texts[1])
+
+    def test_nested_schema_session_id_from_top_level(self):
+        msgs = list(iter_user_messages(NESTED_FIXT, start_offset=0))
+        self.assertEqual(msgs[0]["session_id"], "S2")
 
 
 class TestWatermark(unittest.TestCase):
@@ -61,7 +77,7 @@ class TestIngestE2E(unittest.TestCase):
         db = UsageDB(":memory:")
         tmp = Path(tempfile.mkdtemp())
         try:
-            proj = tmp / "-Users-x-projects-demo" / "conversations"
+            proj = tmp / "-Users-x-projects-demo"
             proj.mkdir(parents=True)
             shutil.copy(FIXT, proj / "s1.jsonl")
 

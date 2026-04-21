@@ -286,6 +286,11 @@ def _make_handler_class(
 
             everyday, case_by_case = [], []
             for row in ranked:
+                # _machinery is a sentinel for IDE/task-notification/image noise.
+                # It lives in the DB so unmatched coverage stays honest but must
+                # never surface on the dashboard.
+                if row["pattern_id"] == "_machinery":
+                    continue
                 info = patterns_info.get(row["pattern_id"], {})
                 has_skill = any(
                     (d / row["pattern_id"]).exists()

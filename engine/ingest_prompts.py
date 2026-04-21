@@ -49,6 +49,30 @@ def decode_project_dir(encoded, fs_root=None):
     return "/" + str(cur_rel)
 
 
+def _is_user_entry(obj):
+    """True if this JSONL line is a user prompt we should classify.
+
+    Claude Code's transcript schema wraps user messages as
+    ``{"type": "user", "message": {"role": "user", "content": ...}}``.
+    Older samples also used flat ``{"role": "user", "content": ...}``.
+    Both shapes are accepted.
+    """
+    if obj.get("type") == "user":
+        msg = obj.get("message")
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            return True
+    if obj.get("role") == "user" and "content" in obj:
+        return True
+    return False
+
+
+def _user_content(obj):
+    """Return the ``content`` payload (string or list) of a user entry."""
+    if obj.get("type") == "user":
+        return (obj.get("message") or {}).get("content")
+    return obj.get("content")
+
+
 def _extract_user_text(content):
     """Return the text payload of a user message's ``content`` field or None.
 
@@ -100,9 +124,9 @@ def iter_user_messages(jsonl_path, start_offset=0):
                 ordinal += 1
                 continue
             ordinal += 1
-            if obj.get("role") != "user":
+            if not _is_user_entry(obj):
                 continue
-            content = obj.get("content")
+            content = _user_content(obj)
             text = _extract_user_text(content)
             if not text:
                 continue
@@ -143,11 +167,16 @@ def ingest_all(db, projects_root, patterns_yaml):
     patterns = load_patterns(patterns_yaml)
     total, matched, unmatched, structured = 0, 0, 0, 0
     for proj_dir in Path(projects_root).glob("-*"):
-        conv_dir = proj_dir / "conversations"
-        if not conv_dir.is_dir():
+        if not proj_dir.is_dir():
+            continue
+        # Claude Code writes JSONL transcripts directly into the project dir,
+        # named <session_uuid>.jsonl. (Older plan assumption of a conversations/
+        # subdir was wrong — verified against live filesystem on 2026-04-21.)
+        jsonl_files = sorted(proj_dir.glob("*.jsonl"))
+        if not jsonl_files:
             continue
         project_dir = decode_project_dir(proj_dir.name)
-        for jsonl in sorted(conv_dir.glob("*.jsonl")):
+        for jsonl in jsonl_files:
             start_off, head = resolve_start_offset(db, str(jsonl))
             last_off = start_off
             for msg in iter_user_messages(jsonl, start_offset=start_off):
@@ -196,9 +225,11 @@ if __name__ == "__main__":
 
     from engine.db import UsageDB
 
+    # Match the production server DB name (engine/server.py uses token_budget.db,
+    # not the usage.db placeholder the plan assumed).
     db_path = os.environ.get(
         "TOKEN_BUDGET_DB",
-        str(Path.home() / ".local/share/token-budget/usage.db"),
+        str(Path.home() / ".local/share/token-budget/token_budget.db"),
     )
     projects_root = Path.home() / ".claude" / "projects"
     patterns_yaml = (

@@ -22,6 +22,59 @@ CREATE TABLE IF NOT EXISTS usage_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON usage_snapshots(timestamp);
 CREATE INDEX IF NOT EXISTS idx_snapshots_cycle_id  ON usage_snapshots(cycle_id);
+
+CREATE TABLE IF NOT EXISTS prompt_usage (
+    id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    project_dir TEXT NOT NULL,
+    pattern_id TEXT NOT NULL,
+    pattern_version INTEGER NOT NULL DEFAULT 1,
+    is_structured INTEGER NOT NULL,
+    matched_text TEXT,
+    message_ordinal INTEGER NOT NULL,
+    UNIQUE (session_id, message_ordinal)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prompt_usage_date ON prompt_usage(date);
+CREATE INDEX IF NOT EXISTS idx_prompt_usage_pattern ON prompt_usage(pattern_id);
+
+CREATE TABLE IF NOT EXISTS prompt_unmatched (
+    id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    text_excerpt TEXT NOT NULL,
+    message_ordinal INTEGER NOT NULL,
+    UNIQUE (session_id, message_ordinal)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prompt_unmatched_date ON prompt_unmatched(date);
+
+CREATE TABLE IF NOT EXISTS prompt_pattern_eval (
+    id INTEGER PRIMARY KEY,
+    pattern_id TEXT NOT NULL,
+    pattern_version INTEGER NOT NULL,
+    eval_date TEXT NOT NULL,
+    precision_score REAL,
+    sample_size INTEGER NOT NULL,
+    verdict TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS prompt_pattern_eval_labels (
+    id INTEGER PRIMARY KEY,
+    pattern_id TEXT NOT NULL,
+    message_id INTEGER NOT NULL,
+    is_true_positive INTEGER NOT NULL,
+    labeler TEXT NOT NULL,
+    labeled_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ingest_watermark (
+    file_path TEXT PRIMARY KEY,
+    byte_offset INTEGER NOT NULL,
+    sha256_head TEXT NOT NULL,
+    last_ingested_at TEXT NOT NULL
+);
 """
 
 
@@ -68,6 +121,82 @@ class UsageDB:
         )
         self._conn.commit()
         return cur.lastrowid
+
+    # ── prompt-frequency writes (US-TB-01) ──────────────────
+
+    def insert_prompt_usage(
+        self,
+        *,
+        date,
+        session_id,
+        project_dir,
+        pattern_id,
+        pattern_version,
+        is_structured,
+        matched_text,
+        message_ordinal,
+    ):
+        """Idempotent insert keyed on (session_id, message_ordinal)."""
+        self._conn.execute(
+            """INSERT OR IGNORE INTO prompt_usage
+               (date, session_id, project_dir, pattern_id, pattern_version,
+                is_structured, matched_text, message_ordinal)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                date,
+                session_id,
+                project_dir,
+                pattern_id,
+                pattern_version,
+                int(bool(is_structured)),
+                matched_text,
+                message_ordinal,
+            ),
+        )
+        self._conn.commit()
+
+    def insert_prompt_unmatched(
+        self, *, date, session_id, text_excerpt, message_ordinal
+    ):
+        """Idempotent insert of redacted excerpt for unmatched user messages."""
+        self._conn.execute(
+            """INSERT OR IGNORE INTO prompt_unmatched
+               (date, session_id, text_excerpt, message_ordinal)
+               VALUES (?, ?, ?, ?)""",
+            (date, session_id, text_excerpt, message_ordinal),
+        )
+        self._conn.commit()
+
+    def upsert_watermark(
+        self, file_path, byte_offset, sha256_head, last_ingested_at
+    ):
+        """Upsert ingest watermark for a JSONL file."""
+        self._conn.execute(
+            """INSERT INTO ingest_watermark
+               (file_path, byte_offset, sha256_head, last_ingested_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(file_path) DO UPDATE SET
+                 byte_offset=excluded.byte_offset,
+                 sha256_head=excluded.sha256_head,
+                 last_ingested_at=excluded.last_ingested_at""",
+            (file_path, byte_offset, sha256_head, last_ingested_at),
+        )
+        self._conn.commit()
+
+    def get_watermark(self, file_path):
+        """Return watermark dict for file_path, or None if not seen."""
+        row = self._conn.execute(
+            """SELECT byte_offset, sha256_head, last_ingested_at
+               FROM ingest_watermark WHERE file_path=?""",
+            (file_path,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "byte_offset": row[0],
+            "sha256_head": row[1],
+            "last_ingested_at": row[2],
+        }
 
     def prune(self) -> int:
         """Delete snapshots older than RETENTION_DAYS. Returns deleted count."""
@@ -130,6 +259,41 @@ class UsageDB:
         )
         return cur.fetchall()
 
+    def get_ranked_prompts(self, today):
+        """Return ranked prompt patterns with 7d/30d/all counts.
+
+        Each dict: {pattern_id, is_structured, count_7d, count_30d, count_all}.
+        Ordering: count_7d DESC, then count_all DESC.
+        """
+        from datetime import date, timedelta
+
+        today_d = date.fromisoformat(today)
+        d7 = (today_d - timedelta(days=7)).isoformat()
+        d30 = (today_d - timedelta(days=30)).isoformat()
+        rows = self._conn.execute(
+            """
+            SELECT pattern_id,
+                   MAX(is_structured) AS is_structured,
+                   SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS c7,
+                   SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS c30,
+                   COUNT(*) AS call_total
+            FROM prompt_usage
+            GROUP BY pattern_id
+            ORDER BY c7 DESC, call_total DESC
+            """,
+            (d7, d30),
+        ).fetchall()
+        return [
+            dict(
+                pattern_id=r[0],
+                is_structured=bool(r[1]),
+                count_7d=r[2],
+                count_30d=r[3],
+                count_all=r[4],
+            )
+            for r in rows
+        ]
+
     def get_weekday_averages(self, since: str) -> list[sqlite3.Row]:
         """Return average utilisation grouped by weekday (0=Mon .. 6=Sun)."""
         cur = self._conn.execute(
@@ -147,6 +311,18 @@ class UsageDB:
         return cur.fetchall()
 
     # ── maintenance ─────────────────────────────────────────
+
+    def downgrade_prompt_tables(self):
+        """Drop all prompt-frequency tables (AC-16b rollback)."""
+        for t in (
+            "prompt_pattern_eval_labels",
+            "prompt_pattern_eval",
+            "prompt_unmatched",
+            "prompt_usage",
+            "ingest_watermark",
+        ):
+            self._conn.execute(f"DROP TABLE IF EXISTS {t}")
+        self._conn.commit()
 
     def checkpoint(self):
         """Force a WAL checkpoint."""

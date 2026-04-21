@@ -1,0 +1,4 @@
+{"role":"user","content":"/lightsout","sessionId":"S1","timestamp":"2026-04-21T10:00:00Z"}
+{"role":"assistant","content":"ok wrapping up"}
+{"role":"user","content":[{"type":"tool_result","content":"ok"}],"sessionId":"S1"}
+{"role":"user","content":"produce animals s1","sessionId":"S1","timestamp":"2026-04-21T10:05:00Z"}

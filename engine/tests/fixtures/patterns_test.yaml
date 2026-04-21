@@ -1,0 +1,11 @@
+patterns:
+  - id: produce
+    intent: SVG production run
+    regex: '(?i)^\s*produce\s+'
+    type: unstructured
+    version: 1
+  - id: ebg
+    intent: Excel bridge to Gemini
+    regex: '(?i)^\s*ebg\b'
+    type: unstructured
+    version: 1

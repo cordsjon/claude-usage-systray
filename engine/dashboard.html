@@ -317,6 +317,57 @@
   .util-card__row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
   .util-card__name { color: var(--text); }
   .util-card__count { font-family: var(--mono); color: var(--text-dim); }
+
+  /* ═══ TAB 7: HABITS ═══ */
+  #tab-habits { padding: 20px; }
+  .habits-layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  .habits-layout--collapsed { grid-template-columns: 1fr 32px; }
+  .habits-main { min-width: 0; }
+  .habits-section { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+  .habits-section__header { padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .habits-section__title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .habits-section__sub { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .habits-section__count { margin-left: auto; font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .habits-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .habits-table th { padding: 8px 12px; text-align: left; font-weight: 500; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+  .habits-table th.num, .habits-table td.num { text-align: right; }
+  .habits-table th.action, .habits-table td.action { text-align: center; width: 48px; }
+  .habits-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .habits-table tr:last-child td { border-bottom: none; }
+  .habits-table tr:hover { background: var(--bg-elevated); }
+  .habits-table tr.habit-row--stale td { opacity: 0.45; }
+  .habits-table .pid { font-family: var(--mono); color: var(--text); font-size: 12px; }
+  .habits-table .intent { color: var(--text-dim); font-size: 12px; }
+  .habits-table .count { font-family: var(--mono); color: var(--text); font-size: 12px; }
+  .habits-table .count--zero { color: var(--text-muted); }
+
+  .habit-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.4; }
+  .habit-badge--structured { color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.25); }
+  .habit-badge--unstructured { color: var(--cyan); background: var(--cyan-dim); border: 1px solid rgba(6,182,212,0.25); }
+  .habit-badge--skill { color: var(--amber); background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.3); margin-left: 6px; text-decoration: none; cursor: help; }
+  .habit-badge--skill:hover { background: rgba(245,158,11,0.22); }
+
+  .habit-arrow { background: none; border: 1px solid var(--border); color: var(--text-dim); font-family: var(--mono); font-size: 14px; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; line-height: 1; padding: 0; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+  .habit-arrow:hover { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+  .habit-arrow:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .habits-empty { padding: 20px 16px; color: var(--text-muted); font-size: 12px; text-align: center; font-style: italic; }
+
+  /* Candidate side panel (AC-12a) */
+  .candidates-panel { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; position: sticky; top: 60px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; }
+  .candidates-panel--collapsed .candidates-panel__body { display: none; }
+  .candidates-panel__header { padding: 12px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+  .candidates-panel--collapsed .candidates-panel__header { border-bottom: none; }
+  .candidates-panel__title { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; }
+  .candidates-panel__toggle { background: none; border: none; color: var(--text-dim); font-family: var(--mono); font-size: 14px; cursor: pointer; padding: 0 4px; }
+  .candidates-panel__body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+  .candidates-panel__placeholder { font-size: 11px; color: var(--text-dim); line-height: 1.55; padding: 8px 0; }
+  .candidates-panel__placeholder code { font-family: var(--mono); color: var(--cyan); background: var(--bg-elevated); padding: 1px 5px; border-radius: 4px; font-size: 10px; }
+  .candidates-panel__note { font-size: 10px; color: var(--text-muted); margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-family: var(--mono); }
+
+  .habits-meta { font-size: 10px; color: var(--text-muted); font-family: var(--mono); text-align: right; padding: 4px 8px 0; }
+  .habits-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); box-shadow: 0 4px 12px rgba(0,0,0,0.35); z-index: 500; opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; }
+  .habits-toast--visible { opacity: 1; transform: translateY(0); }
 </style>
 </head>
 <body>
@@ -339,6 +390,7 @@
     <button class="tab-btn" data-tab="activity">Activity Burn</button>
     <button class="tab-btn" data-tab="projects">Project &amp; Model</button>
     <button class="tab-btn" data-tab="efficiency">Efficiency</button>
+    <button class="tab-btn" data-tab="habits">Habits</button>
   </div>
   <div class="tab-bar__right">
     <div class="conn-dot" id="conn-dot"></div>
@@ -934,6 +986,82 @@
 
     <div class="footer">Efficiency &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
   </div>
+</div>
+
+<!-- ═══ TAB 7: HABITS ═══ -->
+<div class="tab-panel" id="tab-habits">
+  <div class="habits-layout" id="habits-layout">
+
+    <div class="habits-main">
+      <div class="habits-meta" id="habits-meta">&mdash;</div>
+
+      <!-- Everyday section -->
+      <div class="habits-section" id="habits-everyday-section">
+        <div class="habits-section__header">
+          <div class="habits-section__title">Everyday</div>
+          <div class="habits-section__sub">promoted &middot; arrow demotes</div>
+          <div class="habits-section__count" id="habits-everyday-count">0</div>
+        </div>
+        <table class="habits-table">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Intent</th>
+              <th class="num">7d</th>
+              <th class="num">30d</th>
+              <th class="num">all</th>
+              <th>Type</th>
+              <th class="action">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody id="habits-everyday-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Case-by-case section -->
+      <div class="habits-section" id="habits-caseby-section">
+        <div class="habits-section__header">
+          <div class="habits-section__title">Case-by-case</div>
+          <div class="habits-section__sub">unclassified by default &middot; arrow promotes</div>
+          <div class="habits-section__count" id="habits-caseby-count">0</div>
+        </div>
+        <table class="habits-table">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Intent</th>
+              <th class="num">7d</th>
+              <th class="num">30d</th>
+              <th class="num">all</th>
+              <th>Type</th>
+              <th class="action">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody id="habits-caseby-body"></tbody>
+        </table>
+      </div>
+
+      <div class="footer">Habits &middot; 3+ repetitions &rarr; skill candidate &middot; Refreshes every 5 min</div>
+    </div>
+
+    <!-- Candidate patterns side panel (AC-12a) -->
+    <aside class="candidates-panel" id="candidates-panel">
+      <div class="candidates-panel__header" id="candidates-panel-header">
+        <div class="candidates-panel__title">Candidate patterns</div>
+        <button class="candidates-panel__toggle" id="candidates-panel-toggle" aria-label="Collapse candidates">&minus;</button>
+      </div>
+      <div class="candidates-panel__body" id="candidates-panel-body">
+        <div class="candidates-panel__placeholder">
+          <strong style="color: var(--text);">v2 deferred.</strong><br>
+          Add <code>GET /api/prompts/unmatched</code> endpoint to populate this panel with the top 10 unmatched prompts from the last 7 days.<br><br>
+          The dry-run (<code>POST /api/prompts/dry-run</code>) and YAML-append (<code>POST /api/prompts/pattern</code>) endpoints already exist on the server and will be wired here when the source list is available.
+        </div>
+        <div class="candidates-panel__note">US-TB-01 AC-12a</div>
+      </div>
+    </aside>
+
+  </div>
+  <div class="habits-toast" id="habits-toast" role="status" aria-live="polite"></div>
 </div>
 
 <script>
@@ -2836,6 +2964,237 @@ function updateDevWorkChart() {
 
   setSvgContent(svg, s);
 }
+
+// ─── Habits Tab (US-TB-01) ──────────────────────────────────────
+var habitsData = null;
+var habitsLastFetch = 0;
+var habitsToastTimer = null;
+var CLAUDE_SKILL_RULE_ANCHOR = 'https://docs.anthropic.com/claude-code';  // intent anchor; skill rule is in CLAUDE.md
+
+function habitsEscape(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function habitsFormatGeneratedAt(iso) {
+  if (!iso) return '\u2014';
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return 'Updated ' + timeAgo(iso);
+  } catch (e) { return iso; }
+}
+
+function habitsShowToast(msg) {
+  var toast = document.getElementById('habits-toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('habits-toast--visible');
+  if (habitsToastTimer) clearTimeout(habitsToastTimer);
+  habitsToastTimer = setTimeout(function() {
+    toast.classList.remove('habits-toast--visible');
+  }, 3200);
+}
+
+function habitsSortRows(rows) {
+  // Sort by count_7d desc within active rows; stale (count_30d === 0) sorted to bottom
+  var active = [], stale = [];
+  rows.forEach(function(r) {
+    if ((r.count_30d | 0) === 0) stale.push(r); else active.push(r);
+  });
+  active.sort(function(a, b) { return (b.count_7d | 0) - (a.count_7d | 0); });
+  stale.sort(function(a, b) { return (b.count_all | 0) - (a.count_all | 0); });
+  return active.concat(stale);
+}
+
+function habitsRenderRow(row, section) {
+  var isStale = (row.count_30d | 0) === 0;
+  var staleCls = isStale ? ' habit-row--stale' : '';
+  var arrow = section === 'everyday' ? '\u2193' : '\u2191';
+  var arrowTarget = section === 'everyday' ? 'case_by_case' : 'everyday';
+  var arrowLabel = section === 'everyday' ? 'Demote to case-by-case' : 'Promote to everyday';
+
+  var typeCls = row.type === 'structured' ? 'habit-badge--structured' : 'habit-badge--unstructured';
+  var typeLabel = row.type === 'structured' ? 'struct' : 'unstruct';
+
+  var skillBadge = '';
+  if (row.skill_candidate) {
+    skillBadge = ' <a href="#" class="habit-badge habit-badge--skill" title="3+ repetitions in 30d and no skill file exists. CLAUDE.md: \'Skill composition — when the same interaction pattern repeats 3+ times, convert it to a skill/command.\'" onclick="return false;">&rarr; skill?</a>';
+  }
+
+  var count7Cls = (row.count_7d | 0) === 0 ? 'count count--zero' : 'count';
+  var count30Cls = (row.count_30d | 0) === 0 ? 'count count--zero' : 'count';
+  var countAllCls = (row.count_all | 0) === 0 ? 'count count--zero' : 'count';
+
+  return (
+    '<tr class="habit-row' + staleCls + '" data-pattern-id="' + habitsEscape(row.pattern_id) + '" data-section="' + section + '">' +
+      '<td><span class="pid">' + habitsEscape(row.pattern_id) + '</span></td>' +
+      '<td><span class="intent">' + habitsEscape(row.intent || '\u2014') + '</span></td>' +
+      '<td class="num ' + count7Cls + '">' + (row.count_7d | 0) + '</td>' +
+      '<td class="num ' + count30Cls + '">' + (row.count_30d | 0) + '</td>' +
+      '<td class="num ' + countAllCls + '">' + (row.count_all | 0) + '</td>' +
+      '<td><span class="habit-badge ' + typeCls + '">' + typeLabel + '</span>' + skillBadge + '</td>' +
+      '<td class="action"><button class="habit-arrow" data-target-section="' + arrowTarget + '" title="' + arrowLabel + '" aria-label="' + arrowLabel + '">' + arrow + '</button></td>' +
+    '</tr>'
+  );
+}
+
+function habitsRender(data) {
+  habitsData = data;
+  var everyday = habitsSortRows((data && data.everyday) || []);
+  var caseBy = habitsSortRows((data && data.case_by_case) || []);
+
+  var evBody = document.getElementById('habits-everyday-body');
+  var cbBody = document.getElementById('habits-caseby-body');
+
+  if (everyday.length === 0) {
+    evBody.innerHTML = '<tr><td colspan="7" class="habits-empty">No patterns promoted yet. Use the promote arrow on Case-by-case rows.</td></tr>';
+  } else {
+    evBody.innerHTML = everyday.map(function(r) { return habitsRenderRow(r, 'everyday'); }).join('');
+  }
+  if (caseBy.length === 0) {
+    cbBody.innerHTML = '<tr><td colspan="7" class="habits-empty">No matched patterns yet. Run the ingest script to populate.</td></tr>';
+  } else {
+    cbBody.innerHTML = caseBy.map(function(r) { return habitsRenderRow(r, 'case_by_case'); }).join('');
+  }
+
+  document.getElementById('habits-everyday-count').textContent =
+    everyday.length + (everyday.length === 1 ? ' pattern' : ' patterns');
+  document.getElementById('habits-caseby-count').textContent =
+    caseBy.length + (caseBy.length === 1 ? ' pattern' : ' patterns');
+  document.getElementById('habits-meta').textContent =
+    habitsFormatGeneratedAt(data && data.generated_at);
+}
+
+async function loadHabits() {
+  try {
+    var res = await fetch('/api/prompts');
+    if (!res.ok) {
+      habitsShowToast('Failed to load habits (' + res.status + ')');
+      return;
+    }
+    var body = await res.json();
+    habitsLastFetch = Date.now();
+    habitsRender(body);
+  } catch (e) {
+    habitsShowToast('Failed to load habits (network)');
+  }
+}
+
+function habitsFindRow(patternId, section) {
+  var bodyId = section === 'everyday' ? 'habits-everyday-body' : 'habits-caseby-body';
+  var body = document.getElementById(bodyId);
+  if (!body) return null;
+  var rows = body.querySelectorAll('tr.habit-row');
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].getAttribute('data-pattern-id') === patternId) return rows[i];
+  }
+  return null;
+}
+
+function habitsMoveInData(patternId, fromSection, toSection) {
+  if (!habitsData) return null;
+  var fromKey = fromSection === 'everyday' ? 'everyday' : 'case_by_case';
+  var toKey = toSection === 'everyday' ? 'everyday' : 'case_by_case';
+  var fromArr = habitsData[fromKey] || [];
+  var moved = null;
+  for (var i = 0; i < fromArr.length; i++) {
+    if (fromArr[i].pattern_id === patternId) {
+      moved = fromArr.splice(i, 1)[0];
+      break;
+    }
+  }
+  if (moved) {
+    (habitsData[toKey] = habitsData[toKey] || []).push(moved);
+  }
+  return moved;
+}
+
+async function habitsHandleArrowClick(btn) {
+  if (btn.disabled) return;
+  var tr = btn.closest('tr.habit-row');
+  if (!tr) return;
+  var patternId = tr.getAttribute('data-pattern-id');
+  var fromSection = tr.getAttribute('data-section');
+  var toSection = btn.getAttribute('data-target-section');
+  if (!patternId || !toSection) return;
+
+  // Optimistic UI: mutate local data, re-render
+  var moved = habitsMoveInData(patternId, fromSection, toSection);
+  habitsRender(habitsData);
+
+  btn.disabled = true;
+  try {
+    var res = await fetch('/api/prompts/classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pattern_id: patternId, section: toSection })
+    });
+    if (!res.ok) {
+      // Revert on failure
+      if (moved) habitsMoveInData(patternId, toSection, fromSection);
+      habitsRender(habitsData);
+      var errText = 'Move failed (' + res.status + ')';
+      try {
+        var errBody = await res.json();
+        if (errBody && errBody.error) errText = 'Move failed: ' + errBody.error;
+      } catch (_) { /* ignore parse error */ }
+      habitsShowToast(errText);
+      return;
+    }
+    // Success — refresh soon to pick up server-authoritative state + counts
+    setTimeout(loadHabits, 600);
+  } catch (e) {
+    if (moved) habitsMoveInData(patternId, toSection, fromSection);
+    habitsRender(habitsData);
+    habitsShowToast('Move failed (network)');
+  }
+}
+
+// Event delegation for arrow clicks (survives re-renders)
+document.addEventListener('click', function(ev) {
+  var btn = ev.target && ev.target.closest && ev.target.closest('.habit-arrow');
+  if (btn) habitsHandleArrowClick(btn);
+});
+
+// Candidate panel collapse toggle
+(function() {
+  var header = document.getElementById('candidates-panel-header');
+  var panel = document.getElementById('candidates-panel');
+  var layout = document.getElementById('habits-layout');
+  var toggle = document.getElementById('candidates-panel-toggle');
+  if (!header || !panel || !layout || !toggle) return;
+  header.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('candidates-panel--collapsed');
+    layout.classList.toggle('habits-layout--collapsed', collapsed);
+    toggle.textContent = collapsed ? '+' : '\u2212';
+    toggle.setAttribute('aria-label', collapsed ? 'Expand candidates' : 'Collapse candidates');
+  });
+})();
+
+// Fetch on tab switch if stale; initial + 300s polling when tab is active
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (btn.dataset.tab === 'habits' && (Date.now() - habitsLastFetch > 300000 || !habitsData)) {
+      loadHabits();
+    }
+  });
+});
+
+setInterval(function() {
+  var activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab && activeTab.dataset.tab === 'habits') {
+    loadHabits();
+  }
+}, 300000);
+
+// Initial fetch so the tab has data when first opened
+loadHabits();
 
 </script>
 </body>

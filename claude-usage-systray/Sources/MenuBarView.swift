@@ -6,6 +6,7 @@ struct MenuBarView: View {
     @State private var showSettings = false
     @State private var showDashboard = false
     @State private var projectionLine: String = ""
+    @State private var shortcutsConfig: WorkspaceConfig? = nil
     private let enginePort = 17420
 
     var body: some View {
@@ -14,6 +15,8 @@ struct MenuBarView: View {
             
             Divider()
                 .padding(.vertical, 4)
+
+            shortcutsSection
 
             modelBreakdown
 
@@ -187,6 +190,102 @@ struct MenuBarView: View {
 
     private func quitApp() {
         NSApplication.shared.terminate(nil)
+    }
+
+    @ViewBuilder
+    private var shortcutsSection: some View {
+        if let config = shortcutsConfig {
+            let activeProjects = config.projects.filter { $0.isActive }
+            if !activeProjects.isEmpty {
+                Menu("Projects") {
+                    ForEach(activeProjects, id: \.id) { project in
+                        Menu(project.label) {
+                            ForEach(project.actions, id: \.label) { action in
+                                if let steps = action.steps, !steps.isEmpty {
+                                    Button(action.label) {
+                                        fireWithInput(action: action)
+                                    }
+                                } else {
+                                    Button(action.label) {
+                                        HermesClient.fire(prompt: action.prompt)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 2)
+            }
+
+            if !config.clis.isEmpty {
+                Menu("Quick CLIs") {
+                    ForEach(config.clis, id: \.id) { cli in
+                        Button(cli.label) {
+                            if let steps = cli.steps, !steps.isEmpty,
+                               let first = steps.first(where: { $0.required }) {
+                                fireCliWithInput(cli: cli, stepPrompt: first.prompt)
+                            } else {
+                                HermesClient.fire(prompt: cli.prompt)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 2)
+
+                Divider()
+                    .padding(.vertical, 4)
+            }
+        }
+        EmptyView()
+            .onAppear {
+                shortcutsConfig = ShortcutLoader.load()
+            }
+    }
+
+    private func fireWithInput(action: WorkspaceAction) {
+        guard let step = action.steps?.first(where: { $0.required }) else {
+            HermesClient.fire(prompt: action.prompt)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = action.label
+        alert.informativeText = step.prompt
+        alert.addButton(withTitle: "Send")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            let filled = action.prompt.replacingOccurrences(
+                of: "{\(step.field)}",
+                with: input.stringValue
+            )
+            HermesClient.fire(prompt: filled)
+        }
+    }
+
+    private func fireCliWithInput(cli: WorkspaceCli, stepPrompt: String) {
+        guard let step = cli.steps?.first(where: { $0.required }) else {
+            HermesClient.fire(prompt: cli.prompt)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = cli.label
+        alert.informativeText = step.prompt
+        alert.addButton(withTitle: "Send")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            let filled = cli.prompt.replacingOccurrences(
+                of: "{\(step.field)}",
+                with: input.stringValue
+            )
+            HermesClient.fire(prompt: filled)
+        }
     }
 
     private func fetchProjection() {

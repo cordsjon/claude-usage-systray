@@ -1,4 +1,10 @@
 name: ClaudeUsageSystray
+
+packages:
+  Yams:
+    url: https://github.com/jpsim/Yams
+    from: "5.0.0"
+
 options:
   bundleIdPrefix: com.claude
   deploymentTarget:
@@ -33,6 +39,8 @@ targets:
         LSUIElement: YES
     dependencies:
       - sdk: Security.framework
+      - sdk: UserNotifications.framework
+      - package: Yams
     entitlements:
       path: Resources/ClaudeUsageSystray.entitlements
       properties:

@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPopover()
         setupNotifications()
+        HermesClient.requestNotificationPermission()
         startUsagePolling()
         spawnEngineProcess()
         startHealthCheck()

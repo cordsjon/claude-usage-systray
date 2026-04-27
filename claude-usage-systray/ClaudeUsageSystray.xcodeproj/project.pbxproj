@@ -3,21 +3,27 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02580706DE8C07ED9A5177A6 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = 2A538FA093DB156B311B9275 /* Yams */; };
 		22F4B6C5A7558EED3BD2DB95 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06653C5881670A81199C42CC /* MenuBarView.swift */; };
 		354CBABB4F867F1E95A9A01E /* UsageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE554A7DA6DDC77A08A3EEE /* UsageService.swift */; };
 		477DC01AB2A27BF9535464A1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AFD01138604C8622102594F /* main.swift */; };
 		4B94CAD601C9365558A3A209 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C3BC14807EE08B3766D0A9C8 /* Assets.xcassets */; };
+		520015116107224E61B90E08 /* ShortcutLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC3AEE39AFEA8FBB4C01858 /* ShortcutLoaderTests.swift */; };
 		59259AC8C5B89477A67D5A8D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1107FB82A3A3C9FC04B4F35 /* SettingsView.swift */; };
+		5D8932AAFA5B1921C7485311 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A06F2BF04F101E9212C2B93 /* HermesClient.swift */; };
+		60D2AFEC88AAC9332BA25BED /* WorkspaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C4CB311E606F64C30ED217 /* WorkspaceModels.swift */; };
 		80E1131433C5BE35E6CF65E4 /* UsageData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32234A82B1C94CCB6F3763AE /* UsageData.swift */; };
+		9C4A4F1EBFE74DD0318F450D /* ShortcutLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE78F9309453F3DD790709FB /* ShortcutLoader.swift */; };
+		A436338D04020E792FB65F7C /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 714FD812101ABDED54ED7A48 /* UserNotifications.framework */; };
+		B16C157BEB9F9EE50447910B /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA070D4F8E37B920D80AF975 /* Logger.swift */; };
 		C33689B322FFA7525A92894A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE78D81A249AA2CBF9D9C9CB /* AppDelegate.swift */; };
 		CA4C19637A5CD709F1C57EDA /* UsageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF92A3018305AA026317454 /* UsageServiceTests.swift */; };
 		F25EDEE38ABF1A0E15C849DC /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C024067E6D3F865AF198511C /* SettingsManager.swift */; };
 		F6263675C12E1B942E3CD6AF /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA6F91F4720B31FB4CA872B9 /* Security.framework */; };
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* Logger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,8 +41,13 @@
 		20995FA0F9EEA9F7D67A33F6 /* ClaudeUsageSystray.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeUsageSystray.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2AFD01138604C8622102594F /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		32234A82B1C94CCB6F3763AE /* UsageData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageData.swift; sourceTree = "<group>"; };
+		46C4CB311E606F64C30ED217 /* WorkspaceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceModels.swift; sourceTree = "<group>"; };
+		5A06F2BF04F101E9212C2B93 /* HermesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesClient.swift; sourceTree = "<group>"; };
+		714FD812101ABDED54ED7A48 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		8CF92A3018305AA026317454 /* UsageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageServiceTests.swift; sourceTree = "<group>"; };
 		971BD946FCB9D8A12AC5DA99 /* ClaudeUsageSystrayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaudeUsageSystrayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9CC3AEE39AFEA8FBB4C01858 /* ShortcutLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutLoaderTests.swift; sourceTree = "<group>"; };
+		AE78F9309453F3DD790709FB /* ShortcutLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutLoader.swift; sourceTree = "<group>"; };
 		B1107FB82A3A3C9FC04B4F35 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C024067E6D3F865AF198511C /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
 		C3BC14807EE08B3766D0A9C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -44,7 +55,7 @@
 		DA6F91F4720B31FB4CA872B9 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		DE78D81A249AA2CBF9D9C9CB /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DEE554A7DA6DDC77A08A3EEE /* UsageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E1F3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		EA070D4F8E37B920D80AF975 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		F35CDB3DFFFBEE4CE3F0D52E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -54,6 +65,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F6263675C12E1B942E3CD6AF /* Security.framework in Frameworks */,
+				A436338D04020E792FB65F7C /* UserNotifications.framework in Frameworks */,
+				02580706DE8C07ED9A5177A6 /* Yams in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -64,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				DA6F91F4720B31FB4CA872B9 /* Security.framework */,
+				714FD812101ABDED54ED7A48 /* UserNotifications.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -101,6 +115,7 @@
 		AE3D7472958AF08383FEC913 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9CC3AEE39AFEA8FBB4C01858 /* ShortcutLoaderTests.swift */,
 				8CF92A3018305AA026317454 /* UsageServiceTests.swift */,
 			);
 			path = Tests;
@@ -110,13 +125,16 @@
 			isa = PBXGroup;
 			children = (
 				DE78D81A249AA2CBF9D9C9CB /* AppDelegate.swift */,
-				A1B2C3D4E5F6A7B8C9D0E1F3 /* Logger.swift */,
+				5A06F2BF04F101E9212C2B93 /* HermesClient.swift */,
+				EA070D4F8E37B920D80AF975 /* Logger.swift */,
 				2AFD01138604C8622102594F /* main.swift */,
 				06653C5881670A81199C42CC /* MenuBarView.swift */,
 				C024067E6D3F865AF198511C /* SettingsManager.swift */,
 				B1107FB82A3A3C9FC04B4F35 /* SettingsView.swift */,
+				AE78F9309453F3DD790709FB /* ShortcutLoader.swift */,
 				32234A82B1C94CCB6F3763AE /* UsageData.swift */,
 				DEE554A7DA6DDC77A08A3EEE /* UsageService.swift */,
+				46C4CB311E606F64C30ED217 /* WorkspaceModels.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -138,6 +156,7 @@
 			);
 			name = ClaudeUsageSystray;
 			packageProductDependencies = (
+				2A538FA093DB156B311B9275 /* Yams */,
 			);
 			productName = ClaudeUsageSystray;
 			productReference = 20995FA0F9EEA9F7D67A33F6 /* ClaudeUsageSystray.app */;
@@ -170,6 +189,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					B1D424FB04FF0960503B8D19 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
 					C7A88CFB9EFB102A812B10AC = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
@@ -177,7 +200,6 @@
 				};
 			};
 			buildConfigurationList = 82F97C8352E3E45739645B76 /* Build configuration list for PBXProject "ClaudeUsageSystray" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -186,6 +208,11 @@
 			);
 			mainGroup = 77B3C9D5094F40C75DEF6774;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				52FE4D95CF2E657B8F6EE8F9 /* XCRemoteSwiftPackageReference "Yams" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AA881A5A4FEF8FBF9B7F8DB4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -211,6 +238,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				520015116107224E61B90E08 /* ShortcutLoaderTests.swift in Sources */,
 				CA4C19637A5CD709F1C57EDA /* UsageServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -220,12 +248,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				C33689B322FFA7525A92894A /* AppDelegate.swift in Sources */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* Logger.swift in Sources */,
+				5D8932AAFA5B1921C7485311 /* HermesClient.swift in Sources */,
+				B16C157BEB9F9EE50447910B /* Logger.swift in Sources */,
 				22F4B6C5A7558EED3BD2DB95 /* MenuBarView.swift in Sources */,
 				F25EDEE38ABF1A0E15C849DC /* SettingsManager.swift in Sources */,
 				59259AC8C5B89477A67D5A8D /* SettingsView.swift in Sources */,
+				9C4A4F1EBFE74DD0318F450D /* ShortcutLoader.swift in Sources */,
 				80E1131433C5BE35E6CF65E4 /* UsageData.swift in Sources */,
 				354CBABB4F867F1E95A9A01E /* UsageService.swift in Sources */,
+				60D2AFEC88AAC9332BA25BED /* WorkspaceModels.swift in Sources */,
 				477DC01AB2A27BF9535464A1 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -312,23 +343,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Resources/ClaudeUsageSystray.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = AHGFV6BL8B;
-				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Claude Usage Systray";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LSUIElement = YES;
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.adntgv.claude-usage-systray";
-				PROVISIONING_PROFILE_SPECIFIER = "";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.claude.usage-systray";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -397,22 +416,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Resources/ClaudeUsageSystray.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = AHGFV6BL8B;
 				INFOPLIST_FILE = Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Claude Usage Systray";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LSUIElement = YES;
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.adntgv.claude-usage-systray";
-				PROVISIONING_PROFILE_SPECIFIER = "";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.claude.usage-systray";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -482,6 +490,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		52FE4D95CF2E657B8F6EE8F9 /* XCRemoteSwiftPackageReference "Yams" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jpsim/Yams";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2A538FA093DB156B311B9275 /* Yams */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 52FE4D95CF2E657B8F6EE8F9 /* XCRemoteSwiftPackageReference "Yams" */;
+			productName = Yams;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5A2E702777001D9C52EDE5EF /* Project object */;
 }

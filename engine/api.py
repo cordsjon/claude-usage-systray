@@ -16,6 +16,7 @@ from pathlib import Path
 from engine.codeburn import get_codeburn_report
 from engine.db import UsageDB
 from engine.poller import TokenHolder, get_current_status
+from engine.providers import get_overview
 from engine.sessions import get_token_history
 
 _START_TIME = time.monotonic()
@@ -157,6 +158,8 @@ def _make_handler_class(
                 self._handle_prompts()
             elif path == "/api/prompts/unmatched":
                 self._handle_unmatched(query)
+            elif path == "/api/overview":
+                self._handle_overview(query)
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -328,6 +331,13 @@ def _make_handler_class(
                 },
                 200,
             )
+
+        def _handle_overview(self, query: dict):
+            """GET /api/overview?range=7d|30d|all — multi-provider budget snapshot.
+            Cached in-memory (60s) with disk fallback (10min stale-while-revalidate)."""
+            range_key = query.get("range", ["7d"])[0]
+            days = _RANGE_DAYS.get(range_key, 7)
+            _json_response(self, get_overview(days, range_key))
 
         def _handle_unmatched(self, query):
             """GET /api/prompts/unmatched — top excerpts with no regex match.

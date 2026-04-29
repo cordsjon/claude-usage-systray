@@ -21,6 +21,7 @@ from engine.db import UsageDB
 from engine.poller import TokenHolder, poll_loop
 from engine.api import create_server
 from engine.codeburn import get_codeburn_report
+from engine.providers import warm_overview_cache
 from engine.sessions import get_token_history
 
 DEFAULT_PORT = 17420
@@ -94,9 +95,12 @@ def main():
     def _warm_caches():
         try:
             get_codeburn_report(7)
+            get_codeburn_report(30)
+            get_codeburn_report(364)
             get_codeburn_report(355)
             get_token_history()
-            log.info("Cache warmup complete (7d + all + token-history)")
+            warm_overview_cache([(7, "7d"), (30, "30d"), (355, "all")])
+            log.info("Cache warmup complete (codeburn + token-history + overview)")
         except Exception as exc:
             log.warning("Cache warmup failed: %s", exc)
 

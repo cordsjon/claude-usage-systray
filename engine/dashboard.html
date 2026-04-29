@@ -404,8 +404,11 @@
     <button class="tab-btn" data-tab="projects">Project &amp; Model</button>
     <button class="tab-btn" data-tab="efficiency">Efficiency</button>
     <button class="tab-btn" data-tab="habits">Habits</button>
+    <button class="tab-btn" data-tab="tenets">Tenets</button>
+    <button class="tab-btn" data-tab="overview">Overview</button>
   </div>
   <div class="tab-bar__right">
+    <span id="cb-stale-indicator" style="display:none;font-size:10px;color:var(--amber);font-family:var(--mono);letter-spacing:0.04em">STALE</span>
     <div class="conn-dot" id="conn-dot"></div>
     <span id="conn-label">Connecting...</span>
   </div>
@@ -1075,6 +1078,125 @@
   <div class="habits-toast" id="habits-toast" role="status" aria-live="polite"></div>
 </div>
 
+<!-- ═══ TAB 8: TENETS ═══ -->
+<div class="tab-panel" id="tab-tenets">
+  <div class="activity-dash">
+
+    <div class="cb-range" id="cb-range-tenets">
+      <button class="cb-range__btn active" data-range="7d">7 Days</button>
+      <button class="cb-range__btn" data-range="30d">30 Days</button>
+      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+      <button class="cb-range__btn" data-range="all">All</button>
+    </div>
+
+    <!-- Hero cards -->
+    <div class="cb-hero">
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Total Citations</div>
+        <div class="cb-hero__val" id="tn-total" style="color:var(--cyan)">--</div>
+        <div class="cb-hero__sub" id="tn-period">--</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Unique Tenets Cited</div>
+        <div class="cb-hero__val" id="tn-unique" style="color:var(--text)">--</div>
+        <div class="cb-hero__sub" id="tn-unique-sub">of <span id="tn-total-defined">--</span> defined</div>
+      </div>
+      <div class="cb-hero__card">
+        <div class="cb-hero__label">Most Active Tenet</div>
+        <div class="cb-hero__val" id="tn-top" style="color:var(--amber);font-size:18px;letter-spacing:-0.01em">--</div>
+        <div class="cb-hero__sub" id="tn-top-sub">--</div>
+      </div>
+    </div>
+
+    <!-- Citation frequency chart -->
+    <div class="cb-chart">
+      <div class="cb-chart__title">Daily Tenet Citations</div>
+      <div class="cb-chart__area">
+        <svg id="tn-daily-svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <!-- Tenet leaderboard table -->
+    <div class="cb-table">
+      <div class="cb-table__header">Tenet Leaderboard — citations in period</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Tenet</th>
+            <th class="num">Citations</th>
+            <th class="num">Projects</th>
+            <th class="num">Avg Δ chars</th>
+            <th>Top Activity</th>
+            <th>Top Project</th>
+          </tr>
+        </thead>
+        <tbody id="tn-leaderboard-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Project × Tenet heatmap -->
+    <div class="cb-table">
+      <div class="cb-table__header">Project × Tenet — citation counts</div>
+      <div id="tn-heatmap" style="overflow-x:auto;padding:12px 0"></div>
+    </div>
+
+    <!-- Longform tenet catalog -->
+    <div class="cb-table">
+      <div class="cb-table__header">Tenet Catalog — full definitions with live citation data</div>
+      <div id="tn-longform"></div>
+    </div>
+
+    <div class="footer">Tenets &middot; [TENET: name] annotations in Claude responses &middot; Refreshes every 5 min</div>
+  </div>
+</div>
+
+<!-- ═══ TAB 9: OVERVIEW (multi-provider LLM budget) ═══ -->
+<div class="tab-panel" id="tab-overview">
+  <style>
+    #tab-overview { padding: 24px 24px 80px; }
+    .ov-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+    .ov-head h2 { font-size: 18px; font-weight: 600; }
+    .ov-head__range { display: flex; gap: 4px; }
+    .ov-range-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+    .ov-range-btn.active { background: var(--cyan-dim); color: var(--cyan); border-color: var(--cyan); }
+    .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+    .ov-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+    .ov-card__title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+    .ov-card__name { font-size: 15px; font-weight: 600; text-transform: capitalize; }
+    .ov-card__balance { font-family: var(--mono); font-size: 13px; color: var(--green); }
+    .ov-card__balance.dim { color: var(--text-muted); }
+    .ov-card__row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-top: 1px solid var(--border); }
+    .ov-card__row:first-of-type { border-top: 0; }
+    .ov-card__label { color: var(--text-muted); }
+    .ov-card__val { color: var(--text); font-family: var(--mono); }
+    .ov-card__val.big { font-size: 22px; font-weight: 600; color: var(--text); }
+    .ov-card__head-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .ov-stat { background: var(--bg-elevated); border-radius: 6px; padding: 10px 12px; }
+    .ov-stat__lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .ov-stat__val { font-family: var(--mono); font-size: 16px; color: var(--text); }
+    .ov-consumers { margin-top: 14px; }
+    .ov-consumer { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; gap: 10px; font-size: 12px; }
+    .ov-consumer__name { color: var(--text-dim); flex: 0 0 auto; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ov-consumer__bar { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+    .ov-consumer__bar-inner { height: 100%; background: var(--cyan); }
+    .ov-consumer__cost { font-family: var(--mono); color: var(--text); flex: 0 0 auto; min-width: 56px; text-align: right; }
+    .ov-error { color: var(--amber); font-size: 11px; font-family: var(--mono); margin-top: 10px; padding: 6px 10px; background: var(--amber-dim); border-radius: 4px; }
+    .ov-meta { color: var(--text-muted); font-size: 11px; font-family: var(--mono); margin-top: 18px; text-align: right; }
+  </style>
+  <div class="ov-head">
+    <h2>LLM Budget Overview</h2>
+    <div class="ov-head__range">
+      <button class="ov-range-btn active" data-ov-range="7d">7d</button>
+      <button class="ov-range-btn" data-ov-range="30d">30d</button>
+      <button class="ov-range-btn" data-ov-range="all">All</button>
+    </div>
+  </div>
+  <div class="ov-grid" id="ov-grid">
+    <div style="color: var(--text-muted); padding: 40px; text-align: center; grid-column: 1/-1">Loading…</div>
+  </div>
+  <div class="ov-meta" id="ov-meta"></div>
+</div>
+
 <script>
 // ─── Global State ────────────────────────────────────────────────
 window.__status = null;
@@ -1128,6 +1250,98 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'overview') overviewLoad();
+  });
+});
+
+// ─── Overview tab ────────────────────────────────────────────────
+let overviewRange = '7d';
+let overviewTimer = null;
+
+function overviewMoney(v, digits) {
+  if (v === null || v === undefined) return '—';
+  const d = digits === undefined ? 2 : digits;
+  return '$' + Number(v).toFixed(d);
+}
+
+function overviewProviderLabel(name) {
+  return ({claude: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek'})[name] || name;
+}
+
+function overviewRender(data) {
+  const grid = document.getElementById('ov-grid');
+  const meta = document.getElementById('ov-meta');
+  if (!data || !data.providers) {
+    grid.innerHTML = '<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">Failed to load</div>';
+    return;
+  }
+  grid.innerHTML = data.providers.map(p => {
+    const balanceStr = p.balance_usd !== null && p.balance_usd !== undefined
+      ? overviewMoney(p.balance_usd) + ' left'
+      : (p.cap_usd ? overviewMoney(p.cap_usd) + ' cap' : 'no balance api');
+    const balanceClass = p.balance_usd !== null && p.balance_usd !== undefined ? '' : 'dim';
+    const consumers = (p.top_consumers || []).map(c =>
+      `<div class="ov-consumer">
+        <div class="ov-consumer__name" title="${c.name}">${c.name}</div>
+        <div class="ov-consumer__bar"><div class="ov-consumer__bar-inner" style="width:${(c.share*100).toFixed(0)}%"></div></div>
+        <div class="ov-consumer__cost">${overviewMoney(c.cost_usd, c.cost_usd < 1 ? 4 : 2)}</div>
+      </div>`
+    ).join('') || '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No consumer data</div>';
+    const roiStr = p.roi_cost_per_call !== null && p.roi_cost_per_call !== undefined
+      ? overviewMoney(p.roi_cost_per_call, 4) + '/call'
+      : '—';
+    const errBlock = p.error ? `<div class="ov-error">${p.error}</div>` : '';
+    return `<div class="ov-card">
+      <div class="ov-card__title">
+        <div class="ov-card__name">${overviewProviderLabel(p.name)}</div>
+        <div class="ov-card__balance ${balanceClass}">${balanceStr}</div>
+      </div>
+      <div class="ov-card__head-stats">
+        <div class="ov-stat">
+          <div class="ov-stat__lbl">Spend (${data.range})</div>
+          <div class="ov-stat__val">${overviewMoney(p.spend_usd, p.spend_usd < 1 ? 4 : 2)}</div>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat__lbl">Mean Daily</div>
+          <div class="ov-stat__val">${overviewMoney(p.daily_avg_usd, p.daily_avg_usd < 1 ? 4 : 2)}</div>
+        </div>
+      </div>
+      <div class="ov-card__row"><span class="ov-card__label">Calls</span><span class="ov-card__val">${(p.total_calls||0).toLocaleString()}</span></div>
+      <div class="ov-card__row"><span class="ov-card__label">ROI</span><span class="ov-card__val">${roiStr}</span></div>
+      <div class="ov-consumers">
+        <div class="ov-card__label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Top consumers</div>
+        ${consumers}
+      </div>
+      ${errBlock}
+    </div>`;
+  }).join('');
+  meta.textContent = `Generated ${new Date(data.generated_at).toLocaleString()} · ${data.range_days}d window · refreshes every 60s`;
+}
+
+async function overviewLoad() {
+  const grid = document.getElementById('ov-grid');
+  try {
+    const r = await fetch('/api/overview?range=' + encodeURIComponent(overviewRange));
+    if (!r.ok) {
+      grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">HTTP ${r.status}</div>`;
+      return;
+    }
+    overviewRender(await r.json());
+  } catch (e) {
+    grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">${e}</div>`;
+  }
+  if (overviewTimer) clearTimeout(overviewTimer);
+  overviewTimer = setTimeout(() => {
+    if (document.getElementById('tab-overview').classList.contains('active')) overviewLoad();
+  }, 60000);
+}
+
+document.querySelectorAll('.ov-range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ov-range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    overviewRange = btn.dataset.ovRange;
+    overviewLoad();
   });
 });
 
@@ -2158,6 +2372,8 @@ document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
     var newRange = btn.dataset.range;
     if (newRange !== cbRange) {
       cbRange = newRange;
+      cbData = null;  // clear so stored data for new range renders immediately
+      cbLastFetch = 0;
       // Sync both range selectors
       document.querySelectorAll('.cb-range__btn').forEach(function(b) {
         b.classList.toggle('active', b.dataset.range === cbRange);
@@ -2167,15 +2383,59 @@ document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
   });
 });
 
+var CB_STORAGE_KEY = 'codeburn-cache-v1';
+var CB_STORAGE_TTL = 3600000; // 1 hour in ms — mirrors server TTL
+
+function _cbRenderAll(data) {
+  cbData = data;
+  updateActivityTab();
+  updateProjectTab();
+  updateEfficiencyTab();
+  updateTenetsTab();
+}
+
+function _cbLoadFromStorage(range) {
+  try {
+    var raw = localStorage.getItem(CB_STORAGE_KEY + '-' + range);
+    if (!raw) return null;
+    var entry = JSON.parse(raw);
+    if (Date.now() - entry.ts > CB_STORAGE_TTL) return null;
+    return entry.data;
+  } catch(e) { return null; }
+}
+
+function _cbSaveToStorage(range, data) {
+  try {
+    localStorage.setItem(CB_STORAGE_KEY + '-' + range, JSON.stringify({ ts: Date.now(), data: data }));
+  } catch(e) { /* storage full — non-fatal */ }
+}
+
+function _cbMarkStale() {
+  var el = document.getElementById('cb-stale-indicator');
+  if (el) { el.style.display = 'inline'; }
+}
+
+function _cbMarkFresh() {
+  var el = document.getElementById('cb-stale-indicator');
+  if (el) { el.style.display = 'none'; }
+}
+
 async function fetchCodeburn() {
+  // Render from localStorage immediately so page is never blank
+  var stored = _cbLoadFromStorage(cbRange);
+  if (stored && !cbData) {
+    _cbRenderAll(stored);
+    _cbMarkStale();
+  }
+
   try {
     var res = await fetch('/api/codeburn?range=' + cbRange);
     if (!res.ok) return;
-    cbData = await res.json();
+    var fresh = await res.json();
     cbLastFetch = Date.now();
-    updateActivityTab();
-    updateProjectTab();
-    updateEfficiencyTab();
+    _cbSaveToStorage(cbRange, fresh);
+    _cbRenderAll(fresh);
+    _cbMarkFresh();
   } catch(e) { /* retain last data */ }
 }
 
@@ -2183,7 +2443,7 @@ async function fetchCodeburn() {
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var tab = btn.dataset.tab;
-    if ((tab === 'activity' || tab === 'projects' || tab === 'efficiency') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
+    if ((tab === 'activity' || tab === 'projects' || tab === 'efficiency' || tab === 'tenets') && (Date.now() - cbLastFetch > 300000 || !cbData)) {
       fetchCodeburn();
     }
   });
@@ -2845,6 +3105,297 @@ function updateEfficiencyChart(weeks) {
   });
 
   setSvgContent(svg, s);
+}
+
+// ─── Tenets Tab Rendering ───────────────────────────────────────
+var TENET_REGISTRY = [
+  // ── Coding Discipline ──────────────────────────────────────────────────────
+  { slug: 'architecture-first',   title: 'Architecture before code',
+    desc: 'On new features or redesigns, spend effort on spec and design first. Claude generates wrong code at 10× speed, amplifying wrong direction.' },
+  { slug: 'MVA',                  title: 'Minimum Viable Abstraction',
+    desc: 'Before designing a feature, ask: what is the smallest thing we could remove or skip and still solve the problem? "What can we add?" is the wrong starting question.' },
+  { slug: 'delete-first',         title: 'Delete before you abstract',
+    desc: 'The most robust logic is logic that no longer exists because the problem was solved at a higher architectural level. Before adding a workaround, ask whether the constraint that makes it necessary can be removed instead.' },
+  { slug: 'abstract-on-third',    title: 'Abstract on the third occurrence',
+    desc: 'Do not build a generic framework the first time you see a pattern. Do not build it the second time. Only on the third occurrence do we abstract. "This could be a platform" is a red flag, not a compliment.' },
+  { slug: 'correctness-first',    title: 'Correctness before optimization',
+    desc: 'Never optimize code for a feature that has not yet survived validation. Write it correct and clear first; optimize only after it is proven worth keeping.' },
+  { slug: 'happy-path-first',     title: 'Happy path first',
+    desc: 'Implement and prove the core flow end-to-end before adding edge case handling, error states, or polish. No golden faucets until the plumbing carries water.' },
+  { slug: 'discoverability',      title: 'Discoverability over configurability',
+    desc: 'If a feature requires a manual or a complex tooltip to explain, the abstraction is wrong. Favor designs users can figure out by trying over designs that require configuration.' },
+  { slug: 'data-is-control',      title: 'The data is the control',
+    desc: 'If a user wants to change a value, they should touch the value directly, not navigate to a settings panel. Never add a settings gear where inline editing would work.' },
+  { slug: 'post-form-ui',         title: 'Post-form UI',
+    desc: 'Avoid traditional CRUD forms. If a task can be represented as a node, a link, or a spatial movement on the canvas, prefer that over a form field. Forms are the last resort.' },
+  { slug: 'spatial-anchoring',    title: 'Elements have homes, motion has trajectory',
+    desc: 'Every UI element must have a stable spatial origin. If it moves, the transition must give the eye a path to follow. Appearing/disappearing without spatial context is always wrong.' },
+  { slug: 'immediate-connection', title: 'Immediate connection — Bret Victor',
+    desc: 'State changes must be visible without a page reload. "Save and refresh" is a broken feedback loop, not a workflow. Build for live data binding as the default, not the enhancement.' },
+  { slug: 'high-ceiling',         title: 'High-ceiling tools — Engelbart',
+    desc: 'Design for the user who will spend 1000 hours in this tool. Wizards and hand-holding are a low ceiling. We are building an augmented knowledge workshop, not a toy.' },
+  { slug: 'bridge-not-wall',      title: 'Design as a bridge, not a wall — Papanek',
+    desc: 'Prioritize functional and social reliability over aesthetic excess. Every visual decision must justify itself: does this help the user do the work?' },
+  { slug: 'boring-persistence',   title: 'Boring persistence, innovative experience',
+    desc: 'Reserve experimental technology for the UI layer where failure is recoverable. The persistence layer (SQLite/PostgreSQL) stays as boring and stable as possible. Never invert this.' },
+  { slug: 'local-first',          title: 'Local first, cloud second',
+    desc: 'Design for local execution; treat the network as an asynchronous synchronization layer, not a dependency. Latency breaks spatial flow.' },
+  { slug: 'token-frugality',      title: 'Aggressive token frugality',
+    desc: 'Prefer procedural logic and local execution over API calls. An LLM call is only justified when the task is inherently non-procedural. Deterministic logic that can be written as code must be written as code.' },
+  { slug: 'repair-world',         title: 'Repair the world as you build — Alexander',
+    desc: 'Every feature must leave the surrounding codebase more coherent than it found it. Adding a feature that forces workarounds elsewhere is a net negative even if the feature itself works.' },
+  // ── Philosophy ────────────────────────────────────────────────────────────
+  { slug: 'tradeoffs',            title: 'There are no solutions, only trade-offs',
+    desc: 'Every recommendation must name what is being sacrificed. A solution presented as "perfect" is incomplete.' },
+  { slug: 'no-part',              title: 'The best part is no part',
+    desc: 'The strongest version is not removing dead code — it is questioning whether the constraint driving a piece of logic should exist at all.' },
+  { slug: 'subtraction',          title: 'Ruthless subtraction',
+    desc: 'Instead of asking "what can we add?", ask "what can we remove and still solve the problem?" The answer is the correct scope.' },
+  { slug: 'simplify',             title: 'Simplify until it breaks, then back up one step',
+    desc: 'Push reduction as far as it goes. The minimum viable form is one step before the point of failure.' },
+  { slug: 'direct-manipulation',  title: 'Direct manipulation over menu navigation',
+    desc: 'The data is not hidden behind a menu; the data is the control. If the interaction requires navigation, the design is wrong.' },
+  { slug: 'spatial-literacy',     title: 'Spatial literacy is a primary requirement',
+    desc: 'Elements must have homes on the canvas. Users build mental maps; violating those maps (teleporting elements, inconsistent placement) destroys trust and flow.' },
+];
+
+var TENET_TOTAL_DEFINED = TENET_REGISTRY.length;
+
+function updateTenetsTab() {
+  if (!cbData) return;
+  var citations = cbData.tenet_citations || [];
+
+  // Hero cards
+  document.getElementById('tn-total').textContent = citations.length.toLocaleString();
+  document.getElementById('tn-period').textContent = cbData.period ? cbData.period.from + ' — ' + cbData.period.to : '--';
+  document.getElementById('tn-total-defined').textContent = TENET_TOTAL_DEFINED;
+
+  // Aggregate by tenet
+  var byTenet = {};
+  citations.forEach(function(c) {
+    var t = c.tenet;
+    if (!byTenet[t]) byTenet[t] = { count: 0, projects: {}, categories: {}, deltas: [] };
+    byTenet[t].count++;
+    byTenet[t].projects[c.project] = (byTenet[t].projects[c.project] || 0) + 1;
+    byTenet[t].categories[c.category] = (byTenet[t].categories[c.category] || 0) + 1;
+    if (c.net_edit_delta != null) byTenet[t].deltas.push(c.net_edit_delta);
+  });
+
+  var sorted = Object.keys(byTenet).sort(function(a, b) { return byTenet[b].count - byTenet[a].count; });
+  var unique = sorted.length;
+
+  document.getElementById('tn-unique').textContent = unique;
+
+  if (sorted.length > 0) {
+    var top = sorted[0];
+    document.getElementById('tn-top').textContent = top;
+    document.getElementById('tn-top-sub').textContent = byTenet[top].count + ' citation' + (byTenet[top].count !== 1 ? 's' : '');
+  } else {
+    document.getElementById('tn-top').textContent = '--';
+    document.getElementById('tn-top-sub').textContent = 'none yet — use [TENET: name] in responses';
+  }
+
+  // Leaderboard table
+  var tbody = document.getElementById('tn-leaderboard-body');
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:24px">No tenet citations yet. Tag decisions with [TENET: name] in responses.</td></tr>';
+  } else {
+    var html = '';
+    sorted.forEach(function(t) {
+      var d = byTenet[t];
+      var avgDelta = d.deltas.length > 0 ? Math.round(d.deltas.reduce(function(a, b) { return a + b; }, 0) / d.deltas.length) : null;
+      var deltaStr = avgDelta != null ? (avgDelta > 0 ? '+' + avgDelta.toLocaleString() : avgDelta.toLocaleString()) : '--';
+      var deltaColor = avgDelta == null ? 'var(--text-muted)' : avgDelta < 0 ? 'var(--green)' : avgDelta > 0 ? 'var(--amber)' : 'var(--text-dim)';
+      var topCat = Object.keys(d.categories).sort(function(a, b) { return d.categories[b] - d.categories[a]; })[0] || '--';
+      var topProj = Object.keys(d.projects).sort(function(a, b) { return d.projects[b] - d.projects[a]; })[0] || '--';
+      var projCount = Object.keys(d.projects).length;
+      html += '<tr>' +
+        '<td style="font-family:var(--mono);font-size:12px;color:var(--cyan)">' + t + '</td>' +
+        '<td class="num" style="font-weight:700">' + d.count + '</td>' +
+        '<td class="num" style="color:var(--text-dim)">' + projCount + '</td>' +
+        '<td class="num" style="color:' + deltaColor + ';font-family:var(--mono)">' + deltaStr + '</td>' +
+        '<td style="color:var(--text-dim);font-size:12px">' + topCat + '</td>' +
+        '<td style="color:var(--text-dim);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + topProj + '">' + topProj + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  // Daily citations chart
+  updateTenetsDailyChart(citations);
+
+  // Project × Tenet heatmap
+  updateTenetsHeatmap(citations, sorted.slice(0, 10));
+
+  // Longform catalog
+  renderTenetsLongform(byTenet);
+}
+
+function renderTenetsLongform(byTenet) {
+  var container = document.getElementById('tn-longform');
+
+  // Sort registry: cited first (desc count), then uncited alphabetically
+  var sorted = TENET_REGISTRY.slice().sort(function(a, b) {
+    var ca = (byTenet[a.slug] && byTenet[a.slug].count) || 0;
+    var cb = (byTenet[b.slug] && byTenet[b.slug].count) || 0;
+    if (cb !== ca) return cb - ca;
+    return a.slug < b.slug ? -1 : 1;
+  });
+
+  var html = '<div style="display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden">';
+
+  sorted.forEach(function(tenet) {
+    var d = byTenet[tenet.slug];
+    var count = d ? d.count : 0;
+    var cited = count > 0;
+
+    // Avg delta
+    var deltaStr = '';
+    var deltaColor = 'var(--text-muted)';
+    if (d && d.deltas && d.deltas.length > 0) {
+      var avg = Math.round(d.deltas.reduce(function(s, v) { return s + v; }, 0) / d.deltas.length);
+      deltaStr = (avg > 0 ? '+' : '') + avg.toLocaleString() + ' chars avg';
+      deltaColor = avg < 0 ? 'var(--green)' : avg > 0 ? 'var(--amber)' : 'var(--text-dim)';
+    }
+
+    // Top project
+    var topProj = '';
+    if (d && d.projects) {
+      var ps = Object.keys(d.projects).sort(function(a, b) { return d.projects[b] - d.projects[a]; });
+      if (ps.length) topProj = ps[0];
+    }
+
+    html += '<div style="display:flex;align-items:flex-start;gap:20px;padding:14px 18px;background:var(--bg-card);' +
+      (cited ? '' : 'opacity:0.45;') + '">' +
+
+      // Left: slug + title + description
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">' +
+          '<span style="font-family:var(--mono);font-size:11px;color:' + (cited ? 'var(--cyan)' : 'var(--text-muted)') + ';' +
+            'background:rgba(6,182,212,0.08);padding:2px 8px;border-radius:4px;white-space:nowrap">' + tenet.slug + '</span>' +
+          '<span style="font-size:13px;font-weight:600;color:' + (cited ? 'var(--text)' : 'var(--text-dim)') + '">' + tenet.title + '</span>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);line-height:1.55;max-width:680px">' + tenet.desc + '</div>' +
+        (topProj ? '<div style="font-size:11px;color:var(--text-muted);margin-top:5px;font-family:var(--mono)">↳ ' + topProj + '</div>' : '') +
+      '</div>' +
+
+      // Right: count + delta
+      '<div style="text-align:right;flex-shrink:0;min-width:80px">' +
+        '<div style="font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:-0.04em;line-height:1;color:' +
+          (cited ? 'var(--cyan)' : 'rgba(255,255,255,0.1)') + '">' + (cited ? count : '0') + '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-top:2px">' + (cited ? 'citation' + (count !== 1 ? 's' : '') : 'not cited') + '</div>' +
+        (deltaStr ? '<div style="font-size:11px;font-family:var(--mono);margin-top:6px;color:' + deltaColor + '">' + deltaStr + '</div>' : '') +
+      '</div>' +
+
+    '</div>';
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function updateTenetsDailyChart(citations) {
+  var svg = document.getElementById('tn-daily-svg');
+  var W = 800, H = 200;
+  var M = { top: 16, right: 20, bottom: 40, left: 44 };
+  var plotW = W - M.left - M.right;
+  var plotH = H - M.top - M.bottom;
+
+  // Group by date
+  var byDate = {};
+  citations.forEach(function(c) { byDate[c.date] = (byDate[c.date] || 0) + 1; });
+  var dates = Object.keys(byDate).sort();
+  if (dates.length === 0) { setSvgContent(svg, '<text x="400" y="100" text-anchor="middle" fill="#5c5e66" font-size="13">No citations in period</text>'); return; }
+
+  var maxVal = Math.max.apply(null, Object.values(byDate)) || 1;
+  var barW = Math.max(4, Math.min(28, plotW / dates.length - 3));
+  var xStep = plotW / dates.length;
+
+  var s = '<g transform="translate(' + M.left + ',' + M.top + ')">';
+
+  // Y gridlines
+  var steps = Math.min(maxVal, 5);
+  for (var i = 0; i <= steps; i++) {
+    var yv = Math.round(maxVal * i / steps);
+    var gy = plotH - (yv / maxVal * plotH);
+    s += '<line x1="0" y1="' + gy + '" x2="' + plotW + '" y2="' + gy + '" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>';
+    s += '<text x="-6" y="' + (gy + 4) + '" text-anchor="end" fill="#5c5e66" font-size="10">' + yv + '</text>';
+  }
+
+  // Bars
+  dates.forEach(function(d, i) {
+    var v = byDate[d] || 0;
+    var x = i * xStep + (xStep - barW) / 2;
+    var bh = v / maxVal * plotH;
+    var y = plotH - bh;
+    s += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + bh + '" fill="var(--cyan)" rx="2" opacity="0.8"/>';
+    // X label — show every Nth to avoid crowding
+    var every = Math.ceil(dates.length / 14);
+    if (i % every === 0) {
+      var label = d.slice(5); // MM-DD
+      s += '<text x="' + (x + barW / 2) + '" y="' + (plotH + 18) + '" text-anchor="middle" fill="#5c5e66" font-size="9">' + label + '</text>';
+    }
+  });
+
+  s += '</g>';
+  setSvgContent(svg, s);
+}
+
+function updateTenetsHeatmap(citations, topTenets) {
+  var container = document.getElementById('tn-heatmap');
+  if (!topTenets.length) { container.innerHTML = '<p style="color:var(--text-muted);padding:8px;font-size:13px">No data yet.</p>'; return; }
+
+  // Build project × tenet matrix
+  var projects = {};
+  citations.forEach(function(c) {
+    if (topTenets.indexOf(c.tenet) === -1) return;
+    if (!projects[c.project]) projects[c.project] = {};
+    projects[c.project][c.tenet] = (projects[c.project][c.tenet] || 0) + 1;
+  });
+  var projList = Object.keys(projects).sort(function(a, b) {
+    var sa = topTenets.reduce(function(s, t) { return s + (projects[a][t] || 0); }, 0);
+    var sb = topTenets.reduce(function(s, t) { return s + (projects[b][t] || 0); }, 0);
+    return sb - sa;
+  }).slice(0, 12);
+
+  if (!projList.length) { container.innerHTML = '<p style="color:var(--text-muted);padding:8px;font-size:13px">No data yet.</p>'; return; }
+
+  var maxCell = 0;
+  projList.forEach(function(p) {
+    topTenets.forEach(function(t) { maxCell = Math.max(maxCell, projects[p][t] || 0); });
+  });
+
+  var cellW = 64, cellH = 28, labelW = 130;
+  var W = labelW + topTenets.length * cellW;
+  var H = 28 + projList.length * cellH;
+
+  var html = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:' + W + 'px;display:block">';
+
+  // Column headers (tenet names)
+  topTenets.forEach(function(t, j) {
+    var x = labelW + j * cellW + cellW / 2;
+    html += '<text x="' + x + '" y="18" text-anchor="middle" fill="#8b8d97" font-size="9" font-family="var(--mono)">' + t.slice(0, 12) + '</text>';
+  });
+
+  // Rows
+  projList.forEach(function(p, i) {
+    var y = 28 + i * cellH;
+    var shortP = p.length > 16 ? p.slice(0, 14) + '…' : p;
+    html += '<text x="' + (labelW - 6) + '" y="' + (y + cellH / 2 + 4) + '" text-anchor="end" fill="#8b8d97" font-size="10" font-family="var(--mono)">' + shortP + '</text>';
+    topTenets.forEach(function(t, j) {
+      var v = (projects[p] && projects[p][t]) || 0;
+      var alpha = maxCell > 0 ? v / maxCell : 0;
+      var fill = 'rgba(6,182,212,' + (0.08 + alpha * 0.82).toFixed(2) + ')';
+      var x = labelW + j * cellW;
+      html += '<rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="' + (cellW - 4) + '" height="' + (cellH - 4) + '" fill="' + (v ? fill : 'rgba(255,255,255,0.03)') + '" rx="3"/>';
+      if (v > 0) {
+        html += '<text x="' + (x + cellW / 2) + '" y="' + (y + cellH / 2 + 4) + '" text-anchor="middle" fill="' + (alpha > 0.5 ? '#e4e4e7' : '#8b8d97') + '" font-size="11" font-family="var(--mono)" font-weight="600">' + v + '</text>';
+      }
+    });
+  });
+
+  html += '</svg>';
+  container.innerHTML = html;
 }
 
 // ─── Dev Work % Trend Chart ────────────────────────────────────

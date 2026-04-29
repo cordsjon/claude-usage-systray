@@ -10,7 +10,10 @@ Entry point: ``python3 -m engine.ingest_prompts``.
 
 import hashlib
 import json
-from datetime import datetime
+import os
+import sys
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -183,7 +186,7 @@ def ingest_all(db, projects_root, patterns_yaml):
                 total += 1
                 last_off = msg["byte_offset_after"]
                 cls = classify_message(msg["text"], patterns)
-                date = (msg["timestamp"] or datetime.utcnow().isoformat())[:10]
+                date = (msg["timestamp"] or datetime.now(timezone.utc).isoformat())[:10]
                 if cls["pattern_id"]:
                     matched += 1
                     if cls["is_structured"]:
@@ -207,7 +210,7 @@ def ingest_all(db, projects_root, patterns_yaml):
                         message_ordinal=msg["message_ordinal"],
                     )
             db.upsert_watermark(
-                str(jsonl), last_off, head, datetime.utcnow().isoformat()
+                str(jsonl), last_off, head, datetime.now(timezone.utc).isoformat()
             )
     mp = (matched / total * 100.0) if total else 0.0
     return {
@@ -220,26 +223,90 @@ def ingest_all(db, projects_root, patterns_yaml):
 
 
 if __name__ == "__main__":
-    import os
-    import sys
-
     from engine.db import UsageDB
 
-    # Match the production server DB name (engine/server.py uses token_budget.db,
-    # not the usage.db placeholder the plan assumed).
-    db_path = os.environ.get(
-        "TOKEN_BUDGET_DB",
-        str(Path.home() / ".local/share/token-budget/token_budget.db"),
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Ingest Claude Code prompts into prompt_usage tables.")
+    ap.add_argument(
+        "--db-path",
+        default=os.environ.get(
+            "TOKEN_BUDGET_DB",
+            str(Path.home() / ".local/share/token-budget/token_budget.db"),
+        ),
+        help="SQLite DB path (default matches engine/server.py token_budget.db)",
     )
-    projects_root = Path.home() / ".claude" / "projects"
-    patterns_yaml = (
-        Path.home()
-        / ".claude/projects"
-        / "-Users-jcords-macmini-projects"
-        / "memory"
-        / "prompt-patterns.yaml"
+    ap.add_argument(
+        "--projects-root",
+        default=str(Path.home() / ".claude" / "projects"),
+        help="Claude Code projects root (default: ~/.claude/projects)",
     )
-    report = ingest_all(UsageDB(db_path), projects_root, patterns_yaml)
+    ap.add_argument(
+        "--patterns-yaml",
+        default=str(
+            Path.home()
+            / ".claude/projects"
+            / "-Users-jcords-macmini-projects"
+            / "memory"
+            / "prompt-patterns.yaml"
+        ),
+        help="YAML patterns path (default: ~/.claude/projects/.../memory/prompt-patterns.yaml)",
+    )
+    ap.add_argument("--reset", action="store_true", help="Clear ingest tables + watermarks before ingest")
+    ap.add_argument("--inspect", action="store_true", help="Print one-shot diagnostic and exit 0")
+    ap.add_argument("--json", action="store_true", help="With --inspect: emit JSON")
+    args = ap.parse_args()
+
+    db = UsageDB(args.db_path)
+    projects_root = Path(args.projects_root).expanduser()
+    patterns_yaml = Path(args.patterns_yaml).expanduser()
+
+    if args.inspect:
+        info = {
+            "python": sys.version.split()[0],
+            "db_path": str(Path(args.db_path).expanduser()),
+            "projects_root": str(projects_root),
+            "patterns_yaml": str(patterns_yaml),
+            "counts": db.count_rows(),
+            "unmatched_sample": db.sample_unmatched(3),
+            "projects_dir_exists": projects_root.exists(),
+            "patterns_yaml_exists": patterns_yaml.exists(),
+        }
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:17420/api/status", timeout=2) as resp:
+                info["engine_api_status_code"] = resp.status
+        except Exception:
+            info["engine_api_status_code"] = None
+
+        if args.json:
+            print(json.dumps(info, indent=2, ensure_ascii=False))
+        else:
+            print(f"python: {info['python']}")
+            print(f"db: {info['db_path']}")
+            print(f"projects_root: {info['projects_root']} (exists={info['projects_dir_exists']})")
+            print(f"patterns_yaml: {info['patterns_yaml']} (exists={info['patterns_yaml_exists']})")
+            c = info["counts"]
+            print(
+                "counts: "
+                f"prompt_usage={c['prompt_usage']} "
+                f"unmatched={c['prompt_unmatched']} "
+                f"watermarks={c['ingest_watermark']}"
+            )
+            if info.get("engine_api_status_code"):
+                print(f"engine api: ok (status={info['engine_api_status_code']})")
+            else:
+                print("engine api: not reachable (ok if not running)")
+            if info["unmatched_sample"]:
+                print("unmatched sample:")
+                for r in info["unmatched_sample"]:
+                    ex = str(r.get("text_excerpt") or "").replace("\n", " ")
+                    print(f"  - {r.get('date')} {r.get('session_id')}: {ex[:120]}")
+        sys.exit(0)
+
+    if args.reset:
+        db.reset_ingest()
+
+    report = ingest_all(db, projects_root, patterns_yaml)
     print(
         f"ingest: {report['total_user_messages']} msgs, "
         f"{report['matched_percent']}% matched, "

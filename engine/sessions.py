@@ -21,6 +21,7 @@ _CACHE_TTL = 3600  # 1 hour
 _cache_lock = threading.Lock()
 _cached_data: dict | None = None
 _cached_at: float = 0.0
+_refreshing: bool = False
 
 
 def _scan_sessions() -> dict:
@@ -112,20 +113,48 @@ def _scan_sessions() -> dict:
     }
 
 
+def _refresh_in_background() -> None:
+    """Run _scan_sessions in a thread, then update the cache."""
+    global _cached_data, _cached_at, _refreshing
+    try:
+        data = _scan_sessions()
+        with _cache_lock:
+            _cached_data = data
+            _cached_at = time.monotonic()
+    except Exception as exc:
+        log.warning("Background session refresh failed: %s", exc)
+    finally:
+        with _cache_lock:
+            _refreshing = False
+
+
 def get_token_history() -> dict:
-    """Return cached daily token usage, refreshing if stale."""
-    global _cached_data, _cached_at
+    """Return cached daily token usage.
+
+    Stale-while-revalidate: if a cached result exists (even expired), return it
+    immediately and kick off a background refresh. Only blocks on cold start
+    (no data at all).
+    """
+    global _cached_data, _cached_at, _refreshing
 
     with _cache_lock:
         now = time.monotonic()
-        if _cached_data is not None and (now - _cached_at) < _CACHE_TTL:
+        stale = _cached_data is None or (now - _cached_at) >= _CACHE_TTL
+
+        if not stale:
             return _cached_data
 
-    # Scan outside the lock (slow operation)
-    data = _scan_sessions()
+        if _cached_data is not None:
+            # Stale but usable — launch background refresh and return stale data
+            if not _refreshing:
+                _refreshing = True
+                t = threading.Thread(target=_refresh_in_background, daemon=True)
+                t.start()
+            return _cached_data
 
+    # Cold start — no data at all, must block
+    data = _scan_sessions()
     with _cache_lock:
         _cached_data = data
         _cached_at = time.monotonic()
-
     return data

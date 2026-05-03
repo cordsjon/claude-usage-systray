@@ -85,6 +85,7 @@ class UsageDB:
         self._conn = sqlite3.connect(
             db_path,
             check_same_thread=False,
+            timeout=30,
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -103,7 +104,7 @@ class UsageDB:
         seven_day_resets_at: str,
     ) -> int:
         """Insert a usage snapshot. Returns the new row id."""
-        cycle_id = seven_day_resets_at[:10]
+        cycle_id = seven_day_resets_at[:10] if seven_day_resets_at else "unknown"
         cur = self._conn.execute(
             """INSERT INTO usage_snapshots
                (timestamp, five_hour_util, seven_day_util, sonnet_util,
@@ -323,6 +324,28 @@ class UsageDB:
         ):
             self._conn.execute(f"DROP TABLE IF EXISTS {t}")
         self._conn.commit()
+
+    def reset_ingest(self) -> None:
+        """Clear ingest-derived tables (prompt_usage, prompt_unmatched, ingest_watermark)."""
+        for t in ("prompt_usage", "prompt_unmatched", "ingest_watermark"):
+            self._conn.execute(f"DELETE FROM {t}")
+        self._conn.commit()
+
+    def count_rows(self) -> dict[str, int]:
+        """Return row counts for key ingest tables."""
+        out: dict[str, int] = {}
+        for t in ("prompt_usage", "prompt_unmatched", "ingest_watermark"):
+            cur = self._conn.execute(f"SELECT COUNT(*) FROM {t}")
+            out[t] = int(cur.fetchone()[0] or 0)
+        return out
+
+    def sample_unmatched(self, limit: int = 3) -> list[dict]:
+        """Return a small sample of unmatched excerpts (newest first)."""
+        rows = self._conn.execute(
+            "SELECT date, session_id, text_excerpt FROM prompt_unmatched ORDER BY id DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+        return [{"date": r[0], "session_id": r[1], "text_excerpt": r[2]} for r in rows]
 
     def checkpoint(self):
         """Force a WAL checkpoint."""

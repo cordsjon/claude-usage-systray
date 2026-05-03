@@ -286,10 +286,14 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
         # When the token expires, the API may return 200 with all
         # zeros instead of a 401.  After ZERO_STREAK_THRESHOLD
         # consecutive all-zero responses, signal for a token refresh.
+        # A legitimate Anthropic reset also returns 0% util but always
+        # keeps a valid seven_day_resets_at timestamp — so we only treat
+        # all-zero as stale when both reset fields are absent.
         all_zero = (
             five_hour_util == 0.0
             and seven_day_util == 0.0
             and not five_hour_resets_at
+            and not seven_day_resets_at
         )
         if all_zero:
             zero_streak += 1

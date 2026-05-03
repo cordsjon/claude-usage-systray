@@ -14,6 +14,38 @@ DEST="$HOME/Library/LaunchAgents/com.jcords.prompt-usage-ingest.plist"
 LOG_DIR="$HOME/.local/state"
 LOG_PATH="$LOG_DIR/prompt-usage-ingest.log"
 
+DRY_RUN=0
+BOOTSTRAP=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN=1; shift ;;
+    --bootstrap) BOOTSTRAP=1; shift ;;
+    -h|--help)
+      cat <<'EOF'
+Usage:
+  scripts/install-macos-launchd.sh [--dry-run] [--bootstrap]
+
+--dry-run:
+  Prints the rendered plist + checks dependencies, but does not write/load.
+
+--bootstrap:
+  If .venv is missing, runs scripts/bootstrap-venv.sh before selecting python.
+EOF
+      exit 0
+      ;;
+    *) echo "error: unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [[ "$BOOTSTRAP" == "1" && ! -x "$PROJECT_DIR/.venv/bin/python3" ]]; then
+  if [[ -x "$SCRIPT_DIR/bootstrap-venv.sh" ]]; then
+    "$SCRIPT_DIR/bootstrap-venv.sh"
+  else
+    echo "error: bootstrap requested but missing: $SCRIPT_DIR/bootstrap-venv.sh" >&2
+    exit 1
+  fi
+fi
+
 # engine/db.py uses `X | None` annotations (PEP 604) which need Python >= 3.10,
 # and engine/patterns.py needs PyYAML. The project venv at .venv/ satisfies both.
 # Preference order:
@@ -44,10 +76,21 @@ fi
 mkdir -p "$LOG_DIR"
 mkdir -p "$(dirname "$DEST")"
 
-sed -e "s|__PROJECT_DIR__|$PROJECT_DIR|g" \
+RENDERED="$(sed -e "s|__PROJECT_DIR__|$PROJECT_DIR|g" \
     -e "s|__LOG_PATH__|$LOG_PATH|g" \
     -e "s|__PYTHON_BIN__|$PYTHON_BIN|g" \
-    "$TEMPLATE" > "$DEST"
+    "$TEMPLATE")"
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "--- rendered plist (dry-run) ---"
+  echo "$RENDERED"
+  echo "---"
+  echo "[dry-run] would write: $DEST"
+  echo "[dry-run] would load via launchctl"
+  exit 0
+fi
+
+echo "$RENDERED" > "$DEST"
 
 # Unload first (tolerate failure — agent may not be loaded yet).
 launchctl unload "$DEST" 2>/dev/null || true

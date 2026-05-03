@@ -73,6 +73,9 @@ _RESEARCH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Tenet citation regex — matches [TENET: name] annotations in assistant text
+_TENET_RE = re.compile(r'\[TENET:\s*([^\]]+)\]', re.IGNORECASE)
+
 # Bash command keyword regexes
 _TEST_CMD_RE = re.compile(r"pytest|vitest|jest|unittest|cargo test", re.IGNORECASE)
 _GIT_CMD_RE = re.compile(r"git\s+(push|commit|merge|rebase|cherry)", re.IGNORECASE)
@@ -98,6 +101,37 @@ FALLBACK_PRICING: dict[str, dict[str, float]] = {
 _cache_lock = threading.Lock()
 _cached_reports: dict[int, dict] = {}  # days -> report
 _cached_at: dict[int, float] = {}  # days -> monotonic timestamp
+_refresh_in_progress: set[int] = set()  # days currently being recomputed in background
+
+_DISK_CACHE_DIR = Path.home() / ".cache" / "codeburn"
+
+
+def _disk_cache_path(days: int) -> Path:
+    return _DISK_CACHE_DIR / f"report-{days}.json"
+
+
+def _write_disk_cache(days: int, report: dict) -> None:
+    """Persist report to disk atomically so it survives engine restarts."""
+    import tempfile
+    _DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = _disk_cache_path(days)
+    try:
+        fd, tmp = tempfile.mkstemp(dir=_DISK_CACHE_DIR, suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(report, f)
+        Path(tmp).replace(path)
+    except OSError as exc:
+        log.warning("Failed to write disk cache for %dd: %s", days, exc)
+
+
+def _read_disk_cache(days: int) -> dict | None:
+    """Load persisted report from disk. Returns None if missing or unreadable."""
+    path = _disk_cache_path(days)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 # ---------------------------------------------------------------------------
 # Pricing
@@ -271,6 +305,46 @@ def _extract_user_text(content_blocks) -> str:
                 parts.append(block)
         return " ".join(parts)
     return ""
+
+
+def _extract_assistant_text(api_calls: list[dict]) -> str:
+    """Concatenate all text blocks from assistant API call content."""
+    parts = []
+    for api_call in api_calls:
+        content = api_call.get("content", [])
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+    return " ".join(parts)
+
+
+def _extract_edit_delta(api_calls: list[dict]) -> int:
+    """Sum net char delta across all Edit and Write tool_use blocks in a turn.
+
+    Edit: len(new_string) - len(old_string)
+    Write: len(content)  (full replacement, treat as net addition)
+    """
+    delta = 0
+    for api_call in api_calls:
+        content = api_call.get("content", [])
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            name = block.get("name", "")
+            inp = block.get("input", {})
+            if not isinstance(inp, dict):
+                continue
+            if name == "Edit":
+                old = inp.get("old_string", "")
+                new = inp.get("new_string", "")
+                delta += len(new) - len(old)
+            elif name == "Write":
+                delta += len(inp.get("content", ""))
+    return delta
 
 
 def _parse_bash_command_names(cmd: str) -> list[str]:
@@ -683,6 +757,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     daily_cat_agg: dict[str, dict[str, float]] = defaultdict(
         lambda: defaultdict(float)
     )
+    tenet_citations: list[dict] = []
 
     for turn in turns:
         # Collect all tools and bash commands across API calls
@@ -748,6 +823,18 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         # Classification
         tool_set = set(all_tools)
         category = _classify_turn(tool_set, all_bash_cmds, turn["user_text"])
+
+        # Tenet citations — extract from assistant text at this turn
+        assistant_text = _extract_assistant_text(turn["api_calls"])
+        for match in _TENET_RE.finditer(assistant_text):
+            tenet_citations.append({
+                "tenet": match.group(1).strip(),
+                "session": Path(turn["file_path"]).stem,
+                "project": turn["project"],
+                "category": category,
+                "net_edit_delta": _extract_edit_delta(turn["api_calls"]),
+                "date": turn["date"],
+            })
 
         # Aggregate category
         cat = cat_agg[category]
@@ -994,6 +1081,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         "daily": daily,
         "efficiency": efficiency,
         "context_overhead": context_overhead,
+        "tenet_citations": tenet_citations,
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1148,37 +1236,66 @@ def _count_retries(api_calls: list[dict]) -> int:
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_codeburn_report(days: int) -> dict:
-    """Return cached codeburn report for the given date range.
-
-    Args:
-        days: Number of days to look back (0 or negative = all time).
-
-    Returns:
-        Full report dict with categories, models, projects, tools, etc.
-    """
-    global _cached_reports, _cached_at
-
-    with _cache_lock:
-        now = time.monotonic()
-        cached_time = _cached_at.get(days, 0.0)
-        cached_report = _cached_reports.get(days)
-        if cached_report is not None and (now - cached_time) < _CACHE_TTL:
-            return cached_report
-
-    # Compute date range
+def _compute_and_cache(days: int) -> dict:
+    """Run the full session scan and update both memory and disk caches."""
     date_to = datetime.now(timezone.utc)
-    if days > 0:
-        date_from = date_to - timedelta(days=days)
-    else:
-        # All time — go back far enough
-        date_from = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    date_from = (date_to - timedelta(days=days)) if days > 0 else datetime(2024, 1, 1, tzinfo=timezone.utc)
 
-    # Scan outside the lock (slow operation)
     report = _scan_sessions(date_from, date_to)
 
     with _cache_lock:
         _cached_reports[days] = report
         _cached_at[days] = time.monotonic()
+        _refresh_in_progress.discard(days)
 
+    _write_disk_cache(days, report)
     return report
+
+
+def get_codeburn_report(days: int) -> dict:
+    """Return report for the given range. Never blocks on a cold cache.
+
+    Priority order:
+      1. Hot memory cache (not expired) → sub-ms
+      2. Stale memory cache (expired) → return stale instantly, refresh in background
+      3. Disk-persisted cache (survives restarts) → return instantly, refresh in background
+      4. Cold compute → blocking only when no cached data exists at all
+    """
+    global _cached_reports, _cached_at, _refresh_in_progress
+
+    with _cache_lock:
+        now = time.monotonic()
+        cached_time = _cached_at.get(days, 0.0)
+        cached_report = _cached_reports.get(days)
+        is_fresh = cached_report is not None and (now - cached_time) < _CACHE_TTL
+        is_stale = cached_report is not None and not is_fresh
+        already_refreshing = days in _refresh_in_progress
+
+    # 1. Fresh memory cache
+    if is_fresh:
+        return cached_report
+
+    # 2. Stale memory cache — serve immediately, kick off background refresh
+    if is_stale:
+        if not already_refreshing:
+            with _cache_lock:
+                _refresh_in_progress.add(days)
+            t = threading.Thread(target=_compute_and_cache, args=(days,), daemon=True)
+            t.start()
+        return cached_report
+
+    # 3. No memory cache — try disk
+    disk_report = _read_disk_cache(days)
+    if disk_report is not None:
+        with _cache_lock:
+            # Seed memory cache with disk data so subsequent requests are fast
+            _cached_reports[days] = disk_report
+            _cached_at[days] = 0.0  # mark as immediately stale so background refresh fires
+            if days not in _refresh_in_progress:
+                _refresh_in_progress.add(days)
+        t = threading.Thread(target=_compute_and_cache, args=(days,), daemon=True)
+        t.start()
+        return disk_report
+
+    # 4. Truly cold — blocking compute (first-ever run, no disk cache)
+    return _compute_and_cache(days)

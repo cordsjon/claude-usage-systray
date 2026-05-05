@@ -46,6 +46,9 @@ class TokenHolder:
         self._lock = threading.Lock()
         self._token = initial_token
         self._needs_refresh = False
+        # Signalled whenever the token is hot-swapped so backoff sleeps can
+        # wake up immediately and retry with the fresh token.
+        self.token_refreshed = threading.Event()
 
     @property
     def token(self) -> str:
@@ -58,6 +61,7 @@ class TokenHolder:
             self._token = value
             self._needs_refresh = False
             log.info("Token hot-swapped successfully")
+        self.token_refreshed.set()
 
     @property
     def needs_refresh(self) -> bool:
@@ -257,7 +261,9 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
         data = fetch_usage(token_holder)
 
         if data is None:
-            stop_event.wait(BACKOFF_INTERVAL)
+            # Wake immediately if a fresh token is hot-swapped; else wait full backoff.
+            token_holder.token_refreshed.wait(BACKOFF_INTERVAL)
+            token_holder.token_refreshed.clear()
             continue
 
         now = datetime.now(timezone.utc).isoformat()
@@ -304,7 +310,8 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
                 )
                 token_holder.request_refresh()
                 zero_streak = 0
-                stop_event.wait(BACKOFF_INTERVAL)
+                token_holder.token_refreshed.wait(BACKOFF_INTERVAL)
+                token_holder.token_refreshed.clear()
                 continue
         else:
             zero_streak = 0

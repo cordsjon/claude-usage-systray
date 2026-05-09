@@ -23,7 +23,23 @@ _COMMAND_TAG_RE = re.compile(
 # Claude Code machinery that floods user-role entries — classify as
 # pattern_id="<machinery>" so it never counts as a real prompt.
 _MACHINERY_RE = re.compile(
-    r"^\s*(?:<ide_opened_file>|<task-notification>|\[Image:|<local-command-stdout>)",
+    r"^\s*(?:"
+    r"<ide_opened_file>"
+    r"|<task-notification>"
+    r"|\[Image:"
+    r"|<local-command-stdout>"
+    r"|#\s+/"                            # skill content: "# /kickoff — ..."
+    r"|#\s+[A-Z][^\n]*\s+—\s+"          # DOR/gate headings: "# Definition of Ready — ..."
+    r"|This session is being continued"  # compaction injection
+    r"|<!--"                             # host-conventions comment block
+    r"|Base directory for this skill:"   # skill preamble from Skill tool
+    r")",
+    re.IGNORECASE,
+)
+
+# Short acknowledgment messages — real user prompts but pattern-agnostic.
+_CONFIRMATION_RE = re.compile(
+    r"^\s*(?:yes|no|ok|sure|proceed|continue|go ahead|y|n|\d{1,2})\s*[.!]?\s*$",
     re.IGNORECASE,
 )
 
@@ -55,6 +71,8 @@ def classify_message(text, patterns):
     stripped = text.lstrip()
     if _MACHINERY_RE.match(stripped):
         return {"pattern_id": "_machinery", "is_structured": False, "version": 0}
+    if _CONFIRMATION_RE.match(stripped):
+        return {"pattern_id": "_confirmation", "is_structured": False, "version": 0}
     m = _SLASH_RE.match(stripped)
     if m:
         return {"pattern_id": m.group(1), "is_structured": True, "version": 0}

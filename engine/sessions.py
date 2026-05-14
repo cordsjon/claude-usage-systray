@@ -4,6 +4,7 @@ Scans Claude Code session files to extract per-day input/output token counts.
 Results are cached in memory with a configurable TTL.
 """
 
+import copy
 import glob
 import json
 import logging
@@ -128,12 +129,15 @@ def _refresh_in_background() -> None:
             _refreshing = False
 
 
+_EMPTY_RESULT: dict = {"days": [], "totals": {"input": 0, "output": 0, "cache_create": 0, "cache_read": 0, "sessions": 0}, "scanned_at": None, "loading": True}
+
+
 def get_token_history() -> dict:
-    """Return cached daily token usage.
+    """Return cached daily token usage. Never blocks HTTP callers.
 
     Stale-while-revalidate: if a cached result exists (even expired), return it
-    immediately and kick off a background refresh. Only blocks on cold start
-    (no data at all).
+    immediately and kick off a background refresh. On cold start, launches a
+    background scan and returns an empty loading sentinel — callers retry.
     """
     global _cached_data, _cached_at, _refreshing
 
@@ -152,9 +156,11 @@ def get_token_history() -> dict:
                 t.start()
             return _cached_data
 
-    # Cold start — no data at all, must block
-    data = _scan_sessions()
-    with _cache_lock:
-        _cached_data = data
-        _cached_at = time.monotonic()
-    return data
+        # Cold start — kick off background scan if not already running.
+        if not _refreshing:
+            _refreshing = True
+            t = threading.Thread(target=_refresh_in_background, daemon=True)
+            t.start()
+
+    # Return empty sentinel immediately — dashboard will retry on next poll.
+    return copy.deepcopy(_EMPTY_RESULT)

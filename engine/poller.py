@@ -30,7 +30,7 @@ log = logging.getLogger("engine.poller")
 _status_lock = threading.Lock()
 _current_status: dict = {}
 
-POLL_INTERVAL = 60             # 1 minute — keeps display within ~1% of Anthropic's live banner
+POLL_INTERVAL = 30 * 60       # 30 minutes — bumped from 60s after sustained 429s on the usage endpoint
 BACKOFF_INTERVAL = 15 * 60    # 15 minutes on failure
 ZERO_STREAK_THRESHOLD = 3     # consecutive zero responses before requesting refresh
 
@@ -248,7 +248,7 @@ def _seed_from_db(db: UsageDB) -> None:
     )
 
 
-def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Event) -> None:
+def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Event, poll_interval: int = POLL_INTERVAL) -> None:
     """Poll the API until stop_event is set.
 
     Each iteration fetches usage, persists a snapshot, computes projections,
@@ -402,7 +402,7 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
             five_hour_util, seven_day_util, br_5h, rw,
             budget["recommended_daily"],
         )
-        stop_event.wait(POLL_INTERVAL)
+        stop_event.wait(poll_interval)
 
 
 def _daily_avg_this_cycle(db: UsageDB, seven_day_resets_at: str) -> float:

@@ -61,6 +61,8 @@ def main():
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--token", required=True, help="Claude OAuth access token")
     parser.add_argument("--db-path", default=None, help="SQLite database path")
+    parser.add_argument("--poll-interval", type=int, default=None,
+                        help="Seconds between usage API polls (default: poller.POLL_INTERVAL)")
     args = parser.parse_args()
 
     # Ensure db directory exists
@@ -85,8 +87,9 @@ def main():
     signal.signal(signal.SIGINT, shutdown_handler)
 
     # Start poller thread
+    poll_kwargs = {"poll_interval": args.poll_interval} if args.poll_interval else {}
     poller_thread = threading.Thread(
-        target=poll_loop, args=(token_holder, db, stop_event), daemon=True
+        target=poll_loop, args=(token_holder, db, stop_event), kwargs=poll_kwargs, daemon=True
     )
     poller_thread.start()
     log.info("Poller started")

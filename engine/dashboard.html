@@ -167,9 +167,20 @@
   .session-banner__sep { color: rgba(255,255,255,0.15); margin: 0 2px; }
   .session-banner__close { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.6; transition: opacity 0.15s; margin-left: 8px; }
   .session-banner__close:hover { opacity: 1; }
+  .stale-banner { position: fixed; top: 44px; left: 0; right: 0; z-index: 160; display: none; }
+  .stale-banner.visible { display: block; }
+  .stale-banner__inner { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 20px; font-size: 13px; font-family: var(--font);
+    background: linear-gradient(135deg, rgba(200,60,60,0.32) 0%, rgba(160,40,40,0.24) 100%);
+    border-bottom: 1px solid rgba(220,80,80,0.4); color: #ff8a8a; }
+  .stale-banner__dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.7); animation: stale-pulse 1.5s ease-in-out infinite; }
+  @keyframes stale-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .stale-banner__label { font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(239,68,68,0.25); }
+  .stale-banner__text { color: rgba(255,200,200,0.95); }
+  .stale-banner__text strong { color: #ffd0d0; font-weight: 700; }
 
   /* Shift content when banner is visible */
   body.has-banner .tab-panel { top: 86px; }
+  body.has-stale-banner .tab-panel { top: 86px; }
 
   /* Loading overlay */
   .loading-overlay { position: fixed; inset: 0; z-index: 500; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
@@ -437,6 +448,17 @@
 </div>
 
 <!-- Session limit warning banner -->
+<div class="stale-banner" id="stale-banner" role="alert" aria-live="assertive">
+  <div class="stale-banner__inner">
+    <span class="stale-banner__dot"></span>
+    <span class="stale-banner__label">Stale data</span>
+    <span class="stale-banner__text">
+      Engine hasn't polled successfully for <strong id="stale-age">--</strong>.
+      Numbers below are from <strong id="stale-when">--</strong> &mdash; do not trust the runway HUD.
+    </span>
+  </div>
+</div>
+
 <div class="session-banner" id="session-banner" role="alert" aria-live="assertive">
   <div class="session-banner__inner">
     <span class="session-banner__text">
@@ -1448,6 +1470,7 @@ async function fetchStatus() {
     lastUpdated = window.__status.updated_at || new Date().toISOString();
     setConnected(true);
     dismissLoading();
+    updateStaleBanner();
     updateHUD();
     updateBudgetCards();
     updateRunwayChart();
@@ -1562,6 +1585,43 @@ document.getElementById('banner-close').addEventListener('click', () => {
   document.body.classList.remove('has-banner');
 });
 
+const STALE_THRESHOLD_MS = 90 * 60 * 1000;  // 90 min — 3 missed 30-min polls
+
+function isStatusStale(s) {
+  if (!s || !s.updated_at) return false;
+  if (s.restored_from_db === true) return true;
+  const ageMs = Date.now() - Date.parse(s.updated_at);
+  return ageMs > STALE_THRESHOLD_MS;
+}
+
+function formatStaleAge(ms) {
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin < 60) return totalMin + 'm';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h < 24) return m ? h + 'h ' + m + 'm' : h + 'h';
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh ? d + 'd ' + rh + 'h' : d + 'd';
+}
+
+function updateStaleBanner() {
+  const s = window.__status;
+  const banner = document.getElementById('stale-banner');
+  if (!isStatusStale(s)) {
+    banner.classList.remove('visible');
+    document.body.classList.remove('has-stale-banner');
+    return;
+  }
+  const ageMs = Date.now() - Date.parse(s.updated_at);
+  document.getElementById('stale-age').textContent = formatStaleAge(ageMs);
+  const when = new Date(s.updated_at);
+  document.getElementById('stale-when').textContent =
+    when.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+  banner.classList.add('visible');
+  document.body.classList.add('has-stale-banner');
+}
+
 function updateSessionBanner() {
   const s = window.__status;
   if (!s) return;
@@ -1569,6 +1629,13 @@ function updateSessionBanner() {
   const banner = document.getElementById('session-banner');
   const fiveHourPct = s.current.five_hour_util;
   const resetAt = s.current.five_hour_resets_at;
+
+  // Suppress session banner when data is stale — its % claim is itself stale.
+  if (isStatusStale(s)) {
+    banner.classList.remove('visible');
+    document.body.classList.remove('has-banner');
+    return;
+  }
 
   // Don't show if dismissed for this 5h window, or if below threshold
   if (bannerDismissedForCycle === resetAt || fiveHourPct < 70) {

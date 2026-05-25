@@ -31,7 +31,9 @@ _status_lock = threading.Lock()
 _current_status: dict = {}
 
 POLL_INTERVAL = 30 * 60       # 30 minutes — bumped from 60s after sustained 429s on the usage endpoint
-BACKOFF_INTERVAL = 15 * 60    # 15 minutes on failure
+BACKOFF_INTERVAL = 15 * 60    # 15 minutes on generic failure (network, 5xx, etc.)
+RATE_LIMIT_MIN_BACKOFF = 60   # floor for 429 backoff when Retry-After is missing/small
+RATE_LIMIT_MAX_BACKOFF = 4 * 3600  # ceiling on exponential growth (4h)
 ZERO_STREAK_THRESHOLD = 3     # consecutive zero responses before requesting refresh
 
 
@@ -159,10 +161,13 @@ def _format_remaining(resets_at: str | None) -> str | None:
 
 # ── API fetch ─────────────────────────────────────────────────────────
 
-def fetch_usage(token_holder: TokenHolder) -> dict | None:
+def fetch_usage(token_holder: TokenHolder) -> tuple[dict | None, int | None]:
     """Call the Anthropic OAuth usage endpoint.
 
-    Returns parsed JSON on success, None on any failure.
+    Returns (parsed_json, None) on success.
+    Returns (None, retry_after_seconds_or_None) on failure; the second
+    element carries the server's Retry-After hint for 429s (seconds), or
+    None for other failures. The caller decides how to back off.
     Sets token_holder.needs_refresh on 401/403 so the parent can
     hot-swap the token via POST /api/token.
     """
@@ -175,7 +180,7 @@ def fetch_usage(token_holder: TokenHolder) -> dict | None:
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return json.loads(resp.read().decode("utf-8")), None
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
             log.warning("HTTP %d — attempting Keychain self-heal", exc.code)
@@ -185,14 +190,20 @@ def fetch_usage(token_holder: TokenHolder) -> dict | None:
                 log.info("Self-healed with fresh Keychain token, retrying")
                 return fetch_usage(token_holder)  # one retry with new token
             token_holder.request_refresh()
-        elif exc.code == 429:
-            log.warning("HTTP 429 — rate limited, backing off")
-        else:
-            log.error("HTTP %d: %s", exc.code, exc.reason)
-        return None
+            return None, None
+        if exc.code == 429:
+            retry_after_raw = exc.headers.get("Retry-After") if exc.headers else None
+            try:
+                retry_after = int(retry_after_raw) if retry_after_raw else None
+            except (TypeError, ValueError):
+                retry_after = None
+            log.warning("HTTP 429 — rate limited (Retry-After=%s)", retry_after_raw)
+            return None, retry_after
+        log.error("HTTP %d: %s", exc.code, exc.reason)
+        return None, None
     except Exception as exc:  # noqa: BLE001
         log.error("Fetch error: %s", exc)
-        return None
+        return None, None
 
 
 # ── Main loop ─────────────────────────────────────────────────────────
@@ -257,15 +268,32 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
     """
     _seed_from_db(db)
     zero_streak = 0
+    rate_limit_streak = 0  # consecutive 429s — drives exponential backoff
 
     while not stop_event.is_set():
-        data = fetch_usage(token_holder)
+        data, retry_after = fetch_usage(token_holder)
 
         if data is None:
-            # Wake immediately if a fresh token is hot-swapped; else wait full backoff.
-            token_holder.token_refreshed.wait(BACKOFF_INTERVAL)
+            if retry_after is not None:
+                # 429 path: honor server's Retry-After, then grow exponentially
+                # on every consecutive 429 so we stop poking the rate-limiter.
+                rate_limit_streak += 1
+                hint = max(retry_after, RATE_LIMIT_MIN_BACKOFF)
+                wait = min(hint * (2 ** (rate_limit_streak - 1)), RATE_LIMIT_MAX_BACKOFF)
+                log.warning(
+                    "429 streak=%d, sleeping %ds (hint=%ds)",
+                    rate_limit_streak, wait, retry_after,
+                )
+                token_holder.token_refreshed.wait(wait)
+            else:
+                # Generic failure (network / 5xx / 401 self-heal failure) —
+                # keep the existing fast retry; don't penalize.
+                token_holder.token_refreshed.wait(BACKOFF_INTERVAL)
             token_holder.token_refreshed.clear()
             continue
+
+        # Successful fetch — reset the 429 escalation.
+        rate_limit_streak = 0
 
         now = datetime.now(timezone.utc).isoformat()
 

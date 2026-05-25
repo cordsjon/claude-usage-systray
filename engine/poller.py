@@ -223,6 +223,7 @@ def _seed_from_db(db: UsageDB) -> None:
         },
         "projection": {
             "runway_hours": 0.0,
+            "cycle_runway_hours": 0.0,
             "burn_rate_per_hour": 0.0,
             "stoppage_likely": False,
             "hours_short": 0.0,
@@ -345,6 +346,9 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
         # to the 7-day remaining time so runway doesn't collapse to 0.
         effective_remaining = five_h_remaining if five_hour_resets_at else seven_d_remaining
         rw = runway_hours(five_hour_util, br_5h, effective_remaining)
+        # Cycle runway: time until weekly cycle exhausts (or resets), independent
+        # of the rolling 5-hour window. Drives the Runway Horizon HUD + hero card.
+        cycle_rw = runway_hours(seven_day_util, br_7d, seven_d_remaining)
         _ = stoppage_detection(five_hour_util, br_5h, five_h_remaining)  # 5h stoppage unused; 7d used below
         sd_7d = stoppage_detection(seven_day_util, br_7d, seven_d_remaining)
         budget = recommended_daily_budget(seven_day_util, seven_d_remaining)
@@ -378,6 +382,7 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
             },
             "projection": {
                 "runway_hours": rw,
+                "cycle_runway_hours": cycle_rw,
                 "burn_rate_per_hour": br_7d,
                 "stoppage_likely": sd_7d["stoppage_likely"],
                 "hours_short": sd_7d["hours_short"],

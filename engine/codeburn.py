@@ -73,8 +73,10 @@ _RESEARCH_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Tenet citation regex — matches [TENET: name] annotations in assistant text
+# Tenet citation regex — matches [TENET: <slug>] annotations in assistant text
 _TENET_RE = re.compile(r'\[TENET:\s*([^\]]+)\]', re.IGNORECASE)
+# Placeholder slugs that appear in our own docs/UI/comments — never a real citation
+_TENET_PLACEHOLDERS = {"name", "<name>", "slug", "<slug>", "example"}
 
 # Bash command keyword regexes
 _TEST_CMD_RE = re.compile(r"pytest|vitest|jest|unittest|cargo test", re.IGNORECASE)
@@ -827,8 +829,11 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         # Tenet citations — extract from assistant text at this turn
         assistant_text = _extract_assistant_text(turn["api_calls"])
         for match in _TENET_RE.finditer(assistant_text):
+            slug = match.group(1).strip()
+            if slug.lower() in _TENET_PLACEHOLDERS:
+                continue
             tenet_citations.append({
-                "tenet": match.group(1).strip(),
+                "tenet": slug,
                 "session": Path(turn["file_path"]).stem,
                 "project": turn["project"],
                 "category": category,

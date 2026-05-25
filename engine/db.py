@@ -75,6 +75,12 @@ CREATE TABLE IF NOT EXISTS ingest_watermark (
     sha256_head TEXT NOT NULL,
     last_ingested_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS engine_state (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -182,6 +188,29 @@ class UsageDB:
                  last_ingested_at=excluded.last_ingested_at""",
             (file_path, byte_offset, sha256_head, last_ingested_at),
         )
+        self._conn.commit()
+
+    def get_state(self, key: str) -> str | None:
+        """Read a value from the engine_state KV store, or None if absent."""
+        row = self._conn.execute(
+            "SELECT value FROM engine_state WHERE key = ?", (key,)
+        ).fetchone()
+        return row[0] if row else None
+
+    def set_state(self, key: str, value: str | None) -> None:
+        """Upsert (or delete on value=None) a key in the engine_state KV store."""
+        now = datetime.now(timezone.utc).isoformat()
+        if value is None:
+            self._conn.execute("DELETE FROM engine_state WHERE key = ?", (key,))
+        else:
+            self._conn.execute(
+                """INSERT INTO engine_state (key, value, updated_at)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(key) DO UPDATE SET
+                     value=excluded.value,
+                     updated_at=excluded.updated_at""",
+                (key, value, now),
+            )
         self._conn.commit()
 
     def get_watermark(self, file_path):

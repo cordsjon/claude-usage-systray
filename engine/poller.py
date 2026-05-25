@@ -11,7 +11,7 @@ import subprocess
 import threading
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from engine.db import UsageDB
 from engine.stats import (
@@ -30,11 +30,16 @@ log = logging.getLogger("engine.poller")
 _status_lock = threading.Lock()
 _current_status: dict = {}
 
-POLL_INTERVAL = 30 * 60       # 30 minutes — bumped from 60s after sustained 429s on the usage endpoint
+POLL_INTERVAL = 60 * 60       # 60 minutes — bumped from 30 min after sustained 429s starting 2026-05-22
 BACKOFF_INTERVAL = 15 * 60    # 15 minutes on generic failure (network, 5xx, etc.)
 RATE_LIMIT_MIN_BACKOFF = 60   # floor for 429 backoff when Retry-After is missing/small
 RATE_LIMIT_MAX_BACKOFF = 4 * 3600  # ceiling on exponential growth (4h)
 ZERO_STREAK_THRESHOLD = 3     # consecutive zero responses before requesting refresh
+
+# Persisted backoff state — survives engine restarts so Anthropic's
+# rate-limit cooldown isn't re-poked on every relaunch.
+STATE_NEXT_POLL_AT = "poller_next_allowed_poll_at"
+STATE_429_STREAK = "poller_rate_limit_streak"
 
 
 class TokenHolder:
@@ -268,7 +273,30 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
     """
     _seed_from_db(db)
     zero_streak = 0
-    rate_limit_streak = 0  # consecutive 429s — drives exponential backoff
+
+    # ── Restore persisted backoff state ───────────────────────
+    # If a previous run hit a 429, the cooldown is still ticking on
+    # Anthropic's side. Honor it across restarts so we don't poke the
+    # rate-limiter immediately and reset its clock.
+    try:
+        rate_limit_streak = int(db.get_state(STATE_429_STREAK) or 0)
+    except (TypeError, ValueError):
+        rate_limit_streak = 0
+    next_allowed_raw = db.get_state(STATE_NEXT_POLL_AT)
+    if next_allowed_raw:
+        try:
+            next_allowed = datetime.fromisoformat(next_allowed_raw)
+            now_dt = datetime.now(timezone.utc)
+            wait_s = (next_allowed - now_dt).total_seconds()
+            if wait_s > 0:
+                log.warning(
+                    "Honoring persisted 429 cooldown: streak=%d, sleeping %.0fs until %s",
+                    rate_limit_streak, wait_s, next_allowed_raw,
+                )
+                token_holder.token_refreshed.wait(wait_s)
+                token_holder.token_refreshed.clear()
+        except (ValueError, TypeError):
+            pass
 
     while not stop_event.is_set():
         data, retry_after = fetch_usage(token_holder)
@@ -280,6 +308,10 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
                 rate_limit_streak += 1
                 hint = max(retry_after, RATE_LIMIT_MIN_BACKOFF)
                 wait = min(hint * (2 ** (rate_limit_streak - 1)), RATE_LIMIT_MAX_BACKOFF)
+                # Persist so a restart honors the in-flight cooldown.
+                next_allowed = datetime.now(timezone.utc) + timedelta(seconds=wait)
+                db.set_state(STATE_NEXT_POLL_AT, next_allowed.isoformat())
+                db.set_state(STATE_429_STREAK, str(rate_limit_streak))
                 log.warning(
                     "429 streak=%d, sleeping %ds (hint=%ds)",
                     rate_limit_streak, wait, retry_after,
@@ -292,7 +324,10 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
             token_holder.token_refreshed.clear()
             continue
 
-        # Successful fetch — reset the 429 escalation.
+        # Successful fetch — reset the 429 escalation (memory + persisted).
+        if rate_limit_streak:
+            db.set_state(STATE_NEXT_POLL_AT, None)
+            db.set_state(STATE_429_STREAK, None)
         rate_limit_streak = 0
 
         now = datetime.now(timezone.utc).isoformat()

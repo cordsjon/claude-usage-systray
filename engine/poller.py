@@ -41,6 +41,13 @@ ZERO_STREAK_THRESHOLD = 3     # consecutive zero responses before requesting ref
 STATE_NEXT_POLL_AT = "poller_next_allowed_poll_at"
 STATE_429_STREAK = "poller_rate_limit_streak"
 
+# Anthropic segregates /api/oauth/usage traffic into two rate-limit buckets
+# keyed on User-Agent. `claude-code/<version>` gets the generous bucket;
+# anything else (incl. Python-urllib default) gets persistent 429s with
+# Retry-After:0. Refs: anthropics/claude-code#30930, #31637,
+# Maciek-roboblog/Claude-Code-Usage-Monitor#202. Bump on CC release.
+CLAUDE_CODE_USER_AGENT = "claude-code/2.1.143"
+
 
 class TokenHolder:
     """Thread-safe mutable token container.
@@ -180,7 +187,11 @@ def fetch_usage(token_holder: TokenHolder) -> tuple[dict | None, int | None]:
         API_URL,
         headers={
             "Authorization": f"Bearer {token_holder.token}",
+            "anthropic-version": "2023-06-01",
             "anthropic-beta": "oauth-2025-04-20",
+            "User-Agent": CLAUDE_CODE_USER_AGENT,
+            "x-anthropic-additional-protection": "true",
+            "Accept": "application/json",
         },
     )
     try:

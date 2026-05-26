@@ -19,6 +19,7 @@ from logging.handlers import RotatingFileHandler
 
 from engine.db import UsageDB
 from engine.poller import TokenHolder, poll_loop
+from engine.jsonl_rollup import rollup_loop
 from engine.api import create_server
 from engine.codeburn import get_codeburn_report
 from engine.providers import warm_overview_cache
@@ -86,13 +87,26 @@ def main():
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
 
-    # Start poller thread
-    poll_kwargs = {"poll_interval": args.poll_interval} if args.poll_interval else {}
-    poller_thread = threading.Thread(
-        target=poll_loop, args=(token_holder, db, stop_event), kwargs=poll_kwargs, daemon=True
-    )
-    poller_thread.start()
-    log.info("Poller started")
+    # Snapshot source: local JSONL rollup (default) or the legacy API poller.
+    # The /api/oauth/usage endpoint is UA-gated and returns persistent 429s for
+    # non-claude-code callers (observed 2026-05-26). Local JSONL transcripts
+    # carry the same signal at the source — see engine/jsonl_rollup.py and the
+    # memory entries `claude-usage-systray-ua-gating` / `local-files-over-vendor-api`.
+    # Set TOKEN_BUDGET_USE_API=1 to re-enable the polling path for A/B testing.
+    use_api_poller = os.environ.get("TOKEN_BUDGET_USE_API") == "1"
+    if use_api_poller:
+        poll_kwargs = {"poll_interval": args.poll_interval} if args.poll_interval else {}
+        poller_thread = threading.Thread(
+            target=poll_loop, args=(token_holder, db, stop_event), kwargs=poll_kwargs, daemon=True
+        )
+        poller_thread.start()
+        log.info("API poller started (TOKEN_BUDGET_USE_API=1)")
+    else:
+        rollup_thread = threading.Thread(
+            target=rollup_loop, args=(db, stop_event), daemon=True
+        )
+        rollup_thread.start()
+        log.info("JSONL rollup started")
 
     # Warm codeburn + token history caches in background so first page load is fast
     def _warm_caches():

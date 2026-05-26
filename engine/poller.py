@@ -56,9 +56,14 @@ class TokenHolder:
     without restarting the engine.
     """
 
-    def __init__(self, initial_token: str) -> None:
+    # Assumed lifetime for tokens whose expiry we don't know (hot-swap path).
+    # Anthropic OAuth access tokens live ~1 hour.
+    _ASSUMED_LIFETIME_MS = 3600 * 1000
+
+    def __init__(self, initial_token: str, initial_expires_at_ms: int = 0) -> None:
         self._lock = threading.Lock()
         self._token = initial_token
+        self._expires_at_ms = initial_expires_at_ms
         self._needs_refresh = False
         # Signalled whenever the token is hot-swapped so backoff sleeps can
         # wake up immediately and retry with the fresh token.
@@ -71,11 +76,40 @@ class TokenHolder:
 
     @token.setter
     def token(self, value: str) -> None:
+        # Hot-swap path: caller (Swift POST /api/token, fetch_usage self-heal)
+        # gives us only a token. Assume one-hour lifetime so we don't
+        # immediately re-read Keychain on the next poll.
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         with self._lock:
             self._token = value
+            self._expires_at_ms = now_ms + self._ASSUMED_LIFETIME_MS
             self._needs_refresh = False
             log.info("Token hot-swapped successfully")
         self.token_refreshed.set()
+
+    def set_credentials(self, token: str, expires_at_ms: int) -> None:
+        """Atomic update of token + known expiry. Used when reading Keychain.
+
+        Only signals token_refreshed if the token value actually changed —
+        a proactive expiry-refresh that yields the same token shouldn't
+        interrupt an in-flight backoff sleep.
+        """
+        with self._lock:
+            changed = self._token != token
+            self._token = token
+            self._expires_at_ms = expires_at_ms
+            self._needs_refresh = False
+        if changed:
+            log.info("Token updated from Keychain")
+            self.token_refreshed.set()
+
+    def seconds_until_expiry(self) -> float:
+        """Return seconds until token expires; -1.0 if unknown."""
+        with self._lock:
+            if self._expires_at_ms <= 0:
+                return -1.0
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            return (self._expires_at_ms - now_ms) / 1000.0
 
     @property
     def needs_refresh(self) -> bool:
@@ -89,12 +123,14 @@ class TokenHolder:
 API_URL = "https://api.anthropic.com/api/oauth/usage"
 
 
-def _read_keychain_token() -> str | None:
-    """Read a fresh OAuth token directly from the macOS Keychain.
+def _read_keychain_token() -> tuple[str, int] | None:
+    """Read a fresh OAuth token + expiry from the macOS Keychain.
 
-    This is the same mechanism launcher.sh uses at startup, but available
-    at runtime so the poller can self-heal on 401 without waiting for
-    an external actor to hot-swap the token.
+    Returns (access_token, expires_at_ms) on success; None on failure.
+    expires_at_ms is 0 if the Keychain JSON omits it (older CC versions).
+
+    Used both for proactive refresh (before tokens expire) and reactive
+    self-heal (on 401). launcher.sh uses the same Keychain key at startup.
     """
     try:
         raw = subprocess.run(
@@ -105,10 +141,20 @@ def _read_keychain_token() -> str | None:
             log.warning("Keychain read failed (rc=%d)", raw.returncode)
             return None
         creds = json.loads(raw.stdout.strip())
-        token = creds.get("claudeAiOauth", {}).get("accessToken")
-        if token:
-            log.info("Read fresh token from Keychain")
-        return token
+        oauth = creds.get("claudeAiOauth", {})
+        token = oauth.get("accessToken")
+        if not token:
+            return None
+        try:
+            expires_at_ms = int(oauth.get("expiresAt") or 0)
+        except (TypeError, ValueError):
+            expires_at_ms = 0
+        if expires_at_ms:
+            ttl_s = (expires_at_ms - int(datetime.now(timezone.utc).timestamp() * 1000)) / 1000.0
+            log.info("Read fresh token from Keychain (expires in %.0fs)", ttl_s)
+        else:
+            log.info("Read fresh token from Keychain (no expiry info)")
+        return token, expires_at_ms
     except (json.JSONDecodeError, subprocess.TimeoutExpired, OSError) as exc:
         log.warning("Keychain self-heal failed: %s", exc)
         return None
@@ -200,9 +246,9 @@ def fetch_usage(token_holder: TokenHolder) -> tuple[dict | None, int | None]:
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
             log.warning("HTTP %d — attempting Keychain self-heal", exc.code)
-            fresh = _read_keychain_token()
-            if fresh and fresh != token_holder.token:
-                token_holder.token = fresh
+            creds = _read_keychain_token()
+            if creds and creds[0] != token_holder.token:
+                token_holder.set_credentials(*creds)
                 log.info("Self-healed with fresh Keychain token, retrying")
                 return fetch_usage(token_holder)  # one retry with new token
             token_holder.request_refresh()

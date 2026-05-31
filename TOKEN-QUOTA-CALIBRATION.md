@@ -50,8 +50,7 @@ The cleanest calibration moment is when both signals are simultaneously trustwor
 |---|---|---|---|---|
 | 2026-05-22 14:10 UTC | 48% (API, last good snapshot before UA-gate) | unknown (rollup wasn't running yet) | — | Cannot back-calculate; weighted_7d at that exact instant isn't preserved. Use as a sanity floor only. |
 | 2026-05-26 13:50 UTC | 59% (rollup default quota = 1B) | 590,633,599 | 1,000,000,000 (default) | Plausible trajectory from 48% on Fri + 4 days heavy Opus work. Not validated against a fresh API number. |
-
-**This table needs a real calibration row.** The current 59% reading assumes the default quota is correct; a fresh API or `/usage` reading is the only way to confirm.
+| 2026-05-31 19:35 UTC | **76% (Anthropic /usage, ground truth)** | 1,185,309,341 | **1,559,617,554** | Real calibration row. Default 1B was over-counting by 1.56×. QUOTA_5H scaled by the same factor (50M→77,980,500) since the weighted basket is shared — but 5h was NOT independently ground-truthed; pin it when a fresh /usage 5h reading is available. Persisted in `~/Library/LaunchAgents/com.claude-usage-engine.plist` EnvironmentVariables (not `launchctl setenv` — that path is guard-blocked). |
 
 ## When to re-calibrate
 

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template for the claude-usage engine launchd agent.
+     Rendered by scripts/install-engine-launchd.sh (which substitutes the
+     project dir, home, log path, and the two token quotas).
+     Do NOT load this file directly. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude-usage-engine</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__PROJECT_DIR__/engine/launcher.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__LOG_PATH__</string>
+
+    <key>StandardErrorPath</key>
+    <string>__LOG_PATH__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <!-- Token quota calibration. Account/plan/time-specific — these are the
+             installer's best-known values; re-calibrate per TOKEN-QUOTA-CALIBRATION.md
+             after any plan change or upstream weight shift. -->
+        <key>TOKEN_BUDGET_QUOTA_7D</key>
+        <string>__QUOTA_7D__</string>
+        <key>TOKEN_BUDGET_QUOTA_5H</key>
+        <string>__QUOTA_5H__</string>
+    </dict>
+</dict>
+</plist>

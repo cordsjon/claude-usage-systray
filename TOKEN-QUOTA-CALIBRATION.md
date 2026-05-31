@@ -37,12 +37,18 @@ The cleanest calibration moment is when both signals are simultaneously trustwor
    QUOTA_7D = weighted_7d / (real_util / 100)
    ```
 4. Repeat the same procedure for the 5-hour window if you want both windows pinned.
-5. Persist:
+5. Persist via the engine installer (writes the launchd plist + reloads). This is
+   the reproducible path — `launchctl setenv` is avoided (guard-blocked in some
+   harnesses, and not version-controlled):
    ```bash
-   launchctl setenv TOKEN_BUDGET_QUOTA_7D <number>     # global, survives reboot
-   launchctl setenv TOKEN_BUDGET_QUOTA_5H <number>
-   ./engine/restart.sh
+   TOKEN_BUDGET_QUOTA_7D=<number> TOKEN_BUDGET_QUOTA_5H=<number> \
+     scripts/install-engine-launchd.sh
    ```
+   To bake new defaults into a fresh install, edit the `QUOTA_7D` / `QUOTA_5H`
+   constants near the top of `scripts/install-engine-launchd.sh`. The agent reads
+   the quotas from the plist's `EnvironmentVariables`; the installer reloads via
+   `bootout`+`bootstrap` because launchd only re-reads env at bootstrap time
+   (`kickstart` alone reuses the stale env).
 
 ## Known data points
 

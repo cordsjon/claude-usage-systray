@@ -50,6 +50,45 @@ class TestBurnRate(unittest.TestCase):
         result = burn_rate([], [])
         self.assertEqual(result, 0.0)
 
+    def test_recent_burst_dominates_stale_plateau(self):
+        """A long flat plateau then a sharp burst must report the burst rate.
+
+        Regression guard: plain equal-weight OLS over the full series
+        averaged a ~5h plateau with the last hour's spike and reported a
+        diluted ~1%/hr. The recency-weighted, time-windowed fit must track
+        the current burn (~8%/hr), not the historical average.
+        """
+        base = datetime(2026, 5, 31, 6, 0, 0, tzinfo=timezone.utc)
+        timestamps, utils = [], []
+        # 5h plateau at 100.0, sampled every 5 min
+        for i in range(60):
+            timestamps.append((base + timedelta(minutes=5 * i)).isoformat())
+            utils.append(100.0)
+        # last ~1h: burst climbing ~8%/hr (12 samples, +0.67% each 5 min)
+        burst_start = base + timedelta(hours=5)
+        for i in range(1, 13):
+            timestamps.append((burst_start + timedelta(minutes=5 * i)).isoformat())
+            utils.append(100.0 + (8.0 / 12.0) * i)
+        result = burn_rate(timestamps, utils)
+        self.assertGreater(result, 5.0, f"burst rate diluted to {result:.2f}%/hr")
+        self.assertLess(result, 12.0)
+
+    def test_duplicate_polls_do_not_flatten_slope(self):
+        """Repeated identical samples (stale polls) must not out-vote real change."""
+        base = datetime(2026, 5, 31, 10, 0, 0, tzinfo=timezone.utc)
+        timestamps, utils = [], []
+        # 20 identical stale polls at 50.0 over the first ~1h40m
+        for i in range(20):
+            timestamps.append((base + timedelta(minutes=5 * i)).isoformat())
+            utils.append(50.0)
+        # then a genuine climb of 10%/hr over the next hour
+        climb_start = base + timedelta(minutes=100)
+        for i in range(1, 13):
+            timestamps.append((climb_start + timedelta(minutes=5 * i)).isoformat())
+            utils.append(50.0 + (10.0 / 12.0) * i)
+        result = burn_rate(timestamps, utils)
+        self.assertGreater(result, 6.0, f"duplicates flattened slope to {result:.2f}%/hr")
+
 
 class TestRunwayHours(unittest.TestCase):
     """runway_hours: hours until 100% or reset, whichever comes first."""
@@ -95,6 +134,25 @@ class TestStoppageDetection(unittest.TestCase):
         self.assertFalse(result["stoppage_likely"])
         self.assertEqual(result["hours_short"], 0.0)
         self.assertAlmostEqual(result["projected_util_at_reset"], 50.0)
+
+    def test_projection_uses_active_hours_not_wall_clock(self):
+        """Projection must extrapolate over ACTIVE hours, not 24/7 wall-clock.
+
+        At 50% with 5%/hr over 48h to reset, the old model assumed non-stop
+        burn: 50 + 5*48 = 290%. The active-hours model assumes 14 usable
+        hours/day: days_remaining=2, active=28h -> 50 + 5*28 = 190%.
+        """
+        result = stoppage_detection(50.0, 5.0, 48.0, active_hours_per_day=14)
+        self.assertAlmostEqual(result["projected_util_at_reset"], 190.0, places=1)
+        # Strictly below the naive 24/7 projection of 290%.
+        self.assertLess(result["projected_util_at_reset"], 290.0)
+
+    def test_hours_short_stays_wall_clock_framed(self):
+        """hours_short feeds 'Xh before reset' copy, so it must be wall-clock."""
+        result = stoppage_detection(80.0, 10.0, 4.0, active_hours_per_day=14)
+        self.assertTrue(result["stoppage_likely"])
+        self.assertGreater(result["hours_short"], 0.0)
+        self.assertLessEqual(result["hours_short"], 4.0)
 
 
 class TestRecommendedDailyBudget(unittest.TestCase):

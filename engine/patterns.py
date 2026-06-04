@@ -45,8 +45,16 @@ _CONFIRMATION_RE = re.compile(
 
 
 def load_patterns(yaml_path):
-    """Load + compile the pattern list from ``yaml_path``."""
-    data = yaml.safe_load(Path(yaml_path).read_text())
+    """Load + compile the pattern list from ``yaml_path``.
+
+    Patterns are an optional enrichment overlay — a missing file yields an
+    empty list rather than crashing the ingest agent (e.g. on a fresh
+    machine before the seed has been copied).
+    """
+    path = Path(yaml_path)
+    if not path.exists():
+        return []
+    data = yaml.safe_load(path.read_text())
     compiled = []
     for entry in (data or {}).get("patterns", []):
         compiled.append(

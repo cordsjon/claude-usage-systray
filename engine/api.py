@@ -34,11 +34,14 @@ _DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "dashboard.html")
 _DEFAULT_CLASSIFICATION_PATH = (
     Path(__file__).parent / "data" / "prompt-classification.json"
 )
+# Derive the Claude Code project slug from the current machine rather than
+# hardcoding a username — the slug is the projects path with "/" -> "-".
+_PROJECT_SLUG = str(Path.home() / "projects").replace("/", "-")
 _DEFAULT_PATTERNS_YAML_PATH = (
     Path.home()
     / ".claude"
     / "projects"
-    / "-Users-jcords-macmini-projects"
+    / _PROJECT_SLUG
     / "memory"
     / "prompt-patterns.yaml"
 )

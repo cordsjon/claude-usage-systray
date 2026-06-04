@@ -246,7 +246,9 @@ if __name__ == "__main__":
         default=str(
             Path.home()
             / ".claude/projects"
-            / "-Users-jcords-macmini-projects"
+            # Derive the project slug from this machine (projects path with
+            # "/" -> "-") rather than hardcoding a username.
+            / str(Path.home() / "projects").replace("/", "-")
             / "memory"
             / "prompt-patterns.yaml"
         ),

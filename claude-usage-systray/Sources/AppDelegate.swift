@@ -233,6 +233,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Python Engine Process Management
 
     /// Check if the engine is already running externally (e.g. via launchd).
+    /// True if something is already listening on the engine port.
+    ///
+    /// Uses a raw TCP connect (the kernel answers instantly) rather than the
+    /// HTTP health check below, which has a 2s timeout and can false-negative
+    /// while the engine is doing heavy work (scanning thousands of session
+    /// files, codeburn). A false "engine is down" makes the supervisor spawn a
+    /// duplicate that cannot bind the port held by the launchd-managed engine,
+    /// dies, and respawns every 60s — re-reading the Keychain each time.
+    private func isEnginePortInUse() -> Bool {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        if fd < 0 { return false }
+        defer { close(fd) }
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(UInt16(enginePort)).bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                connect(fd, sa, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        return rc == 0
+    }
+
     private func isEngineAlreadyRunning() -> Bool {
         guard let url = URL(string: "http://localhost:\(enginePort)/api/health") else { return false }
         var request = URLRequest(url: url)
@@ -250,6 +274,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func spawnEngineProcess() {
+        // Skip if the port is already owned (e.g. the launchd-managed engine).
+        // Checked first, and before reading the Keychain, because a reliable
+        // port check here is what prevents the duplicate-spawn respawn loop.
+        if isEnginePortInUse() {
+            AppLogger.info("engine", "Port \(enginePort) already in use, skipping spawn")
+            return
+        }
+
         // Skip if engine is already running externally (standalone launchd service)
         if isEngineAlreadyRunning() {
             AppLogger.info("engine", "Engine already running on port \(enginePort), skipping spawn")

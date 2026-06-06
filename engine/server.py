@@ -54,13 +54,44 @@ def _setup_logging() -> None:
     root.addHandler(stderr_handler)
 
 
+def _resolve_token(args, log) -> str:
+    """Resolve the OAuth token without exposing it on the command line.
+
+    Order of precedence:
+      1. --token-file PATH  (read + strip)
+      2. CLAUDE_OAUTH_TOKEN environment variable
+      3. --token CLI arg    (deprecated: visible in `ps`)
+    """
+    if args.token_file:
+        with open(os.path.expanduser(args.token_file), "r", encoding="utf-8") as fh:
+            return fh.read().strip()
+
+    env_token = os.environ.get("CLAUDE_OAUTH_TOKEN")
+    if env_token:
+        return env_token.strip()
+
+    if args.token:
+        log.warning("Token passed via --token is visible in `ps`; "
+                    "prefer CLAUDE_OAUTH_TOKEN env or --token-file")
+        return args.token
+
+    raise SystemExit(
+        "No OAuth token provided. Set CLAUDE_OAUTH_TOKEN, pass --token-file PATH, "
+        "or (deprecated) --token."
+    )
+
+
 def main():
     _setup_logging()
     log = logging.getLogger("engine.server")
 
     parser = argparse.ArgumentParser(description="Token Budget Engine")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--token", required=True, help="Claude OAuth access token")
+    parser.add_argument("--token", default=None,
+                        help="Claude OAuth token (DEPRECATED: visible in `ps`; "
+                             "prefer CLAUDE_OAUTH_TOKEN env or --token-file)")
+    parser.add_argument("--token-file", default=None,
+                        help="Path to a file containing the Claude OAuth token")
     parser.add_argument("--db-path", default=None, help="SQLite database path")
     parser.add_argument("--poll-interval", type=int, default=None,
                         help="Seconds between usage API polls (default: poller.POLL_INTERVAL)")
@@ -74,7 +105,7 @@ def main():
         db_path = os.path.join(DEFAULT_DB_DIR, "token_budget.db")
 
     db = UsageDB(db_path)
-    token_holder = TokenHolder(args.token)
+    token_holder = TokenHolder(_resolve_token(args, log))
     stop_event = threading.Event()
 
     def shutdown_handler(signum, frame):

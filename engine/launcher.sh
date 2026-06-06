@@ -30,4 +30,7 @@ fi
 
 echo "$LOG_PREFIX Starting engine on port $ENGINE_PORT"
 cd "$ENGINE_DIR"
-exec python3 -m engine.server --port "$ENGINE_PORT" --token "$TOKEN"
+# Pass the token via the environment, not argv — process arguments are
+# world-readable via `ps`, the environment of another user's process is not.
+export CLAUDE_OAUTH_TOKEN="$TOKEN"
+exec python3 -m engine.server --port "$ENGINE_PORT"

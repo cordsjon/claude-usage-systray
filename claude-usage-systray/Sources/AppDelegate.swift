@@ -283,8 +283,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         process.arguments = [
             "python3", "-m", "engine.server",
             "--port", "\(enginePort)",
-            "--token", token
         ]
+        // Pass the OAuth token via the environment, not argv, so it does not
+        // appear in `ps` output (process arguments are world-readable).
+        var env = ProcessInfo.processInfo.environment
+        env["CLAUDE_OAUTH_TOKEN"] = token
+        process.environment = env
         process.currentDirectoryURL = URL(fileURLWithPath: engineDir)
 
         // Capture stderr for debugging, discard stdout (no more stdout signaling)

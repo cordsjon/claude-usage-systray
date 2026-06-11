@@ -46,6 +46,8 @@ TASK_TOOLS = {
     "TaskOutput", "TaskStop", "TodoWrite",
 }
 SEARCH_TOOLS = {"WebSearch", "WebFetch", "ToolSearch"}
+# Subagent spawn tools — "Agent" in current Claude Code, "Task" in older builds
+SUBAGENT_TOOLS = {"Task", "Agent"}
 
 # Keyword regexes (word-boundary)
 _DEBUG_RE = re.compile(
@@ -77,6 +79,9 @@ _RESEARCH_RE = re.compile(
 _TENET_RE = re.compile(r'\[TENET:\s*([^\]]+)\]', re.IGNORECASE)
 # Placeholder slugs that appear in our own docs/UI/comments — never a real citation
 _TENET_PLACEHOLDERS = {"name", "<name>", "slug", "<slug>", "example"}
+
+# Quota / rate-limit error regex for subagent tool_result errors (US-TBD-A AC-03)
+_QUOTA_ERROR_RE = re.compile(r"quota|rate.?limit|exhausted", re.IGNORECASE)
 
 # Bash command keyword regexes
 _TEST_CMD_RE = re.compile(r"pytest|vitest|jest|unittest|cargo test", re.IGNORECASE)
@@ -320,6 +325,142 @@ def _extract_assistant_text(api_calls: list[dict]) -> str:
             if isinstance(block, dict) and block.get("type") == "text":
                 parts.append(block.get("text", ""))
     return " ".join(parts)
+
+
+def _tool_result_text(content) -> str:
+    """Extract text from a tool_result content field (string or block list)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        return " ".join(parts)
+    return ""
+
+
+def _extract_subagent_stats(
+    entries: list[dict],
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> dict:
+    """Extract subagent (Task/Agent tool) burn stats from raw JSONL entries.
+
+    Args:
+        entries: Parsed JSONL entry dicts of one session, in file order.
+        date_from/date_to: Optional range filter applied to spawn timestamps.
+
+    Pairs each Task/Agent tool_use block (assistant message) with its
+    tool_result entry (user message) via tool_use_id. Token usage comes from
+    the entry-level ``toolUseResult.usage`` field on the result entry.
+
+    Known limitation (verified 2026-06-11 against real transcripts):
+    ``toolUseResult.usage`` reports the subagent's final API iteration(s),
+    not the cumulative spend across its whole run — token totals are a lower
+    bound. Background-agent acks carry no usage at all; those runs contribute
+    to count/by_type only. Token numbers are never estimated.
+    """
+    stats: dict = {
+        "count": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "by_type": {},
+        "quota_error_count": 0,
+        "last_quota_error_at": None,
+    }
+    pending: dict[str, str] = {}  # tool_use_id -> subagent type
+    seen_ids: set[str] = set()
+
+    for obj in entries:
+        if not isinstance(obj, dict):
+            continue
+        msg = obj.get("message")
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+
+        ts: datetime | None = None
+        ts_str = obj.get("timestamp")
+        if ts_str:
+            try:
+                ts = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                ts = None
+
+        role = msg.get("role", "")
+        if role == "assistant":
+            for block in content:
+                if not isinstance(block, dict) or block.get("type") != "tool_use":
+                    continue
+                name = block.get("name", "")
+                if name not in SUBAGENT_TOOLS:
+                    continue
+                block_id = block.get("id", "")
+                if not block_id or block_id in seen_ids:
+                    continue  # resumed sessions duplicate history lines
+                seen_ids.add(block_id)
+                # Date filter on spawn timestamp — out-of-range spawns are
+                # excluded entirely (their results won't pair either).
+                if date_from is not None and (ts is None or ts < date_from):
+                    continue
+                if date_to is not None and ts is not None and ts > date_to:
+                    continue
+                inp = block.get("input", {})
+                sub_type = (
+                    inp.get("subagent_type", "") if isinstance(inp, dict) else ""
+                ) or name
+                pending[block_id] = sub_type
+                stats["count"] += 1
+                bt = stats["by_type"].setdefault(
+                    sub_type, {"count": 0, "input_tokens": 0, "output_tokens": 0}
+                )
+                bt["count"] += 1
+        elif role == "user":
+            for block in content:
+                if not isinstance(block, dict) or block.get("type") != "tool_result":
+                    continue
+                sub_type = pending.get(block.get("tool_use_id", ""))
+                if sub_type is None:
+                    continue
+                tur = obj.get("toolUseResult")
+                usage = tur.get("usage") if isinstance(tur, dict) else None
+                if isinstance(usage, dict):
+                    iterations = usage.get("iterations")
+                    if not (isinstance(iterations, list) and iterations):
+                        iterations = [usage]
+                    in_tk = 0
+                    out_tk = 0
+                    for it in iterations:
+                        if not isinstance(it, dict):
+                            continue
+                        in_tk += (
+                            (it.get("input_tokens") or 0)
+                            + (it.get("cache_read_input_tokens") or 0)
+                            + (it.get("cache_creation_input_tokens") or 0)
+                        )
+                        out_tk += it.get("output_tokens") or 0
+                    stats["total_input_tokens"] += in_tk
+                    stats["total_output_tokens"] += out_tk
+                    bt = stats["by_type"].get(sub_type)
+                    if bt:
+                        bt["input_tokens"] += in_tk
+                        bt["output_tokens"] += out_tk
+                if block.get("is_error") and _QUOTA_ERROR_RE.search(
+                    _tool_result_text(block.get("content"))
+                ):
+                    stats["quota_error_count"] += 1
+                    if ts is not None:
+                        iso = ts.isoformat()
+                        last = stats["last_quota_error_at"]
+                        if last is None or iso > last:
+                            stats["last_quota_error_at"] = iso
+
+    return stats
 
 
 def _extract_edit_delta(api_calls: list[dict]) -> int:
@@ -654,6 +795,13 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     # Each entry: (timestamp_dt, role, message_dict, file_path, cwd)
     all_entries: list[tuple[datetime, str, dict, str, str]] = []
 
+    # Subagent burn collection (US-TBD-A): raw entries per session containing
+    # Task/Agent tool_use blocks or their tool_result entries, plus per-session
+    # input-context totals for the AC-05 sanity check.
+    subagent_entries: dict[str, list[dict]] = defaultdict(list)
+    subagent_tool_ids: set[str] = set()
+    session_input_ctx: dict[str, int] = defaultdict(int)
+
     for fpath in files:
         try:
             with open(fpath, "r", encoding="utf-8", errors="replace") as f:
@@ -691,9 +839,42 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                     except (ValueError, TypeError):
                         continue
 
+                    # Subagent burn candidates — collected before the range
+                    # filter (results can land just outside it); the extractor
+                    # date-filters the spawns themselves.
+                    session_id = obj.get("sessionId") or Path(fpath).stem
+                    content = msg.get("content")
+                    if isinstance(content, list):
+                        if role == "assistant":
+                            spawn_ids = [
+                                b.get("id", "") for b in content
+                                if isinstance(b, dict)
+                                and b.get("type") == "tool_use"
+                                and b.get("name") in SUBAGENT_TOOLS
+                            ]
+                            if spawn_ids:
+                                subagent_entries[session_id].append(obj)
+                                subagent_tool_ids.update(i for i in spawn_ids if i)
+                        elif any(
+                            isinstance(b, dict)
+                            and b.get("type") == "tool_result"
+                            and b.get("tool_use_id") in subagent_tool_ids
+                            for b in content
+                        ):
+                            subagent_entries[session_id].append(obj)
+
                     # Filter by date range
                     if ts < date_from or ts > date_to:
                         continue
+
+                    # Per-session input context (AC-05 sanity denominator)
+                    if role == "assistant":
+                        usage = msg.get("usage") or {}
+                        session_input_ctx[session_id] += (
+                            (usage.get("input_tokens") or 0)
+                            + (usage.get("cache_read_input_tokens") or 0)
+                            + (usage.get("cache_creation_input_tokens") or 0)
+                        )
 
                     all_entries.append((ts, role, msg, fpath, obj.get("cwd", "")))
         except OSError:
@@ -1006,6 +1187,55 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     }
 
     # -----------------------------------------------------------------------
+    # Subagent burn stats (US-TBD-A) — per-session extraction + aggregate.
+    # AC-05: subagent input exceeding the session's own context tokens is a
+    # logged warning, never a crash.
+    # -----------------------------------------------------------------------
+    subagent_sessions: dict[str, dict] = {}
+    sub_count = 0
+    sub_input = 0
+    sub_output = 0
+    sub_quota_errors = 0
+    sub_last_quota: str | None = None
+    sub_by_type: dict[str, dict] = defaultdict(
+        lambda: {"count": 0, "input_tokens": 0, "output_tokens": 0}
+    )
+    for sid, objs in subagent_entries.items():
+        s = _extract_subagent_stats(objs, date_from, date_to)
+        if s["count"] == 0 and s["quota_error_count"] == 0:
+            continue
+        subagent_sessions[sid] = s
+        if s["total_input_tokens"] > session_input_ctx.get(sid, 0):
+            log.warning(
+                "Subagent input tokens (%d) exceed session input tokens (%d) "
+                "for session %s — keeping stats, check extraction assumptions",
+                s["total_input_tokens"], session_input_ctx.get(sid, 0), sid,
+            )
+        sub_count += s["count"]
+        sub_input += s["total_input_tokens"]
+        sub_output += s["total_output_tokens"]
+        sub_quota_errors += s["quota_error_count"]
+        if s["last_quota_error_at"] and (
+            sub_last_quota is None or s["last_quota_error_at"] > sub_last_quota
+        ):
+            sub_last_quota = s["last_quota_error_at"]
+        for t, bt in s["by_type"].items():
+            agg_bt = sub_by_type[t]
+            agg_bt["count"] += bt["count"]
+            agg_bt["input_tokens"] += bt["input_tokens"]
+            agg_bt["output_tokens"] += bt["output_tokens"]
+
+    subagent_stats = {
+        "count": sub_count,
+        "total_input_tokens": sub_input,
+        "total_output_tokens": sub_output,
+        "by_type": {k: dict(v) for k, v in sub_by_type.items()},
+        "quota_error_count": sub_quota_errors,
+        "last_quota_error_at": sub_last_quota,
+        "sessions": subagent_sessions,
+    }
+
+    # -----------------------------------------------------------------------
     # Weekly efficiency aggregation (precomputed for frontend)
     # -----------------------------------------------------------------------
     weekly_agg: dict[str, dict] = {}
@@ -1086,6 +1316,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         "daily": daily,
         "efficiency": efficiency,
         "context_overhead": context_overhead,
+        "subagent_stats": subagent_stats,
         "tenet_citations": tenet_citations,
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }

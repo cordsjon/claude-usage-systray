@@ -944,6 +944,12 @@
       </table>
     </div>
 
+    <!-- Subagent Burn -->
+    <div class="util-card" id="cb-subagent-section" style="display:none">
+      <div class="util-card__title">Subagent Burn</div>
+      <div id="cb-subagent-content" style="font-size:12px"></div>
+    </div>
+
     <div class="footer">Activity Burn &middot; Powered by CodeBurn analytics &middot; Refreshes every 5 min</div>
   </div>
 </div>
@@ -2960,6 +2966,48 @@ function updateActivityTab() {
       pop.style.display = 'none';
     });
   });
+
+  // Subagent Burn card (US-TBD-A)
+  var subSection = document.getElementById('cb-subagent-section');
+  var sub = cbData.subagent_stats;
+  if (sub) {
+    subSection.style.display = '';
+    var fmtK = function(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); };
+    var subInput = sub.total_input_tokens || 0;
+    var subOutput = sub.total_output_tokens || 0;
+    var sessionCtx = (cbData.context_overhead && cbData.context_overhead.total_context_tokens) || 0;
+    var sharePct = sessionCtx > 0 ? (subInput / sessionCtx * 100).toFixed(1) + '%' : '—';
+    var quotaCount = sub.quota_error_count || 0;
+    var lastQuota = sub.last_quota_error_at
+      ? sub.last_quota_error_at.replace('T', ' ').slice(0, 16) : '—';
+
+    var html = '';
+    // Summary stats
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Subagent Runs</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (sub.count || 0) + '</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Share of Session Input</div><div style="font-size:18px;font-weight:700">' + sharePct + '</div><div style="color:var(--text-muted);font-size:10px">' + fmtK(subInput) + ' in / ' + fmtK(subOutput) + ' out</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px">Quota Errors</div><div style="font-size:18px;font-weight:700;color:' + (quotaCount > 0 ? 'var(--red)' : 'var(--green)') + '">' + quotaCount + '</div><div style="color:var(--text-muted);font-size:10px">last: ' + lastQuota + '</div></div>';
+    html += '</div>';
+
+    // Top-3 subagent types by spend (count as tiebreak / token-free fallback)
+    var types = Object.keys(sub.by_type || {}).map(function(t) {
+      var bt = sub.by_type[t];
+      return { name: t, count: bt.count || 0, tokens: (bt.input_tokens || 0) + (bt.output_tokens || 0) };
+    });
+    types.sort(function(a, b) { return (b.tokens - a.tokens) || (b.count - a.count); });
+    if (types.length > 0) {
+      html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Top Subagent Types by Spend</div>';
+      types.slice(0, 3).forEach(function(t) {
+        html += '<div class="util-card__row"><span class="util-card__name">' + t.name + '</span>' +
+          '<span class="util-card__count">' + t.count + ' run' + (t.count === 1 ? '' : 's') + ' · ' + fmtK(t.tokens) + ' tokens</span></div>';
+      });
+    }
+    html += '<div style="font-size:10px;color:var(--text-dim);margin-top:6px">Tokens from Agent tool results (final-iteration usage) — lower bound on true subagent spend</div>';
+
+    document.getElementById('cb-subagent-content').innerHTML = html;
+  } else {
+    subSection.style.display = 'none';
+  }
 }
 
 function updateCbDailyChart() {

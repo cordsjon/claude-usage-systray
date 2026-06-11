@@ -2998,7 +2998,8 @@ function updateActivityTab() {
     if (types.length > 0) {
       html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Top Subagent Types by Spend</div>';
       types.slice(0, 3).forEach(function(t) {
-        html += '<div class="util-card__row"><span class="util-card__name">' + t.name + '</span>' +
+        var safeName = String(t.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        html += '<div class="util-card__row"><span class="util-card__name">' + safeName + '</span>' +
           '<span class="util-card__count">' + t.count + ' run' + (t.count === 1 ? '' : 's') + ' · ' + fmtK(t.tokens) + ' tokens</span></div>';
       });
     }

@@ -327,7 +327,7 @@ def _extract_assistant_text(api_calls: list[dict]) -> str:
     return " ".join(parts)
 
 
-def _tool_result_text(content) -> str:
+def _extract_tool_result_text(content) -> str:
     """Extract text from a tool_result content field (string or block list)."""
     if isinstance(content, str):
         return content
@@ -362,6 +362,9 @@ def _extract_subagent_stats(
     not the cumulative spend across its whole run — token totals are a lower
     bound. Background-agent acks carry no usage at all; those runs contribute
     to count/by_type only. Token numbers are never estimated.
+
+    Quota errors from subagents spawned before the date range are likewise
+    not counted (results without an in-range paired spawn are ignored).
     """
     stats: dict = {
         "count": 0,
@@ -451,7 +454,7 @@ def _extract_subagent_stats(
                         bt["input_tokens"] += in_tk
                         bt["output_tokens"] += out_tk
                 if block.get("is_error") and _QUOTA_ERROR_RE.search(
-                    _tool_result_text(block.get("content"))
+                    _extract_tool_result_text(block.get("content"))
                 ):
                     stats["quota_error_count"] += 1
                     if ts is not None:
@@ -799,6 +802,8 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     # Task/Agent tool_use blocks or their tool_result entries, plus per-session
     # input-context totals for the AC-05 sanity check.
     subagent_entries: dict[str, list[dict]] = defaultdict(list)
+    # Accumulated across all session files; safe because tool_use IDs are
+    # UUIDs (toolu_* format) — collision across sessions is not possible.
     subagent_tool_ids: set[str] = set()
     session_input_ctx: dict[str, int] = defaultdict(int)
 

@@ -14,7 +14,7 @@ Fixture shapes mirror real Claude Code transcript lines (verified 2026-06-11):
 import unittest
 from datetime import datetime, timezone
 
-from engine.codeburn import _extract_subagent_stats
+from engine.codeburn import _extract_subagent_stats, _extract_tool_result_text
 
 
 def _ts(minute: int = 0) -> str:
@@ -195,6 +195,18 @@ class TestQuotaErrors(unittest.TestCase):
         entries.append(result)
         stats = _extract_subagent_stats(entries)
         self.assertEqual(stats["quota_error_count"], 1)
+
+
+class TestToolResultTextExtraction(unittest.TestCase):
+    def test_skips_non_text_blocks(self):
+        content = [
+            {"type": "image", "source": {"data": "abc"}},
+            {"type": "text", "text": "rate limit exceeded"},
+            {"type": "unknown_block", "foo": "bar"},
+        ]
+        text = _extract_tool_result_text(content)
+        self.assertIn("rate limit exceeded", text)
+        self.assertEqual(text.strip(), "rate limit exceeded")
 
 
 class TestEmptySessionSafety(unittest.TestCase):

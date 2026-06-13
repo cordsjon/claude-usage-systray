@@ -33,4 +33,8 @@ cd "$ENGINE_DIR"
 # Pass the token via the environment, not argv — process arguments are
 # world-readable via `ps`, the environment of another user's process is not.
 export CLAUDE_OAUTH_TOKEN="$TOKEN"
+# Ensure token quota environment variables from launchd are exported to child
+export TOKEN_BUDGET_QUOTA_7D="${TOKEN_BUDGET_QUOTA_7D:-1000000000}"
+export TOKEN_BUDGET_QUOTA_5H="${TOKEN_BUDGET_QUOTA_5H:-50000000}"
+echo "$LOG_PREFIX Quotas: 7D=$TOKEN_BUDGET_QUOTA_7D 5H=$TOKEN_BUDGET_QUOTA_5H" >&2
 exec python3 -m engine.server --port "$ENGINE_PORT"

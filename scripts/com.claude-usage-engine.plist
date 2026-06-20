@@ -43,6 +43,10 @@
         <string>__QUOTA_7D__</string>
         <key>TOKEN_BUDGET_QUOTA_5H</key>
         <string>__QUOTA_5H__</string>
+        <!-- Set to 1 to use the Anthropic OAuth API as utilization source (authoritative).
+             Set to 0 to use local JSONL token counting (fallback when API is 429-gated). -->
+        <key>TOKEN_BUDGET_USE_API</key>
+        <string>__USE_API__</string>
     </dict>
 </dict>
 </plist>

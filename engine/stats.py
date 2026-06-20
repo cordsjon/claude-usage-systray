@@ -101,7 +101,10 @@ def runway_hours(current_util: float, burn_rate_per_hour: float, hours_to_reset:
 
     Returns:
         min(hours_to_100%, hours_to_reset). If burn_rate <= 0, returns hours_to_reset.
+        Returns 0.0 if already at or over 100%.
     """
+    if current_util >= 100.0:
+        return 0.0
     if burn_rate_per_hour <= 0:
         return hours_to_reset
 
@@ -131,6 +134,17 @@ def stoppage_detection(
     Returns:
         {"stoppage_likely": bool, "hours_short": float, "projected_util_at_reset": float}
     """
+    # Already over limit — stoppage is now, not future
+    if current_util >= 100.0:
+        days_remaining = hours_to_reset / 24.0
+        active_hours_remaining = days_remaining * active_hours_per_day
+        projected = current_util + burn_rate_per_hour * active_hours_remaining
+        return {
+            "stoppage_likely": True,
+            "hours_short": hours_to_reset,
+            "projected_util_at_reset": projected,
+        }
+
     days_remaining = hours_to_reset / 24.0
     active_hours_remaining = days_remaining * active_hours_per_day
     projected = current_util + burn_rate_per_hour * active_hours_remaining

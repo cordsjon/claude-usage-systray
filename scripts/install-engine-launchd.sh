@@ -31,6 +31,8 @@ LOG_PATH="$LOG_DIR/engine-launchd.log"
 # /usage 76% weekly ground truth). Override via the env vars of the same name.
 QUOTA_7D="${TOKEN_BUDGET_QUOTA_7D:-1559617554}"
 QUOTA_5H="${TOKEN_BUDGET_QUOTA_5H:-77980500}"
+# 1 = use Anthropic OAuth API (authoritative, default); 0 = local JSONL rollup (fallback)
+USE_API="${TOKEN_BUDGET_USE_API:-1}"
 
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
@@ -65,6 +67,7 @@ RENDERED="$(sed \
     -e "s|__LOG_PATH__|$LOG_PATH|g" \
     -e "s|__QUOTA_7D__|$QUOTA_7D|g" \
     -e "s|__QUOTA_5H__|$QUOTA_5H|g" \
+    -e "s|__USE_API__|$USE_API|g" \
     "$TEMPLATE")"
 
 if [[ "$DRY_RUN" == "1" ]]; then
@@ -98,5 +101,5 @@ launchctl bootstrap "gui/$UID_NUM" "$DEST"
 
 echo "loaded: $DEST"
 echo "  WorkingDirectory: $PROJECT_DIR"
-echo "  QUOTA_7D=$QUOTA_7D  QUOTA_5H=$QUOTA_5H"
+echo "  QUOTA_7D=$QUOTA_7D  QUOTA_5H=$QUOTA_5H  USE_API=$USE_API"
 echo "  Log: $LOG_PATH"

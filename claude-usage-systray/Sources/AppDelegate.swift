@@ -143,17 +143,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let weekUsage = snapshot.sevenDayUtilization
 
         if settingsManager.settings.compactDisplay {
-            let fiveH = snapshot.fiveHourUtilization
-            let sevenD = snapshot.sevenDayUtilization
+            let fiveH = min(snapshot.fiveHourUtilization, 100)
+            let sevenD = min(snapshot.sevenDayUtilization, 100)
             let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
 
             let str = NSMutableAttributedString()
             str.append(NSAttributedString(string: "\(fiveH)%",
-                attributes: [.font: font, .foregroundColor: usageColor(for: fiveH)]))
+                attributes: [.font: font, .foregroundColor: usageColor(for: snapshot.fiveHourUtilization)]))
             str.append(NSAttributedString(string: " · ",
                 attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
             str.append(NSAttributedString(string: "\(sevenD)%",
-                attributes: [.font: font, .foregroundColor: usageColor(for: sevenD)]))
+                attributes: [.font: font, .foregroundColor: usageColor(for: snapshot.sevenDayUtilization)]))
 
             button.image = nil
             button.attributedTitle = str
@@ -208,6 +208,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 isCritical: false
             )
             lastWarningNotified = warningThreshold
+        }
+
+        // Reset notified state when usage drops back below thresholds (e.g. after weekly reset)
+        if usage < warningThreshold {
+            lastWarningNotified = 0
+            lastCriticalNotified = 0
+        } else if usage < criticalThreshold {
+            lastCriticalNotified = 0
         }
     }
 

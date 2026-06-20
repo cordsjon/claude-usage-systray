@@ -732,7 +732,7 @@
       <div class="card__row"><span class="card__key">Unused margin</span><span class="card__val" id="mr-margin" style="color:var(--green)">--</span></div>
     </div>
 
-    <div class="footer">Token Budget Engine &middot; Polls every 5m &middot; Python + SQLite</div>
+    <div class="footer">Token Budget Engine &middot; Polls Anthropic API every 60m &middot; Python + SQLite</div>
   </div>
 </div>
 
@@ -1305,7 +1305,7 @@ function utilColor(pct) {
 }
 
 function formatRunway(hours) {
-  if (hours <= 0) return '0h 0m';
+  if (hours <= 0) return 'Exhausted';
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return h + 'h  ' + (m < 10 ? '0' : '') + m + 'm';
@@ -1643,8 +1643,9 @@ function updateSessionBanner() {
     return;
   }
 
-  // Don't show if dismissed for this 5h window, or if below threshold
-  if (bannerDismissedForCycle === resetAt || fiveHourPct < 70) {
+  // Don't show if dismissed, below threshold, or the 5h window has already expired
+  const fiveHourExpired = resetAt && new Date(resetAt) <= new Date();
+  if (bannerDismissedForCycle === resetAt || fiveHourPct < 70 || fiveHourExpired) {
     banner.classList.remove('visible');
     document.body.classList.remove('has-banner');
     return;
@@ -1655,12 +1656,12 @@ function updateSessionBanner() {
   banner.className = 'session-banner visible session-banner--' + (isDanger ? 'danger' : 'warning');
   document.body.classList.add('has-banner');
 
-  document.getElementById('banner-pct').textContent = Math.round(fiveHourPct);
+  document.getElementById('banner-pct').textContent = Math.min(Math.round(fiveHourPct), 100);
   document.getElementById('banner-reset').textContent = s.current.five_hour_resets_in || '--';
 
   const runway = s.projection.runway_hours;
   const runwayEl = document.getElementById('banner-runway');
-  runwayEl.textContent = 'Runway: ' + formatRunway(runway);
+  runwayEl.textContent = runway > 0 ? 'Runway: ' + formatRunway(runway) : 'Session limit reached';
 }
 
 // ─── HUD Update ─────────────────────────────────────────────────
@@ -1687,15 +1688,22 @@ function updateHUD() {
   document.getElementById('hud-burn').textContent = s.projection.burn_rate_per_hour.toFixed(1) + '%/hr';
 
   const weeklyEl = document.getElementById('hud-weekly');
-  weeklyEl.textContent = Math.round(weeklyPct) + '%';
+  weeklyEl.textContent = Math.min(Math.round(weeklyPct), 100) + '%';
   weeklyEl.style.color = utilColor(weeklyPct);
 
   const fivePct = s.current.five_hour_util;
   const fiveEl = document.getElementById('hud-5h');
-  fiveEl.textContent = Math.round(fivePct) + '%';
+  fiveEl.textContent = Math.min(Math.round(fivePct), 100) + '%';
   fiveEl.style.color = utilColor(fivePct);
 
-  document.getElementById('hud-budget').textContent = '\u2264' + s.budget.recommended_daily.toFixed(0) + '%';
+  const budgetEl = document.getElementById('hud-budget');
+  if (s.current.seven_day_util >= 98) {
+    budgetEl.textContent = 'OVER';
+    budgetEl.style.color = 'var(--red)';
+  } else {
+    budgetEl.textContent = '\u2264' + s.budget.recommended_daily.toFixed(0) + '%';
+    budgetEl.style.color = 'var(--blue)';
+  }
 
   // Pacing strip
   if (s.pacing) {
@@ -1847,7 +1855,7 @@ function updateRunwayChart() {
   svgContent += '<line x1="' + nowX + '" y1="' + M.top + '" x2="' + nowX + '" y2="' + (H - M.bottom) + '" stroke="rgba(6,182,212,0.15)"/>';
   svgContent += '<circle cx="' + nowX + '" cy="' + nowY + '" r="6" fill="#06b6d4" opacity="0.2"><animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.2;0.05;0.2" dur="2s" repeatCount="indefinite"/></circle>';
   svgContent += '<circle cx="' + nowX + '" cy="' + nowY + '" r="4" fill="#06b6d4" stroke="#0f1012" stroke-width="1.5"/>';
-  svgContent += '<text x="' + nowX + '" y="' + (nowY - 10) + '" fill="#06b6d4" font-size="9" font-weight="bold" font-family="SF Mono,monospace" text-anchor="middle">NOW ' + Math.round(s.current.seven_day_util) + '%</text>';
+  svgContent += '<text x="' + nowX + '" y="' + (nowY - 10) + '" fill="#06b6d4" font-size="9" font-weight="bold" font-family="SF Mono,monospace" text-anchor="middle">NOW ' + Math.min(Math.round(s.current.seven_day_util), 100) + '%</text>';
 
   // Reset marker
   const resetX = cx(CYCLE_HOURS);
@@ -1952,7 +1960,14 @@ function updateBudgetCards() {
   document.getElementById('ba-burn').textContent = s.projection.burn_rate_per_hour.toFixed(1) + '%/hr';
   document.getElementById('ba-burn').style.color = utilColor(s.projection.burn_rate_per_hour * 10);
   document.getElementById('ba-daily').textContent = s.budget.daily_avg_this_cycle.toFixed(1) + '%/day';
-  document.getElementById('ba-rec').textContent = '\u2264 ' + s.budget.recommended_daily.toFixed(1) + '%/day';
+  const baRecEl = document.getElementById('ba-rec');
+  if (s.current.seven_day_util >= 98) {
+    baRecEl.textContent = 'OVER BUDGET';
+    baRecEl.style.color = 'var(--red)';
+  } else {
+    baRecEl.textContent = '\u2264 ' + s.budget.recommended_daily.toFixed(1) + '%/day';
+    baRecEl.style.color = 'var(--green)';
+  }
   document.getElementById('ba-days').textContent = s.budget.days_remaining.toFixed(1) + ' days';
   document.getElementById('ba-headroom').textContent = '+' + s.budget.headroom_hours.toFixed(0) + 'h runway';
 
@@ -1978,7 +1993,7 @@ function updateBudgetCards() {
 
     document.getElementById('pacing-label').textContent = p.pacing === 'on_pace' ? 'On pace' : p.pacing === 'ahead' ? 'Ahead' : 'Behind';
 
-    document.getElementById('pc-actual').textContent = s.current.seven_day_util.toFixed(0) + '%';
+    document.getElementById('pc-actual').textContent = Math.min(s.current.seven_day_util, 100).toFixed(0) + '%';
     document.getElementById('pc-actual').style.color = utilColor(s.current.seven_day_util);
     document.getElementById('pc-optimal').textContent = p.optimal_util + '%';
 
@@ -2004,16 +2019,17 @@ function updateBudgetCards() {
 
 function updateRing(circleId, textId, pct, label) {
   const circumference = 2 * Math.PI * 22;
-  const offset = circumference * (1 - pct / 100);
+  const clampedPct = Math.min(pct, 100);
+  const offset = circumference * (1 - clampedPct / 100);
   const el = document.getElementById(circleId);
   const txt = document.getElementById(textId);
   const color = utilColor(pct);
   el.setAttribute('stroke-dashoffset', offset.toFixed(1));
   el.setAttribute('stroke', color);
-  txt.textContent = Math.round(pct) + '%';
+  txt.textContent = Math.round(clampedPct) + '%';
   txt.style.color = color;
   const svg = el.closest('svg');
-  if (svg) svg.setAttribute('aria-label', label + ' utilization: ' + Math.round(pct) + '%');
+  if (svg) svg.setAttribute('aria-label', label + ' utilization: ' + Math.round(clampedPct) + '%');
 }
 
 // ─── Charts Update (Tab 2) ──────────────────────────────────────
@@ -2036,7 +2052,7 @@ function updateSparkline(h) {
 
   const pts = snaps.map((s, i) => {
     const x = padL + (i / (snaps.length - 1)) * usableW;
-    const y = usableH - (s.seven_day_util / 100) * usableH;
+    const y = usableH - (Math.min(s.seven_day_util, 100) / 100) * usableH;
     return { x, y };
   });
 

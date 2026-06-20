@@ -118,13 +118,12 @@ def main():
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
 
-    # Snapshot source: local JSONL rollup (default) or the legacy API poller.
-    # The /api/oauth/usage endpoint is UA-gated and returns persistent 429s for
-    # non-claude-code callers (observed 2026-05-26). Local JSONL transcripts
-    # carry the same signal at the source — see engine/jsonl_rollup.py and the
-    # memory entries `claude-usage-systray-ua-gating` / `local-files-over-vendor-api`.
-    # Set TOKEN_BUDGET_USE_API=1 to re-enable the polling path for A/B testing.
-    use_api_poller = os.environ.get("TOKEN_BUDGET_USE_API") == "1"
+    # Snapshot source: Anthropic OAuth API (default) or local JSONL rollup (fallback).
+    # TOKEN_BUDGET_USE_API=1 (default): polls /api/oauth/usage — authoritative percentages.
+    # TOKEN_BUDGET_USE_API=0: counts tokens from local JSONL transcripts against hardcoded
+    #   quota constants (QUOTA_7D, QUOTA_5H). Use only when API is persistently 429-gated.
+    #   Note: JSONL rollup and API report different scales and will not agree numerically.
+    use_api_poller = os.environ.get("TOKEN_BUDGET_USE_API", "1") == "1"
     if use_api_poller:
         poll_kwargs = {"poll_interval": args.poll_interval} if args.poll_interval else {}
         poller_thread = threading.Thread(

@@ -399,7 +399,7 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
             five_hour_util = five_hour.get("utilization", 0.0) or 0.0
             five_hour_resets_at = five_hour.get("resets_at")
             seven_day_util = seven_day.get("utilization", 0.0) or 0.0
-            seven_day_resets_at = seven_day.get("resets_at", now)
+            seven_day_resets_at = seven_day.get("resets_at")
             sonnet_util = sonnet_bucket.get("utilization") if sonnet_bucket else None
         else:
             # Legacy flat format: {five_hour_util, seven_day_util, ...}
@@ -407,7 +407,16 @@ def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Even
             seven_day_util = data.get("seven_day_util", 0.0)
             sonnet_util = data.get("sonnet_util")
             five_hour_resets_at = data.get("five_hour_resets_at")
-            seven_day_resets_at = data.get("seven_day_resets_at", now)
+            seven_day_resets_at = data.get("seven_day_resets_at")
+
+        # Fall back to last DB value rather than collapsing to now/zero
+        if not seven_day_resets_at:
+            last_row = db.get_latest_snapshot()
+            seven_day_resets_at = last_row["seven_day_resets_at"] if last_row else None
+            if seven_day_resets_at:
+                log.warning("API returned no seven_day resets_at — using last known: %s", seven_day_resets_at)
+            else:
+                log.warning("API returned no seven_day resets_at and no DB fallback — projections will be zero")
 
         # ── Stale-token detection ──────────────────────────────────
         # When the token expires, the API may return 200 with all

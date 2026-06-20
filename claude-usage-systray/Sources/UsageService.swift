@@ -160,9 +160,9 @@ final class UsageService: ObservableObject {
             do {
                 let response = try await fetchWithAuthRetry()
 
-                let fiveHourUtil = Int(response.fiveHour?.utilization ?? 0)
-                let sevenDayUtil = Int(response.sevenDay?.utilization ?? 0)
-                let sonnetUtil: Int? = response.sevenDaySonnet.map { Int($0.utilization) }
+                let fiveHourUtil = Int((response.fiveHour?.utilization ?? 0).rounded())
+                let sevenDayUtil = Int((response.sevenDay?.utilization ?? 0).rounded())
+                let sonnetUtil: Int? = response.sevenDaySonnet.map { Int($0.utilization.rounded()) }
 
                 let fiveHourReset = response.fiveHour?.resetsAtDate
                 let sevenDayReset = response.sevenDay?.resetsAtDate
@@ -218,9 +218,9 @@ final class UsageService: ObservableObject {
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let current = json["current"] as? [String: Any] else { return nil }
 
-            let fiveHourUtil = Int((current["five_hour_util"] as? Double) ?? 0)
-            let sevenDayUtil = Int((current["seven_day_util"] as? Double) ?? 0)
-            let sonnetUtil: Int? = (current["sonnet_util"] as? Double).map { Int($0) }
+            let fiveHourUtil = Int(((current["five_hour_util"] as? Double) ?? 0).rounded())
+            let sevenDayUtil = Int(((current["seven_day_util"] as? Double) ?? 0).rounded())
+            let sonnetUtil: Int? = (current["sonnet_util"] as? Double).map { Int($0.rounded()) }
 
             let fiveHourResetIn = current["five_hour_resets_in"] as? String
             let sevenDayResetIn = current["seven_day_resets_in"] as? String

@@ -139,8 +139,8 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
   `consumers.posterengine`** (today DeepSeek-only per `routing.yaml`; a
   provider block with no calls is `{"calls": 0}` and contributes 0). The
   router's top-level `totals` block is host-wide (no `consumer_id` predicate,
-  `api_router/main.py:190-216`) and MUST NOT be read — pinning this here
-  closes the attribution bug class for good. Router unreachable → 200 with
+  `api_router/main.py:190-216`) and MUST NOT be read — the exclusion test
+  below is what enforces this pin. Router unreachable → 200 with
   `{"available": false}` — cost unavailable is never reported as zero. Unit
   test seeds a fake router response containing another consumer's paid call
   and asserts it is excluded. Works identically on both hosts because both
@@ -160,7 +160,10 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
 - **Instance config — new code, no existing loader** (grounding round 1
   finding 1): JSON file `~/.local/share/token-budget/pe_instances.json`:
   `[{name, base_url, token_ref, kick_method: "launchctl"|"ssh", ssh_host?,
-  budget_24h_usd}]`. `token_ref` names a Keychain service resolved via the
+  budget_24h_usd}]`. **Non-localhost `base_url` must be `https://`** — the
+  loader rejects a plaintext remote URL at startup, because the Bearer token
+  is an admin credential and must never cross the network unencrypted.
+  `token_ref` names a Keychain service resolved via the
   existing generic `keychain_get` (`engine/providers/__init__.py`); tokens
   never appear in config plaintext. Windows guide gets an env-var-fallback
   porting note.
@@ -171,7 +174,8 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
   counter → `reachable=false` at 3 misses.
 - **Persistence (engine SQLite, existing `UsageDB` database file):**
   `pe_cost_snapshot(ts, instance, cost_24h_usd, calls, available)` — history
-  for the popover sparkline and post-hoc inspection; **the budget signal is
+  for the popover sparkline and post-hoc inspection, pruned to 90 days on
+  engine startup (one row/min/instance would otherwise grow ~1 M rows/yr); **the budget signal is
   the router's own rolling-24h figure, not a snapshot delta** (rolling-window
   deltas can go negative and are not day-spend; grounding round 1 finding 9).
   `pe_alert_state(alert_id, first_seen, last_seen, active)` — alert lifecycle.
@@ -233,7 +237,13 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
     `ssh <ssh_host> docker restart poster-worker` with
     `-o ConnectTimeout=5` + 30 s subprocess timeout (same SSH identity
     deploy.sh uses, `root@72.61.159.117`). Rate-limited to one kick per 60 s
-    per instance (429 at preflight).
+    per instance (429 at preflight). **Kick kills any in-flight generation**
+    (the restarted worker abandons its running job, which orphan-reclaim
+    converts to `failed` after its 600 s running threshold — retryable via
+    the normal retry path). The popover therefore shows the instance's
+    `running` count directly on the Kick control, so kicking with work in
+    flight is an informed action, and the kick op's `detail` records
+    `running_at_kick`.
 
 ### Swift app
 
@@ -241,6 +251,11 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
   one-shot 60 s `Timer` against `http://localhost:17420/pe/status`,
   rescheduled per result, started from `AppDelegate` (there is no central
   poll coordinator to attach to; grounding round 1 finding 3).
+- **Supervisor staleness (the monitor must monitor itself):** if `/pe/status`
+  is unreachable, or an instance's `last_poll` is older than 3 poll intervals
+  (engine thread wedged), the PE section greys out with a "supervisor stale"
+  line and one notification fires (seen-id `engine_stale:<date>`); recovery
+  clears it silently. A dead supervisor must look dead, never "all green".
 - **Shared `Notifier` helper extracted** (grounding rounds 1+2): the
   existing private helpers in `HermesClient` and `AppDelegate` both wrap
   `UNUserNotification` with hard-coded titles, and `AppDelegate` uses the
@@ -285,7 +300,9 @@ role, 401 otherwise; `poster_engine/web/app.py:1422-1424`).
 - Engine: pytest + `pytest_httpserver` faking PE `/api/jobs/summary` and
   `/api/admin/router-metrics` — stall math, unreachable debounce, budget
   edge+hysteresis, alert-id stability across simulated restarts, 202-async
-  control dispatch. The aggregation logic is the seam under test; PE is
+  control dispatch, `pe_cost_snapshot` rows written per poll and pruned at
+  the 90-day boundary, staleness flag when a poller thread stops updating
+  `last_poll`. The aggregation logic is the seam under test; PE is
   outside it.
 - PE: endpoint tests against the real seeded dev-DB fixture (never mock the
   job_queue seam); router-metrics tests fake only the router HTTP (outside

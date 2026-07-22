@@ -41,6 +41,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.checkForNotifications()
             }
             .store(in: &cancellables)
+
+        posterEngineService.$status
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItemAppearance()
+            }
+            .store(in: &cancellables)
         
         NotificationCenter.default.addObserver(
             self,
@@ -134,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusItemAppearance() {
         guard let button = statusItem.button else { return }
 
+        let peHasActiveAlert = posterEngineService.status?.alerts.contains(where: { $0.active }) ?? false
         let snapshot = usageService.currentUsage
         let weekUsage = snapshot.sevenDayUtilization
 
@@ -155,7 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
             let symbolName: String
-            if weekUsage >= 80 { symbolName = "exclamationmark.triangle.fill" }
+            if peHasActiveAlert || weekUsage >= 80 { symbolName = "exclamationmark.triangle.fill" }
             else if weekUsage >= 50 { symbolName = "chart.pie.fill" }
             else { symbolName = "chart.pie" }
 
@@ -165,7 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 string: "\(weekUsage)%",
                 attributes: [
                     .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
-                    .foregroundColor: usageColor(for: weekUsage)
+                    .foregroundColor: peHasActiveAlert ? NSColor.systemRed : usageColor(for: weekUsage)
                 ]
             )
         }

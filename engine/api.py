@@ -7,8 +7,12 @@ import json
 import os
 import re
 import tempfile
+import threading
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -50,6 +54,10 @@ _DEFAULT_PATTERNS_YAML_PATH = (
 # In-memory dashboard cache — avoid re-reading 2500-line HTML on every request
 _dashboard_cache: bytes | None = None
 _dashboard_mtime: float = 0.0
+
+# PE kick rate-limit tracker (US-PESUP-ENGINE-01)
+_pe_kick_last_ts: dict = {}  # instance_name -> monotonic ts of last kick
+_PE_KICK_RATE_LIMIT_S = 60
 
 
 def _row_to_dict(row) -> dict:
@@ -183,6 +191,8 @@ def _make_handler_class(
                 self._handle_dry_run()
             elif path == "/api/prompts/pattern":
                 self._handle_add_pattern()
+            elif path.startswith("/pe/"):
+                self._handle_pe_control(path)
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -263,6 +273,74 @@ def _make_handler_class(
                 "alerts": active_alerts,
                 "ops": recent_ops,
             })
+
+        _PE_RETRY_RE = re.compile(r"^/pe/([^/]+)/jobs/([^/]+)/retry$")
+        _PE_KICK_RE = re.compile(r"^/pe/([^/]+)/worker/kick$")
+
+        def _handle_pe_control(self, path: str):
+            retry_match = self._PE_RETRY_RE.match(path)
+            kick_match = self._PE_KICK_RE.match(path)
+
+            if retry_match:
+                instance_name, job_id = retry_match.groups()
+                self._dispatch_pe_retry(instance_name, job_id)
+            elif kick_match:
+                instance_name = kick_match.group(1)
+                self._dispatch_pe_kick(instance_name)
+            else:
+                _json_response(self, {"error": "Not found"}, 404)
+
+        def _find_pe_instance(self, name: str):
+            return next((i for i in pe_instances if i.name == name), None)
+
+        def _dispatch_pe_retry(self, instance_name: str, job_id: str):
+            instance = self._find_pe_instance(instance_name)
+            if instance is None:
+                _json_response(self, {"error": f"unknown instance '{instance_name}'"}, 404)
+                return
+            # Spec (design line 222): preflight 404s if the target isn't in
+            # the cached recent_terminal list — this is the engine's own
+            # cached view from the last poll, NOT a fresh PE call (that
+            # would reintroduce the blocking-request problem controls exist
+            # to avoid). A job real-but-not-yet-polled is a narrow race,
+            # acceptable per the design's async-preflight contract.
+            cached_status = get_current_pe_status().get(instance_name, {})
+            recent_terminal = cached_status.get("recent_terminal", [])
+            known_job_ids = {j["job_id"] for j in recent_terminal}
+            if job_id not in known_job_ids:
+                _json_response(self, {"error": f"job '{job_id}' not in recent_terminal"}, 404)
+                return
+            op_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+            db.insert_pe_op_log(op_id=op_id, instance=instance_name, kind="retry",
+                                 target=job_id, state="pending", detail=None, ts=now)
+            thread = threading.Thread(
+                target=_run_pe_retry_op, args=(instance, job_id, op_id, db), daemon=True
+            )
+            thread.start()
+            _json_response(self, {"accepted": True, "op_id": op_id}, 202)
+
+        def _dispatch_pe_kick(self, instance_name: str):
+            instance = self._find_pe_instance(instance_name)
+            if instance is None:
+                _json_response(self, {"error": f"unknown instance '{instance_name}'"}, 404)
+                return
+            last = _pe_kick_last_ts.get(instance_name, 0.0)
+            if time.monotonic() - last < _PE_KICK_RATE_LIMIT_S:
+                _json_response(self, {"error": "rate_limited"}, 429)
+                return
+            _pe_kick_last_ts[instance_name] = time.monotonic()
+            op_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+            running_at_kick = get_current_pe_status().get(instance_name, {}).get("counts", {}).get("running", 0)
+            db.insert_pe_op_log(op_id=op_id, instance=instance_name, kind="kick",
+                                 target=None, state="pending",
+                                 detail=json.dumps({"running_at_kick": running_at_kick}), ts=now)
+            thread = threading.Thread(
+                target=_run_pe_kick_op, args=(instance, op_id, db), daemon=True
+            )
+            thread.start()
+            _json_response(self, {"accepted": True, "op_id": op_id}, 202)
 
         def _handle_token_history(self):
             data = get_token_history()
@@ -503,6 +581,48 @@ def _make_handler_class(
             _json_response(self, {"status": "ok", "pattern": entry}, 200)
 
     return Handler
+
+
+def _run_pe_retry_op(instance, job_id: str, op_id: str, db) -> None:
+    from engine.providers import keychain_get
+    token = keychain_get(instance.token_ref)
+    try:
+        req = urllib.request.Request(
+            f"{instance.base_url}/api/jobs/{job_id}/retry",
+            data=b"{}", method="POST",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            db.update_pe_op_log(op_id, state="ok", detail=None)
+    except urllib.error.HTTPError as e:
+        db.update_pe_op_log(op_id, state="failed", detail=f"http_{e.code}")
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        db.update_pe_op_log(op_id, state="failed", detail=str(e))
+
+
+def _run_pe_kick_op(instance, op_id: str, db) -> None:
+    import subprocess
+    try:
+        if instance.kick_method == "launchctl":
+            uid = os.getuid()
+            result = subprocess.run(
+                ["launchctl", "kickstart", "-k", f"gui/{uid}/com.poster-worker"],
+                capture_output=True, timeout=15,
+            )
+        else:  # ssh
+            result = subprocess.run(
+                ["ssh", "-o", "ConnectTimeout=5", instance.ssh_host,
+                 "docker", "restart", "poster-worker"],
+                capture_output=True, timeout=30,
+            )
+        if result.returncode == 0:
+            db.update_pe_op_log(op_id, state="ok", detail=None)
+        else:
+            db.update_pe_op_log(op_id, state="failed", detail=result.stderr.decode()[:500])
+    except subprocess.TimeoutExpired:
+        db.update_pe_op_log(op_id, state="failed", detail="timeout")
+    except Exception as e:  # noqa: BLE001 — surfacing any control failure into pe_op_log, not raising into a daemon thread
+        db.update_pe_op_log(op_id, state="failed", detail=str(e))
 
 
 def create_server(

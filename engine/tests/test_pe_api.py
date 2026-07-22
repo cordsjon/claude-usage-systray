@@ -61,5 +61,103 @@ class TestPEStatusRoute(unittest.TestCase):
         self.assertIn("reachable", dev)
 
 
+class TestPEControlRoutes(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.db = UsageDB(":memory:")
+        cls.token_holder = TokenHolder("fake-token")
+        cls.pe_instances = [
+            PEInstance(name="dev", base_url="http://127.0.0.1:1",  # unreachable on purpose
+                       token_ref="x", kick_method="launchctl", budget_24h_usd=1.0),
+        ]
+        cls.server = create_server(
+            cls.db, cls.token_holder, port=0, pe_instances=cls.pe_instances
+        )
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.db.close()
+
+    def _post(self, path):
+        url = f"http://127.0.0.1:{self.port}{path}"
+        req = urllib.request.Request(url, data=b"{}", method="POST",
+                                      headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_retry_unknown_instance_404(self):
+        status, body = self._post("/pe/nonexistent/jobs/job-1/retry")
+        self.assertEqual(status, 404)
+
+    def test_kick_unknown_instance_404(self):
+        status, body = self._post("/pe/nonexistent/worker/kick")
+        self.assertEqual(status, 404)
+
+    def test_retry_unknown_job_404(self):
+        # No poll has seeded recent_terminal with this job_id in this test
+        # process, so it is "unknown" — this is the expected
+        # preflight-miss path (spec design line 222).
+        status, body = self._post("/pe/dev/jobs/never-seen/retry")
+        self.assertEqual(status, 404)
+
+    def test_retry_known_instance_and_job_returns_202_with_op_id(self):
+        from engine.pe_poller import _update_pe_status
+        _update_pe_status("dev", {
+            "reachable": True, "counts": {}, "oldest_claimable_queued_s": 0,
+            "stalled": False,
+            "recent_terminal": [{"job_id": "job-xyz", "status": "failed",
+                                  "topic": "t", "error": "e", "updated_at": "2026-07-22T00:00:00Z"}],
+            "cost": {"d24h_usd": 0.0, "calls": 0, "available": False},
+            "budget": {"target_24h_usd": 1.0, "crossed": False},
+            "last_poll": "2026-07-22T00:00:00Z",
+        })
+        status, body = self._post("/pe/dev/jobs/job-xyz/retry")
+        self.assertEqual(status, 202)
+        self.assertTrue(body["accepted"])
+        self.assertIn("op_id", body)
+
+    def test_unmatched_pe_path_falls_through_to_404(self):
+        status, body = self._post("/pe/dev/something/unrelated")
+        self.assertEqual(status, 404)
+
+    def test_failed_retry_op_appears_in_ops_list(self):
+        from engine.pe_poller import _update_pe_status
+        # instance base_url is http://127.0.0.1:1 (unreachable by construction
+        # in setUpClass) — seed recent_terminal so the preflight passes and
+        # the op actually dispatches; the failure we're testing comes from
+        # the unreachable base_url, not from the preflight check.
+        _update_pe_status("dev", {
+            "reachable": True, "counts": {}, "oldest_claimable_queued_s": 0,
+            "stalled": False,
+            "recent_terminal": [{"job_id": "job-abc", "status": "failed",
+                                  "topic": "t", "error": "e", "updated_at": "2026-07-22T00:00:00Z"}],
+            "cost": {"d24h_usd": 0.0, "calls": 0, "available": False},
+            "budget": {"target_24h_usd": 1.0, "crossed": False},
+            "last_poll": "2026-07-22T00:00:00Z",
+        })
+        status, body = self._post("/pe/dev/jobs/job-abc/retry")
+        self.assertEqual(status, 202)
+        op_id = body["op_id"]
+
+        import time
+        deadline = time.monotonic() + 5
+        found = None
+        while time.monotonic() < deadline:
+            ops = [o for o in self.db.get_recent_pe_ops(limit=10) if o["op_id"] == op_id]
+            if ops and ops[0]["state"] != "pending":
+                found = ops[0]
+                break
+            time.sleep(0.2)
+        self.assertIsNotNone(found)
+        self.assertEqual(found["state"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()

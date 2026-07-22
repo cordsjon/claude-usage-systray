@@ -55,7 +55,10 @@ _DEFAULT_PATTERNS_YAML_PATH = (
 _dashboard_cache: bytes | None = None
 _dashboard_mtime: float = 0.0
 
-# PE kick rate-limit tracker (US-PESUP-ENGINE-01)
+# PE kick rate-limit tracker (US-PESUP-ENGINE-01). The lock is defensive:
+# HTTPServer serializes requests today, but the check-and-set below must stay
+# atomic if this ever moves to ThreadingHTTPServer.
+_pe_kick_lock = threading.Lock()
 _pe_kick_last_ts: dict = {}  # instance_name -> monotonic ts of last kick
 _PE_KICK_RATE_LIMIT_S = 60
 
@@ -325,11 +328,12 @@ def _make_handler_class(
             if instance is None:
                 _json_response(self, {"error": f"unknown instance '{instance_name}'"}, 404)
                 return
-            last = _pe_kick_last_ts.get(instance_name, 0.0)
-            if time.monotonic() - last < _PE_KICK_RATE_LIMIT_S:
-                _json_response(self, {"error": "rate_limited"}, 429)
-                return
-            _pe_kick_last_ts[instance_name] = time.monotonic()
+            with _pe_kick_lock:
+                last = _pe_kick_last_ts.get(instance_name, 0.0)
+                if time.monotonic() - last < _PE_KICK_RATE_LIMIT_S:
+                    _json_response(self, {"error": "rate_limited"}, 429)
+                    return
+                _pe_kick_last_ts[instance_name] = time.monotonic()
             op_id = str(uuid.uuid4())
             now = datetime.now(timezone.utc).isoformat()
             running_at_kick = get_current_pe_status().get(instance_name, {}).get("counts", {}).get("running", 0)

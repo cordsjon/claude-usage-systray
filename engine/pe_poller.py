@@ -148,14 +148,17 @@ def pe_poll_once(
     # Use cost_24h_display (already resolved above — either this poll's fresh
     # metrics, or the DB fallback when fetch_router=False) so budget crossing
     # keeps working on iterations that skip the router call.
+    currently_crossed = any(
+        a["alert_id"] == f"budget:{instance.name}:active" for a in db.get_active_pe_alerts()
+    )
     if available_display:
-        currently_crossed = any(
-            a["alert_id"] == f"budget:{instance.name}:active" for a in db.get_active_pe_alerts()
-        )
         crossed = compute_budget_crossed(cost_24h_display, instance.budget_24h_usd, currently_crossed)
         _sync_budget_alert(db, instance.name, crossed, now)
     else:
-        crossed = False
+        # Router metrics unavailable this cycle — hold the last known crossed
+        # state (the still-active DB alert row) instead of flickering to
+        # False and back. The alert is only cleared by a real reading.
+        crossed = currently_crossed
 
     status = {
         "reachable": reachable,

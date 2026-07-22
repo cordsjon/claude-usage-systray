@@ -266,5 +266,36 @@ def test_budget_crossed_mints_alert_and_rearms(httpserver: HTTPServer):
         db.close()
 
 
+def test_budget_crossed_survives_unavailable_router_metrics(httpserver: HTTPServer):
+    """Review finding: when router metrics are unavailable for a cycle, the
+    status dict must keep reporting the last known crossed state from the DB
+    alert row, not flicker to False while the alert is still active."""
+    httpserver.expect_request("/api/jobs/summary").respond_with_json({
+        "counts": {"queued": 0, "running": 1, "complete_24h": 0, "dead": 0, "failed": 0},
+        "oldest_claimable_queued_s": 0, "recent_terminal": [],
+    })
+    instance = PEInstance(
+        name="dev", base_url=httpserver.url_for("").rstrip("/"),
+        token_ref="x", kick_method="launchctl", budget_24h_usd=0.5,
+    )
+    db = UsageDB(":memory:")
+    try:
+        # Budget alert already active from a prior (successful) poll cycle;
+        # no cost snapshot exists, so available_display resolves False.
+        db.upsert_pe_alert_state(
+            alert_id="budget:dev:active",
+            first_seen="2026-07-21T23:00:00Z",
+            last_seen="2026-07-21T23:59:00Z", active=True,
+        )
+        pe_poll_once(instance, db, token="tok", now_iso="2026-07-22T00:00:00Z", fetch_router=False)
+        status = get_current_pe_status()
+        assert status["dev"]["budget"]["crossed"] is True
+        # And the alert row itself must remain active (not cleared).
+        active = [a["alert_id"] for a in db.get_active_pe_alerts()]
+        assert "budget:dev:active" in active
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,7 @@ from pathlib import Path
 from engine.api import create_server
 from engine.classification import load_classification, save_classification
 from engine.db import UsageDB
-from engine.poller import _update_status
+from engine.poller import TokenHolder, _update_status
 
 
 class TestAPI(unittest.TestCase):
@@ -20,14 +20,19 @@ class TestAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db = UsageDB(":memory:")
-        # Seed one snapshot
+        # Seed one snapshot. Timestamp must be relative to now — /api/history
+        # filters by wall-clock range, so a hardcoded date silently ages out
+        # of the 7d window and the test rots.
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
         cls.db.insert_snapshot(
-            timestamp="2026-03-26T12:00:00Z",
+            timestamp=(now - timedelta(hours=1)).isoformat(),
             five_hour_util=0.42,
             seven_day_util=0.31,
             sonnet_util=0.10,
-            five_hour_resets_at="2026-03-26T17:00:00Z",
-            seven_day_resets_at="2026-03-27T00:00:00Z",
+            five_hour_resets_at=(now + timedelta(hours=4)).isoformat(),
+            seven_day_resets_at=(now + timedelta(days=1)).isoformat(),
         )
         # Seed shared status via poller
         _update_status({
@@ -47,7 +52,7 @@ class TestAPI(unittest.TestCase):
             "updated_at": "2026-03-26T12:00:00Z",
         })
         # Start server on random port
-        cls.server = create_server(cls.db, port=0)
+        cls.server = create_server(cls.db, TokenHolder("test-token"), port=0)
         cls.port = cls.server.server_address[1]
         cls.base_url = f"http://127.0.0.1:{cls.port}"
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)

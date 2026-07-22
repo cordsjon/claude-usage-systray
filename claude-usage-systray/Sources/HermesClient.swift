@@ -28,22 +28,6 @@ enum HermesClient {
     }
 
     private static func notifyError(_ message: String) {
-        guard #available(macOS 11.0, *) else { return }
-        let content = UNMutableNotificationContent()
-        content.title = "Hermes Shortcut"
-        content.body = message
-        let req = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
-        UNUserNotificationCenter.current().add(req, withCompletionHandler: nil)
-    }
-
-    /// Request notification permission once on first launch.
-    /// Call from AppDelegate.applicationDidFinishLaunching.
-    static func requestNotificationPermission() {
-        guard #available(macOS 11.0, *) else { return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+        Notifier.post(title: "Hermes Shortcut", body: message, critical: false)
     }
 }

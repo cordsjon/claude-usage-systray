@@ -179,10 +179,11 @@ class TestRead(unittest.TestCase):
         self.assertEqual(cycle_26["stoppage"], 0)
 
     def test_get_cycle_peaks_stoppage(self):
-        # Insert a snapshot with util >= 0.95
+        # Insert a snapshot with util >= 95.0 (utils are stored percent-scale,
+        # 0-100 — matches live data and the SQL threshold in get_cycle_peaks)
         self.db.insert_snapshot(
             timestamp="2026-03-26T18:00:00Z",
-            five_hour_util=0.98,
+            five_hour_util=98.0,
             seven_day_util=0.10,
             sonnet_util=None,
             five_hour_resets_at=None,
@@ -191,6 +192,78 @@ class TestRead(unittest.TestCase):
         peaks = self.db.get_cycle_peaks()
         cycle_27 = [p for p in peaks if p["cycle_id"] == "2026-03-27"][0]
         self.assertEqual(cycle_27["stoppage"], 1)
+
+
+class TestPESchema(unittest.TestCase):
+    def setUp(self):
+        self.db = UsageDB(":memory:")
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_insert_and_read_pe_cost_snapshot(self):
+        self.db.insert_pe_cost_snapshot(
+            ts="2026-07-22T00:00:00Z", instance="dev",
+            cost_24h_usd=0.12, calls=5, available=True,
+        )
+        rows = self.db.get_pe_cost_snapshots_since(
+            instance="dev", since="2026-07-21T00:00:00Z"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["cost_24h_usd"], 0.12)
+        self.assertEqual(rows[0]["available"], 1)
+
+    def test_get_latest_pe_cost_snapshot(self):
+        self.db.insert_pe_cost_snapshot(
+            ts="2026-07-22T00:00:00Z", instance="dev",
+            cost_24h_usd=0.10, calls=3, available=True,
+        )
+        self.db.insert_pe_cost_snapshot(
+            ts="2026-07-22T00:01:00Z", instance="dev",
+            cost_24h_usd=0.15, calls=4, available=True,
+        )
+        latest = self.db.get_latest_pe_cost_snapshot("dev")
+        self.assertEqual(latest["cost_24h_usd"], 0.15)
+
+    def test_pe_alert_state_upsert_and_read(self):
+        self.db.upsert_pe_alert_state(
+            alert_id="stalled:dev:2026-07-22T00:00:00Z",
+            first_seen="2026-07-22T00:00:00Z",
+            last_seen="2026-07-22T00:00:00Z", active=True,
+        )
+        self.db.upsert_pe_alert_state(
+            alert_id="stalled:dev:2026-07-22T00:00:00Z",
+            first_seen="2026-07-22T00:00:00Z",
+            last_seen="2026-07-22T00:04:00Z", active=True,
+        )
+        active = self.db.get_active_pe_alerts()
+        self.assertEqual(len(active), 1)
+        self.assertEqual(active[0]["last_seen"], "2026-07-22T00:04:00Z")
+
+    def test_pe_op_log_insert_and_update(self):
+        self.db.insert_pe_op_log(
+            op_id="op-1", instance="dev", kind="retry",
+            target="job-123", state="pending", detail=None,
+            ts="2026-07-22T00:00:00Z",
+        )
+        self.db.update_pe_op_log("op-1", state="ok", detail=None)
+        recent = self.db.get_recent_pe_ops(limit=10)
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(recent[0]["state"], "ok")
+
+    def test_prune_pe_cost_snapshot_respects_90_day_boundary(self):
+        self.db.insert_pe_cost_snapshot(
+            ts="2020-01-01T00:00:00Z", instance="dev",
+            cost_24h_usd=0.01, calls=1, available=True,
+        )
+        self.db.insert_pe_cost_snapshot(
+            ts="2026-07-22T00:00:00Z", instance="dev",
+            cost_24h_usd=0.02, calls=1, available=True,
+        )
+        self.db.prune_pe_cost_snapshot()
+        rows = self.db.get_pe_cost_snapshots_since(instance="dev", since="2000-01-01T00:00:00Z")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["cost_24h_usd"], 0.02)
 
 
 if __name__ == "__main__":

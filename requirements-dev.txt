@@ -1,0 +1,6 @@
+# requirements-dev.txt
+# Test-only dependencies for engine/. Install: .venv/bin/pip install -r requirements-dev.txt
+# The engine itself uses stdlib only (urllib, http.server, sqlite3) — this file
+# stays test-scoped so runtime deployment (LaunchAgent) needs no pip install.
+pytest>=8.0
+pytest_httpserver>=1.0

@@ -60,6 +60,31 @@ class TestPEStatusRoute(unittest.TestCase):
         dev = next(i for i in body["instances"] if i["name"] == "dev")
         self.assertIn("reachable", dev)
 
+    def test_pe_status_alert_active_is_json_boolean(self):
+        # SQLite stores active as 0/1; the wire contract (and the Swift
+        # client's Bool decode) requires a JSON boolean. Caught live in the
+        # 2026-07-22 E2E: "active": 1 made every /pe/status decode fail in
+        # the systray app.
+        self.db.upsert_pe_alert_state(
+            alert_id="stalled:dev:active",
+            first_seen="2026-07-22T00:00:00+00:00",
+            last_seen="2026-07-22T00:00:00+00:00",
+            active=True,
+        )
+        try:
+            status, body = self._get("/pe/status")
+            self.assertEqual(status, 200)
+            alert = next(a for a in body["alerts"]
+                         if a["alert_id"] == "stalled:dev:active")
+            self.assertIs(alert["active"], True)
+        finally:
+            self.db.upsert_pe_alert_state(
+                alert_id="stalled:dev:active",
+                first_seen="2026-07-22T00:00:00+00:00",
+                last_seen="2026-07-22T00:00:00+00:00",
+                active=False,
+            )
+
 
 class TestPEControlRoutes(unittest.TestCase):
     @classmethod

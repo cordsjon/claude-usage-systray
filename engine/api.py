@@ -269,7 +269,13 @@ def _make_handler_class(
                     "last_poll": None,
                 })
                 instances_out.append({"name": inst.name, **s})
-            active_alerts = [_row_to_dict(r) for r in db.get_active_pe_alerts()]
+            # SQLite stores active as 0/1; the wire contract is a JSON boolean
+            # (the Swift client decodes Bool — an int here fails its whole
+            # PEStatus decode).
+            active_alerts = [
+                {**_row_to_dict(r), "active": bool(r["active"])}
+                for r in db.get_active_pe_alerts()
+            ]
             recent_ops = [_row_to_dict(r) for r in db.get_recent_pe_ops(limit=10)]
             _json_response(self, {
                 "instances": instances_out,

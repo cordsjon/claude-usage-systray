@@ -54,3 +54,46 @@ final class PEStatusDecodingTests: XCTestCase {
         XCTAssertNil(status.instances[0].lastPoll)
     }
 }
+
+// MARK: - Staleness detection (pure function)
+
+final class PEStalenessTests: XCTestCase {
+    func testNotStaleWithinThreeIntervals() {
+        let lastPoll = Date().addingTimeInterval(-90)  // 90s ago, interval=60s -> 1.5 intervals
+        XCTAssertFalse(isSupervisorStale(lastPoll: lastPoll, pollInterval: 60, now: Date()))
+    }
+
+    func testStaleAfterThreeIntervals() {
+        let lastPoll = Date().addingTimeInterval(-200)  // 200s ago, interval=60s -> >3 intervals
+        XCTAssertTrue(isSupervisorStale(lastPoll: lastPoll, pollInterval: 60, now: Date()))
+    }
+
+    func testNilLastPollIsStale() {
+        XCTAssertTrue(isSupervisorStale(lastPoll: nil, pollInterval: 60, now: Date()))
+    }
+}
+
+// MARK: - Alert seen-id dedupe (pure function)
+
+final class PEAlertDedupeTests: XCTestCase {
+    func testUnseenActiveAlertIsNewlyUnseen() {
+        let seen: Set<String> = []
+        let alerts = [PEAlert(alertId: "stalled:dev:active", firstSeen: "t1", lastSeen: "t2", active: true)]
+        let unseen = unseenActiveAlertIds(alerts: alerts, seenIds: seen)
+        XCTAssertEqual(unseen, ["stalled:dev:active"])
+    }
+
+    func testAlreadySeenAlertIsNotReturnedAgain() {
+        let seen: Set<String> = ["stalled:dev:active"]
+        let alerts = [PEAlert(alertId: "stalled:dev:active", firstSeen: "t1", lastSeen: "t2", active: true)]
+        let unseen = unseenActiveAlertIds(alerts: alerts, seenIds: seen)
+        XCTAssertTrue(unseen.isEmpty)
+    }
+
+    func testInactiveAlertNeverConsideredUnseen() {
+        let seen: Set<String> = []
+        let alerts = [PEAlert(alertId: "stalled:dev:active", firstSeen: "t1", lastSeen: "t2", active: false)]
+        let unseen = unseenActiveAlertIds(alerts: alerts, seenIds: seen)
+        XCTAssertTrue(unseen.isEmpty)
+    }
+}

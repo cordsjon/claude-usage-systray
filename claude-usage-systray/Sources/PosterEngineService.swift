@@ -109,3 +109,152 @@ struct PEOp: Decodable, Identifiable {
         case opId = "op_id"
     }
 }
+
+// MARK: - Pure helpers (staleness, dedupe)
+
+let peStalenessMultiplier = 3
+
+/// The monitor must monitor itself: nil lastPoll (never polled, or unparseable
+/// timestamp from the engine) counts as stale, never as "all green."
+func isSupervisorStale(lastPoll: Date?, pollInterval: TimeInterval, now: Date = Date()) -> Bool {
+    guard let lastPoll = lastPoll else { return true }
+    return now.timeIntervalSince(lastPoll) > pollInterval * Double(peStalenessMultiplier)
+}
+
+/// Alert ids the caller hasn't notified for yet. Only active alerts are
+/// eligible — a cleared alert is never "newly unseen."
+func unseenActiveAlertIds(alerts: [PEAlert], seenIds: Set<String>) -> [String] {
+    alerts.filter { $0.active && !seenIds.contains($0.alertId) }.map { $0.alertId }
+}
+
+// MARK: - ISO8601 parsing helper (engine emits e.g. "2026-07-21T23:00:00Z")
+
+func parseISO8601(_ string: String?) -> Date? {
+    guard let string = string else { return nil }
+    let formatter = ISO8601DateFormatter()
+    if let date = formatter.date(from: string) { return date }
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter.date(from: string)
+}
+
+// MARK: - PosterEngineService
+
+final class PosterEngineService: ObservableObject {
+    static let shared = PosterEngineService()
+
+    @Published private(set) var status: PEStatus?
+    @Published private(set) var supervisorStale: Bool = false
+    @Published private(set) var error: String?
+
+    private var refreshTimer: Timer?
+    private let pollInterval: TimeInterval = 60
+
+    // Injectable for testing (init is internal, not private, so tests can
+    // build isolated instances with a mocked URLSession — unlike
+    // UsageService, whose tests never construct one).
+    var urlSession: URLSession = .shared
+    var userDefaults: UserDefaults = .standard
+
+    private let seenAlertIdsKey = "PosterEngineService.seenAlertIds"
+
+    init() {}
+
+    func startPolling() {
+        fetchStatus()
+        scheduleTimer()
+    }
+
+    func stopPolling() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+
+    private func scheduleTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: false) { [weak self] _ in
+            self?.fetchStatus()
+        }
+    }
+
+    func fetchStatus() {
+        Task {
+            guard let url = URL(string: "http://localhost:17420/pe/status") else { return }
+            do {
+                let (data, response) = try await urlSession.data(from: url)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    await handleUnreachable()
+                    return
+                }
+                let decoded = try JSONDecoder().decode(PEStatus.self, from: data)
+                await MainActor.run {
+                    self.status = decoded
+                    self.error = nil
+                    self.recomputeStaleness()
+                    self.notifyUnseenAlerts(decoded.alerts)
+                    self.scheduleTimer()
+                }
+            } catch {
+                AppLogger.error("pe", "PE status fetch failed: \(error.localizedDescription)")
+                await handleUnreachable()
+            }
+        }
+    }
+
+    @MainActor
+    private func handleUnreachable() {
+        self.error = "PE supervisor unreachable"
+        self.supervisorStale = true
+        notifyEngineStaleOnce()
+        scheduleTimer()
+    }
+
+    @MainActor
+    private func recomputeStaleness() {
+        guard let status = status else { supervisorStale = true; return }
+        let lastPolls = status.instances.compactMap { parseISO8601($0.lastPoll) }
+        let oldest = lastPolls.min()
+        let stale = isSupervisorStale(lastPoll: oldest, pollInterval: pollInterval)
+        if stale && !supervisorStale {
+            notifyEngineStaleOnce()
+        }
+        supervisorStale = stale
+    }
+
+    private func notifyEngineStaleOnce() {
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        let seenId = "engine_stale:\(today)"
+        var seen = Set(userDefaults.stringArray(forKey: seenAlertIdsKey) ?? [])
+        guard !seen.contains(seenId) else { return }
+        seen.insert(seenId)
+        userDefaults.set(Array(seen), forKey: seenAlertIdsKey)
+        Notifier.post(title: "PE Supervisor", body: "Supervisor is stale or unreachable", critical: true)
+    }
+
+    @MainActor
+    private func notifyUnseenAlerts(_ alerts: [PEAlert]) {
+        var seen = Set(userDefaults.stringArray(forKey: seenAlertIdsKey) ?? [])
+        let unseen = unseenActiveAlertIds(alerts: alerts, seenIds: seen)
+        for alertId in unseen {
+            guard let alert = alerts.first(where: { $0.alertId == alertId }) else { continue }
+            Notifier.post(title: "PE Supervisor", body: alertDisplayMessage(alert), critical: alertId.hasPrefix("op_failed"))
+            seen.insert(alertId)
+        }
+        if !unseen.isEmpty {
+            userDefaults.set(Array(seen), forKey: seenAlertIdsKey)
+        }
+    }
+
+    private func alertDisplayMessage(_ alert: PEAlert) -> String {
+        // alert_id shape: "kind:instance:..." — split for a readable message.
+        let parts = alert.alertId.split(separator: ":")
+        guard parts.count >= 2 else { return alert.alertId }
+        let kind = parts[0]
+        let instance = parts[1]
+        switch kind {
+        case "stalled": return "\(instance): queue stalled, no worker"
+        case "budget": return "\(instance): budget crossed"
+        case "op_failed": return "\(instance): a control operation failed"
+        default: return alert.alertId
+        }
+    }
+}

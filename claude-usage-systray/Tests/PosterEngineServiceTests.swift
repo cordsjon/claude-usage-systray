@@ -38,6 +38,25 @@ final class PEStatusDecodingTests: XCTestCase {
         XCTAssertEqual(status.ops[0].state, "ok")
     }
 
+    func testDecodesTerminalJobWithNullError() throws {
+        // Live engine payloads carry "error": null for dead jobs that recorded
+        // no exception text — caught in E2E 2026-07-22 (17 consecutive decode
+        // failures in the app while the fixture's "boom" decoded fine).
+        let json = """
+        {"instances": [{"name": "dev", "reachable": true,
+          "counts": {"queued": 1}, "oldest_claimable_queued_s": 10, "stalled": false,
+          "recent_terminal": [{"job_id": "j2", "status": "dead", "topic": "t",
+                                "error": null, "updated_at": "2026-07-21T23:00:00Z"}],
+          "cost": {"d24h_usd": 0.0, "calls": 0, "available": true},
+          "budget": {"target_24h_usd": 1.0, "crossed": false},
+          "last_poll": "2026-07-21T23:00:00Z"}],
+         "alerts": [], "ops": []}
+        """.data(using: .utf8)!
+
+        let status = try JSONDecoder().decode(PEStatus.self, from: json)
+        XCTAssertNil(status.instances[0].recentTerminal[0].error)
+    }
+
     func testDecodesUnreachableInstanceGracefully() throws {
         let json = """
         {"instances": [{"name": "dev", "reachable": false,

@@ -48,7 +48,11 @@ struct PETerminalJob: Decodable, Identifiable {
     let jobId: String
     let status: String
     let topic: String
-    let error: String
+    // Nullable in live payloads: dead jobs that recorded no exception text
+    // carry "error": null (E2E finding 2026-07-22 — non-optional String here
+    // made every /pe/status decode fail once a null-error job entered
+    // recent_terminal).
+    let error: String?
     let updatedAt: String
 
     enum CodingKeys: String, CodingKey {

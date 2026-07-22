@@ -15,6 +15,7 @@ from pathlib import Path
 
 from engine.codeburn import get_codeburn_report
 from engine.db import UsageDB
+from engine.pe_poller import get_current_pe_status
 from engine.poller import TokenHolder, get_current_status
 from engine.providers import get_overview
 from engine.sessions import get_token_history
@@ -132,8 +133,10 @@ def _make_handler_class(
     token_holder: TokenHolder,
     classification_path: Path,
     patterns_yaml_path: Path,
+    pe_instances: list | None = None,
 ):
     """Create a Handler class with a reference to the database and token holder."""
+    pe_instances = pe_instances or []
 
     class Handler(BaseHTTPRequestHandler):
 
@@ -163,6 +166,8 @@ def _make_handler_class(
                 self._handle_unmatched(query)
             elif path == "/api/overview":
                 self._handle_overview(query)
+            elif path == "/pe/status":
+                self._handle_pe_status()
             else:
                 _json_response(self, {"error": "Not found"}, 404)
 
@@ -236,6 +241,28 @@ def _make_handler_class(
                 _json_response(self, {"error": "No data yet"}, 503)
                 return
             _json_response(self, status)
+
+        # ── PE supervisor endpoints (US-PESUP-ENGINE-01) ────────
+
+        def _handle_pe_status(self):
+            live_status = get_current_pe_status()
+            instances_out = []
+            for inst in pe_instances:
+                s = live_status.get(inst.name, {
+                    "reachable": False, "counts": {}, "oldest_claimable_queued_s": 0,
+                    "stalled": False, "recent_terminal": [],
+                    "cost": {"d24h_usd": 0.0, "calls": 0, "available": False},
+                    "budget": {"target_24h_usd": inst.budget_24h_usd, "crossed": False},
+                    "last_poll": None,
+                })
+                instances_out.append({"name": inst.name, **s})
+            active_alerts = [_row_to_dict(r) for r in db.get_active_pe_alerts()]
+            recent_ops = [_row_to_dict(r) for r in db.get_recent_pe_ops(limit=10)]
+            _json_response(self, {
+                "instances": instances_out,
+                "alerts": active_alerts,
+                "ops": recent_ops,
+            })
 
         def _handle_token_history(self):
             data = get_token_history()
@@ -484,6 +511,7 @@ def create_server(
     port: int = 17420,
     classification_path: Path | None = None,
     patterns_yaml_path: Path | None = None,
+    pe_instances: list | None = None,
 ) -> HTTPServer:
     """Create an HTTPServer bound to 127.0.0.1 with the given db and token holder.
 
@@ -495,6 +523,7 @@ def create_server(
         token_holder,
         classification_path or _DEFAULT_CLASSIFICATION_PATH,
         patterns_yaml_path or _DEFAULT_PATTERNS_YAML_PATH,
+        pe_instances=pe_instances,
     )
     server = HTTPServer(("127.0.0.1", port), handler_class)
     return server

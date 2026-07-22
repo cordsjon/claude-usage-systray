@@ -171,7 +171,7 @@ def main():
     warmup_thread.start()
 
     # Start HTTP server (blocks main thread)
-    server = create_server(db, token_holder, port=args.port)
+    server = create_server(db, token_holder, port=args.port, pe_instances=pe_instances)
     actual_port = server.server_address[1]
     log.info("Listening on http://127.0.0.1:%d", actual_port)
 

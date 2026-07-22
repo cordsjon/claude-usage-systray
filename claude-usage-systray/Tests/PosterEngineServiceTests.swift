@@ -97,3 +97,84 @@ final class PEAlertDedupeTests: XCTestCase {
         XCTAssertTrue(unseen.isEmpty)
     }
 }
+
+// MARK: - Retry / Kick control dispatch
+
+private final class MockURLProtocol: URLProtocol {
+    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.requestHandler else {
+            XCTFail("No request handler set")
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+final class PEControlDispatchTests: XCTestCase {
+    var session: URLSession!
+    var service: PosterEngineService!
+
+    override func setUp() {
+        super.setUp()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        session = URLSession(configuration: config)
+        service = PosterEngineService()
+        service.urlSession = session
+    }
+
+    override func tearDown() {
+        MockURLProtocol.requestHandler = nil
+        super.tearDown()
+    }
+
+    func testRetryPostsToCorrectPathAndParsesOpId() async throws {
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/pe/dev/jobs/job-1/retry")
+            XCTAssertEqual(request.httpMethod, "POST")
+            let body = try JSONSerialization.data(withJSONObject: ["accepted": true, "op_id": "op-99"])
+            let resp = HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!
+            return (resp, body)
+        }
+        let opId = try await service.retry(instance: "dev", jobId: "job-1")
+        XCTAssertEqual(opId, "op-99")
+    }
+
+    func testKickPostsToCorrectPath() async throws {
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/pe/dev/worker/kick")
+            let body = try JSONSerialization.data(withJSONObject: ["accepted": true, "op_id": "op-100"])
+            let resp = HTTPURLResponse(url: request.url!, statusCode: 202, httpVersion: nil, headerFields: nil)!
+            return (resp, body)
+        }
+        let opId = try await service.kick(instance: "dev")
+        XCTAssertEqual(opId, "op-100")
+    }
+
+    func testKickRateLimited429ThrowsDescriptiveError() async throws {
+        MockURLProtocol.requestHandler = { request in
+            let resp = HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: nil)!
+            return (resp, Data("{}".utf8))
+        }
+        do {
+            _ = try await service.kick(instance: "dev")
+            XCTFail("expected throw")
+        } catch let error as PEControlError {
+            XCTAssertEqual(error, .rateLimited)
+        }
+    }
+}

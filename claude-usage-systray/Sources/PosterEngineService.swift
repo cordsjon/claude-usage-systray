@@ -258,3 +258,67 @@ final class PosterEngineService: ObservableObject {
         }
     }
 }
+
+// MARK: - Controls (retry / kick)
+
+enum PEControlError: Error, Equatable {
+    case unknownInstanceOrJob
+    case rateLimited
+    case httpError(Int)
+    case network(String)
+}
+
+private struct PEControlResponse: Decodable {
+    let accepted: Bool
+    let opId: String
+
+    enum CodingKeys: String, CodingKey {
+        case accepted
+        case opId = "op_id"
+    }
+}
+
+extension PosterEngineService {
+
+    /// POST /pe/<instance>/jobs/<jobId>/retry — returns the accepted op_id.
+    func retry(instance: String, jobId: String) async throws -> String {
+        try await postControl(path: "/pe/\(instance)/jobs/\(jobId)/retry")
+    }
+
+    /// POST /pe/<instance>/worker/kick — returns the accepted op_id.
+    func kick(instance: String) async throws -> String {
+        try await postControl(path: "/pe/\(instance)/worker/kick")
+    }
+
+    private func postControl(path: String) async throws -> String {
+        guard let url = URL(string: "http://localhost:17420\(path)") else {
+            throw PEControlError.network("bad URL")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data("{}".utf8)
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch {
+            throw PEControlError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw PEControlError.network("no HTTP response")
+        }
+        switch http.statusCode {
+        case 202:
+            let decoded = try JSONDecoder().decode(PEControlResponse.self, from: data)
+            return decoded.opId
+        case 404:
+            throw PEControlError.unknownInstanceOrJob
+        case 429:
+            throw PEControlError.rateLimited
+        default:
+            throw PEControlError.httpError(http.statusCode)
+        }
+    }
+}

@@ -161,3 +161,34 @@ def pe_poll_once(
         "last_poll": now,
     }
     _update_pe_status(instance.name, status)
+
+
+def pe_poll_loop(
+    instances: list[PEInstance],
+    db,
+    stop_event: threading.Event,
+    get_token,
+    jobs_interval: int = PE_POLL_INTERVAL_JOBS_S,
+    router_interval: int = PE_POLL_INTERVAL_ROUTER_S,
+) -> None:
+    """Poll every configured PE instance on its own cadence until stop_event is set.
+
+    get_token(token_ref) -> str resolves a Keychain-backed Bearer token per
+    instance (injected so tests don't touch the real Keychain).
+    """
+    last_router_poll: dict = {name: 0.0 for name in (i.name for i in instances)}
+    import time as _time
+
+    while not stop_event.is_set():
+        now_monotonic = _time.monotonic()
+        for instance in instances:
+            token = get_token(instance.token_ref)
+            if token is None:
+                log.warning("PE poller: no token for instance %s, skipping", instance.name)
+                continue
+            do_router = (now_monotonic - last_router_poll.get(instance.name, 0.0)) >= router_interval
+            if do_router:
+                last_router_poll[instance.name] = now_monotonic
+            pe_poll_once(instance, db, token, fetch_router=do_router)
+        db.prune_pe_cost_snapshot()
+        stop_event.wait(jobs_interval)

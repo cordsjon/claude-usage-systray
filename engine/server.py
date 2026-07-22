@@ -22,7 +22,9 @@ from engine.poller import TokenHolder, poll_loop
 from engine.jsonl_rollup import rollup_loop
 from engine.api import create_server
 from engine.codeburn import get_codeburn_report
-from engine.providers import warm_overview_cache
+from engine.pe_config import load_pe_instances
+from engine.pe_poller import pe_poll_loop
+from engine.providers import keychain_get, warm_overview_cache
 from engine.sessions import get_token_history
 
 DEFAULT_PORT = 17420
@@ -137,6 +139,20 @@ def main():
         )
         rollup_thread.start()
         log.info("JSONL rollup started")
+
+    # PE supervisor poller (US-PESUP-ENGINE-01)
+    pe_instances = load_pe_instances()
+    if pe_instances:
+        pe_poller_thread = threading.Thread(
+            target=pe_poll_loop,
+            args=(pe_instances, db, stop_event),
+            kwargs={"get_token": keychain_get},
+            daemon=True,
+        )
+        pe_poller_thread.start()
+        log.info("PE poller started for %d instance(s)", len(pe_instances))
+    else:
+        log.info("PE poller not started (no pe_instances.json configured)")
 
     # Warm codeburn + token history caches in background so first page load is fast
     def _warm_caches():

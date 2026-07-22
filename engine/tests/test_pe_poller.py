@@ -191,5 +191,38 @@ def test_skipped_router_poll_falls_back_to_last_snapshot(httpserver: HTTPServer)
         db.close()
 
 
+from engine.pe_poller import pe_poll_loop
+
+
+class TestPePollLoop:
+    def test_loop_stops_promptly_on_stop_event(self, httpserver: HTTPServer):
+        httpserver.expect_request("/api/jobs/summary").respond_with_json({
+            "counts": {"queued": 0, "running": 0, "complete_24h": 0, "dead": 0, "failed": 0},
+            "oldest_claimable_queued_s": 0, "recent_terminal": [],
+        })
+        httpserver.expect_request("/api/admin/router-metrics").respond_with_json({
+            "available": True, "cost_24h_usd": 0.0, "calls": 0,
+        })
+        instance = PEInstance(
+            name="dev", base_url=httpserver.url_for("").rstrip("/"),
+            token_ref="x", kick_method="launchctl", budget_24h_usd=1.0,
+        )
+        db = UsageDB(":memory:")
+        stop_event = threading.Event()
+        thread = threading.Thread(
+            target=pe_poll_loop,
+            args=([instance], db, stop_event),
+            kwargs={"get_token": lambda ref: "tok", "jobs_interval": 1, "router_interval": 1},
+            daemon=True,
+        )
+        thread.start()
+        import time
+        time.sleep(0.3)
+        stop_event.set()
+        thread.join(timeout=3)
+        assert not thread.is_alive()
+        db.close()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -583,6 +583,14 @@ def _make_handler_class(
     return Handler
 
 
+def _mint_op_failed_alert(instance_name: str, op_id: str, db) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    db.upsert_pe_alert_state(
+        alert_id=f"op_failed:{instance_name}:{op_id}",
+        first_seen=now, last_seen=now, active=True,
+    )
+
+
 def _run_pe_retry_op(instance, job_id: str, op_id: str, db) -> None:
     from engine.providers import keychain_get
     token = keychain_get(instance.token_ref)
@@ -596,8 +604,10 @@ def _run_pe_retry_op(instance, job_id: str, op_id: str, db) -> None:
             db.update_pe_op_log(op_id, state="ok", detail=None)
     except urllib.error.HTTPError as e:
         db.update_pe_op_log(op_id, state="failed", detail=f"http_{e.code}")
+        _mint_op_failed_alert(instance.name, op_id, db)
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         db.update_pe_op_log(op_id, state="failed", detail=str(e))
+        _mint_op_failed_alert(instance.name, op_id, db)
 
 
 def _run_pe_kick_op(instance, op_id: str, db) -> None:
@@ -619,10 +629,13 @@ def _run_pe_kick_op(instance, op_id: str, db) -> None:
             db.update_pe_op_log(op_id, state="ok", detail=None)
         else:
             db.update_pe_op_log(op_id, state="failed", detail=result.stderr.decode()[:500])
+            _mint_op_failed_alert(instance.name, op_id, db)
     except subprocess.TimeoutExpired:
         db.update_pe_op_log(op_id, state="failed", detail="timeout")
+        _mint_op_failed_alert(instance.name, op_id, db)
     except Exception as e:  # noqa: BLE001 — surfacing any control failure into pe_op_log, not raising into a daemon thread
         db.update_pe_op_log(op_id, state="failed", detail=str(e))
+        _mint_op_failed_alert(instance.name, op_id, db)
 
 
 def create_server(

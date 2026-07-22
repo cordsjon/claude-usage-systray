@@ -157,6 +157,8 @@ class TestPEControlRoutes(unittest.TestCase):
             time.sleep(0.2)
         self.assertIsNotNone(found)
         self.assertEqual(found["state"], "failed")
+        active_alert_ids = [a["alert_id"] for a in self.db.get_active_pe_alerts()]
+        self.assertIn(f"op_failed:dev:{op_id}", active_alert_ids)
 
 
 if __name__ == "__main__":

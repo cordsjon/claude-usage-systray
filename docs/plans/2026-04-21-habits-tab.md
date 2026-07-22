@@ -65,7 +65,7 @@ class TestPromptTables(unittest.TestCase):
 
 - [ ] **Step 1.1.2: Run tests to verify they fail**
 
-Run: `cd /Users/jcords-macmini/projects/claude-usage-systray && python3 -m unittest engine.tests.test_db_prompts -v`
+Run: `cd /Users/jc-folder/projects/claude-usage-systray && python3 -m unittest engine.tests.test_db_prompts -v`
 Expected: 5 failures with "no such table".
 
 - [ ] **Step 1.1.3: Extend `_SCHEMA` in `engine/db.py`**
@@ -135,7 +135,7 @@ Expected: 5 PASS.
 - [ ] **Step 1.1.5: Commit**
 
 ```bash
-cd /Users/jcords-macmini/projects/claude-usage-systray
+cd /Users/jc-folder/projects/claude-usage-systray
 git add engine/db.py engine/tests/test_db_prompts.py
 git commit -m "feat(db): add prompt-frequency tables (US-TB-01)"
 ```
@@ -546,7 +546,7 @@ class TestDecodeProjectDir(unittest.TestCase):
     def test_standard_path(self):
         self.assertEqual(
             decode_project_dir("-Users-jcords-macmini-projects-30_SVG-PAINT"),
-            "/Users/jcords-macmini/projects/30_SVG-PAINT")
+            "/Users/jc-folder/projects/30_SVG-PAINT")
 
     def test_simple_unix_path(self):
         self.assertEqual(
@@ -1176,12 +1176,12 @@ git commit -m "feat(dashboard): Habits tab with skill-candidate + dry-run UI (US
     <string>-m</string><string>engine.ingest_prompts</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/jcords-macmini/projects/claude-usage-systray</string>
+  <string>/Users/jc-folder/projects/claude-usage-systray</string>
   <key>StartInterval</key><integer>3600</integer>
   <key>StandardOutPath</key>
-  <string>/Users/jcords-macmini/.local/state/prompt-usage-ingest.log</string>
+  <string>/Users/jc-folder/.local/state/prompt-usage-ingest.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/jcords-macmini/.local/state/prompt-usage-ingest.log</string>
+  <string>/Users/jc-folder/.local/state/prompt-usage-ingest.log</string>
   <key>RunAtLoad</key><true/>
 </dict>
 </plist>
@@ -1322,7 +1322,7 @@ YAML seed commit (governance repo):
 ## Chunk 3D: `/lightsout` Post-Step Integration (Wave 3 — parallel)
 
 **Files:**
-- Modify: `/Users/jcords-macmini/.claude/commands/lightsout.md` (or wherever the skill lives — verify with `ls ~/.claude/**/lightsout*`)
+- Modify: `/Users/jc-folder/.claude/commands/lightsout.md` (or wherever the skill lives — verify with `ls ~/.claude/**/lightsout*`)
 - Add a pre-HANDOVER step that invokes ingest with a 30s timeout.
 
 Step body to add:
@@ -1339,7 +1339,7 @@ timeout 30 python3 -m engine.ingest_prompts 2>&1 \
 Commit:
 
 ```bash
-cd /Users/jcords-macmini/.claude
+cd /Users/jc-folder/.claude
 git add commands/lightsout.md  # or wherever
 git commit -m "feat(lightsout): pre-HANDOVER prompt-usage ingest (US-TB-01 AC-14)"
 ```
@@ -1350,7 +1350,7 @@ git commit -m "feat(lightsout): pre-HANDOVER prompt-usage ingest (US-TB-01 AC-14
 
 ### Task 4.1: Bootstrap ingest on real transcripts
 
-- [ ] Run: `cd /Users/jcords-macmini/projects/claude-usage-systray && python3 -m engine.ingest_prompts`
+- [ ] Run: `cd /Users/jc-folder/projects/claude-usage-systray && python3 -m engine.ingest_prompts`
 - [ ] Expected output: `ingest: <N> msgs, >=80.0% matched, <M> unmatched`
 
 ### Task 4.2: AC-16a eval pass
@@ -1382,17 +1382,17 @@ git commit -m "feat(lightsout): pre-HANDOVER prompt-usage ingest (US-TB-01 AC-14
 ### Task 4.6: DoD sign-off
 
 - [ ] All 25 ACs ticked in BACKLOG.md (edit file, tick boxes, commit governance-only).
-- [ ] Update `/Users/jcords-macmini/projects/claude-usage-systray/DONE-Today.md` with a US-TB-01 entry.
-- [ ] Append any architectural insights to `/Users/jcords-macmini/projects/00_Governance/KNOWN_PATTERNS.md`.
+- [ ] Update `/Users/jc-folder/projects/claude-usage-systray/DONE-Today.md` with a US-TB-01 entry.
+- [ ] Append any architectural insights to `/Users/jc-folder/projects/00_Governance/KNOWN_PATTERNS.md`.
 - [ ] Record final panel verdict line in US Evidence block: "Implementation completed YYYY-MM-DD."
 
 Commit sweep:
 
 ```bash
-cd /Users/jcords-macmini/projects/claude-usage-systray
+cd /Users/jc-folder/projects/claude-usage-systray
 git add DONE-Today.md && git commit -m "docs: DONE-Today US-TB-01 (Habits tab shipped)"
 
-cd /Users/jcords-macmini/projects/00_Governance
+cd /Users/jc-folder/projects/00_Governance
 git add BACKLOG.md KNOWN_PATTERNS.md
 git commit -m "chore(governance): US-TB-01 ACs ticked + KP updates"
 ```
@@ -1412,9 +1412,9 @@ git commit -m "chore(governance): US-TB-01 ACs ticked + KP updates"
 |---|---|
 | Regex seed YAML produces <80% match on real data | AC-05a coverage report; refine patterns from prompt_unmatched top-N via dry-run panel before bootstrap counts are trusted |
 | JSONL schema drift (Claude Code adds new content block types) | `_extract_user_text` returns None on unknown shapes; logged as unmatched, not crashed |
-| launchd plist path hardcodes `/Users/jcords-macmini` | Install script (`install-macos-launchd.sh`) rewrites `WorkingDirectory` via `sed` at install time. Add to plist install task. |
+| launchd plist path hardcodes `/Users/jc-folder` | Install script (`install-macos-launchd.sh`) rewrites `WorkingDirectory` via `sed` at install time. Add to plist install task. |
 | Tests using in-memory DB diverge from file-backed behavior | Integration test in Chunk 4.1 validates with real file path |
 
 ---
 
-**Plan complete.** Save path: `/Users/jcords-macmini/projects/claude-usage-systray/docs/plans/2026-04-21-habits-tab.md`.
+**Plan complete.** Save path: `/Users/jc-folder/projects/claude-usage-systray/docs/plans/2026-04-21-habits-tab.md`.

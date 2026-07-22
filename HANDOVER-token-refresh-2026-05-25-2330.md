@@ -95,7 +95,7 @@ Replaces the current `KEYCHAIN_JSON=$(security ...)` + `TOKEN=$(echo ...)` block
 1. `cd ~/projects/claude-usage-systray && python3 -c "from engine import poller; print('imports ok')"` — sanity check no syntax errors.
 2. Clear backoff state + restart:
    ```bash
-   sqlite3 /Users/jcords-macmini/.local/share/token-budget/token_budget.db "DELETE FROM engine_state WHERE key LIKE 'poller_%';"
+   sqlite3 /Users/jc-folder/.local/share/token-budget/token_budget.db "DELETE FROM engine_state WHERE key LIKE 'poller_%';"
    ./engine/restart.sh
    ```
 3. Check log for new lines: `Read fresh token from Keychain (expires in NNNs)` — proves the new tuple flow works.

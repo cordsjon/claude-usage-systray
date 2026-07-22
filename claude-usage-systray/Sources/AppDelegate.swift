@@ -313,7 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bundleParent = (bundlePath as NSString).deletingLastPathComponent
         let engineDirCandidates = [
             bundleParent,  // production: engine/ copied next to .app
-            "/Users/jcords-macmini/projects/claude-usage-systray",  // dev: source repo
+            "/Users/jc-folder/projects/claude-usage-systray",  // dev: source repo
         ]
         let engineDir = engineDirCandidates.first {
             FileManager.default.fileExists(atPath: "\($0)/engine")

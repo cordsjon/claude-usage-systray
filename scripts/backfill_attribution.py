@@ -20,7 +20,7 @@ WORKSPACE_DIR = os.path.expanduser(
     "~/.claude/projects/-Users-jcords-macmini-projects"
 )
 OUTPUT = os.path.expanduser("~/.local/state/codeburn/session-projects.jsonl")
-PROJECTS_ROOT = "/Users/jcords-macmini/projects/"
+PROJECTS_ROOT = "/Users/jc-folder/projects/"
 
 # Known project directories (canonical names)
 PROJECT_DIRS = [
@@ -175,7 +175,7 @@ def scan_session(jsonl_path: str) -> tuple[str | None, str]:
                             result_content = block.get("content", "")
                             if isinstance(result_content, str):
                                 for match in re.finditer(
-                                    r"/Users/jcords-macmini/projects/([^/\s\"']+)",
+                                    r"/Users/jc-folder/projects/([^/\s\"']+)",
                                     result_content[:2000],  # Cap to avoid huge results
                                 ):
                                     proj = extract_project_from_path(

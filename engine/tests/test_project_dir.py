@@ -19,7 +19,7 @@ class TestDecodeProjectDir(unittest.TestCase):
             decode_project_dir(
                 "-Users-jcords-macmini-projects-30_SVG-PAINT", fs_root=self.tmp
             ),
-            "/Users/jcords-macmini/projects/30_SVG-PAINT",
+            "/Users/jc-folder/projects/30_SVG-PAINT",
         )
 
     def test_simple_unix_path(self):
@@ -30,12 +30,12 @@ class TestDecodeProjectDir(unittest.TestCase):
 
     def test_live_filesystem_real_project(self):
         """Smoke test against the actual Mac Mini filesystem — only run if path exists."""
-        real_root = Path("/Users/jcords-macmini/projects")
+        real_root = Path("/Users/jc-folder/projects")
         if not real_root.is_dir():
             self.skipTest("live filesystem path not present")
         self.assertEqual(
             decode_project_dir("-Users-jcords-macmini-projects-claude-usage-systray"),
-            "/Users/jcords-macmini/projects/claude-usage-systray",
+            "/Users/jc-folder/projects/claude-usage-systray",
         )
 
     def test_unknown_prefix_falls_back(self):

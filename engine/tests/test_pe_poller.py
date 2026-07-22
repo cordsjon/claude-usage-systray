@@ -224,5 +224,47 @@ class TestPePollLoop:
         db.close()
 
 
+def test_stalled_condition_mints_alert(httpserver: HTTPServer):
+    httpserver.expect_request("/api/jobs/summary").respond_with_json({
+        "counts": {"queued": 1, "running": 0, "complete_24h": 0, "dead": 0, "failed": 0},
+        "oldest_claimable_queued_s": 500, "recent_terminal": [],
+    })
+    httpserver.expect_request("/api/admin/router-metrics").respond_with_json({
+        "available": True, "cost_24h_usd": 0.0, "calls": 0,
+    })
+    instance = PEInstance(
+        name="dev", base_url=httpserver.url_for("").rstrip("/"),
+        token_ref="x", kick_method="launchctl", budget_24h_usd=1.0,
+    )
+    db = UsageDB(":memory:")
+    try:
+        pe_poll_once(instance, db, token="tok", now_iso="2026-07-22T00:00:00Z")
+        active = [a["alert_id"] for a in db.get_active_pe_alerts()]
+        assert any(a.startswith("stalled:dev:") for a in active)
+    finally:
+        db.close()
+
+
+def test_budget_crossed_mints_alert_and_rearms(httpserver: HTTPServer):
+    httpserver.expect_request("/api/jobs/summary").respond_with_json({
+        "counts": {"queued": 0, "running": 1, "complete_24h": 0, "dead": 0, "failed": 0},
+        "oldest_claimable_queued_s": 0, "recent_terminal": [],
+    })
+    httpserver.expect_request("/api/admin/router-metrics").respond_with_json({
+        "available": True, "cost_24h_usd": 0.6, "calls": 5,
+    })
+    instance = PEInstance(
+        name="dev", base_url=httpserver.url_for("").rstrip("/"),
+        token_ref="x", kick_method="launchctl", budget_24h_usd=0.5,
+    )
+    db = UsageDB(":memory:")
+    try:
+        pe_poll_once(instance, db, token="tok", now_iso="2026-07-22T00:00:00Z")
+        active = [a["alert_id"] for a in db.get_active_pe_alerts()]
+        assert any(a.startswith("budget:dev:") for a in active)
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     unittest.main()

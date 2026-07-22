@@ -143,6 +143,20 @@ def pe_poll_once(
     running = counts.get("running", 0)
     stalled = compute_stalled(oldest_claimable, running) if summary is not None else False
 
+    _sync_stall_alert(db, instance.name, stalled, now)
+
+    # Use cost_24h_display (already resolved above — either this poll's fresh
+    # metrics, or the DB fallback when fetch_router=False) so budget crossing
+    # keeps working on iterations that skip the router call.
+    if available_display:
+        currently_crossed = any(
+            a["alert_id"] == f"budget:{instance.name}:active" for a in db.get_active_pe_alerts()
+        )
+        crossed = compute_budget_crossed(cost_24h_display, instance.budget_24h_usd, currently_crossed)
+        _sync_budget_alert(db, instance.name, crossed, now)
+    else:
+        crossed = False
+
     status = {
         "reachable": reachable,
         "counts": counts,
@@ -156,11 +170,39 @@ def pe_poll_once(
         },
         "budget": {
             "target_24h_usd": instance.budget_24h_usd,
-            "crossed": False,  # computed by caller with persisted currently_crossed state
+            "crossed": crossed,
         },
         "last_poll": now,
     }
     _update_pe_status(instance.name, status)
+
+
+def _sync_stall_alert(db, instance_name: str, stalled: bool, now: str) -> None:
+    """Stall alert id must stay stable across polls while the condition persists.
+
+    Uses a single well-known 'active' suffix rather than a first-seen timestamp
+    in the id itself, so repeated polls upsert the same row instead of minting
+    a new alert_id every 30s (the spec's `kind:instance:first-seen-ts` shape
+    still holds — first_seen is a column, not encoded into the id here, since
+    that lets the DB be the single source of truth for "when did this start").
+    """
+    alert_id = f"stalled:{instance_name}:active"
+    existing = next((a for a in db.get_active_pe_alerts() if a["alert_id"] == alert_id), None)
+    if stalled:
+        first_seen = existing["first_seen"] if existing else now
+        db.upsert_pe_alert_state(alert_id, first_seen=first_seen, last_seen=now, active=True)
+    elif existing:
+        db.upsert_pe_alert_state(alert_id, first_seen=existing["first_seen"], last_seen=now, active=False)
+
+
+def _sync_budget_alert(db, instance_name: str, crossed: bool, now: str) -> None:
+    alert_id = f"budget:{instance_name}:active"
+    existing = next((a for a in db.get_active_pe_alerts() if a["alert_id"] == alert_id), None)
+    if crossed:
+        first_seen = existing["first_seen"] if existing else now
+        db.upsert_pe_alert_state(alert_id, first_seen=first_seen, last_seen=now, active=True)
+    elif existing:
+        db.upsert_pe_alert_state(alert_id, first_seen=existing["first_seen"], last_seen=now, active=False)
 
 
 def pe_poll_loop(

@@ -26,8 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         setupPopover()
-        setupNotifications()
-        HermesClient.requestNotificationPermission()
+        Notifier.requestAuthorization()
         startUsagePolling()
         spawnEngineProcess()
         startHealthCheck()
@@ -88,14 +87,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsManager: settingsManager
             )
         )
-    }
-
-    private func setupNotifications() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error = error {
-                AppLogger.error("general", "Notification authorization error: \(error)")
-            }
-        }
     }
 
     private func startUsagePolling() {
@@ -195,17 +186,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let criticalThreshold = Int(settingsManager.settings.criticalThreshold)
 
         if usage >= criticalThreshold && lastCriticalNotified < criticalThreshold {
-            sendNotification(
+            Notifier.post(
                 title: "Critical: Claude Usage",
                 body: "You've used \(usage)% of your weekly quota. Consider pausing non-essential tasks.",
-                isCritical: true
+                critical: true
             )
             lastCriticalNotified = criticalThreshold
         } else if usage >= warningThreshold && lastWarningNotified < warningThreshold && usage < criticalThreshold {
-            sendNotification(
+            Notifier.post(
                 title: "Warning: Claude Usage",
-                body: "You've used \(usage)% of your weekly quota.",
-                isCritical: false
+                body: "You've used \(usage)% of your weekly quota."
             )
             lastWarningNotified = warningThreshold
         }
@@ -216,25 +206,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lastCriticalNotified = 0
         } else if usage < criticalThreshold {
             lastCriticalNotified = 0
-        }
-    }
-
-    private func sendNotification(title: String, body: String, isCritical: Bool) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = isCritical ? .defaultCritical : .default
-
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                AppLogger.error("general", "Notification error: \(error)")
-            }
         }
     }
 

@@ -15,11 +15,13 @@
 		520015116107224E61B90E08 /* ShortcutLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC3AEE39AFEA8FBB4C01858 /* ShortcutLoaderTests.swift */; };
 		59259AC8C5B89477A67D5A8D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1107FB82A3A3C9FC04B4F35 /* SettingsView.swift */; };
 		5D8932AAFA5B1921C7485311 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A06F2BF04F101E9212C2B93 /* HermesClient.swift */; };
+		5D988C9F08A41AF0828D4838 /* NotifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1960EEA1539BAB3B4554DDD /* NotifierTests.swift */; };
 		60D2AFEC88AAC9332BA25BED /* WorkspaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C4CB311E606F64C30ED217 /* WorkspaceModels.swift */; };
 		80E1131433C5BE35E6CF65E4 /* UsageData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32234A82B1C94CCB6F3763AE /* UsageData.swift */; };
 		9C4A4F1EBFE74DD0318F450D /* ShortcutLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE78F9309453F3DD790709FB /* ShortcutLoader.swift */; };
 		A436338D04020E792FB65F7C /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 714FD812101ABDED54ED7A48 /* UserNotifications.framework */; };
 		B16C157BEB9F9EE50447910B /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA070D4F8E37B920D80AF975 /* Logger.swift */; };
+		B8960D15CB49779D67C80C8E /* Notifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = F470E2184ACCB31E62295EE4 /* Notifier.swift */; };
 		C33689B322FFA7525A92894A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE78D81A249AA2CBF9D9C9CB /* AppDelegate.swift */; };
 		CA4C19637A5CD709F1C57EDA /* UsageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF92A3018305AA026317454 /* UsageServiceTests.swift */; };
 		F25EDEE38ABF1A0E15C849DC /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C024067E6D3F865AF198511C /* SettingsManager.swift */; };
@@ -55,8 +57,10 @@
 		DA6F91F4720B31FB4CA872B9 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		DE78D81A249AA2CBF9D9C9CB /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DEE554A7DA6DDC77A08A3EEE /* UsageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageService.swift; sourceTree = "<group>"; };
+		E1960EEA1539BAB3B4554DDD /* NotifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotifierTests.swift; sourceTree = "<group>"; };
 		EA070D4F8E37B920D80AF975 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		F35CDB3DFFFBEE4CE3F0D52E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F470E2184ACCB31E62295EE4 /* Notifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +119,7 @@
 		AE3D7472958AF08383FEC913 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				E1960EEA1539BAB3B4554DDD /* NotifierTests.swift */,
 				9CC3AEE39AFEA8FBB4C01858 /* ShortcutLoaderTests.swift */,
 				8CF92A3018305AA026317454 /* UsageServiceTests.swift */,
 			);
@@ -129,6 +134,7 @@
 				EA070D4F8E37B920D80AF975 /* Logger.swift */,
 				2AFD01138604C8622102594F /* main.swift */,
 				06653C5881670A81199C42CC /* MenuBarView.swift */,
+				F470E2184ACCB31E62295EE4 /* Notifier.swift */,
 				C024067E6D3F865AF198511C /* SettingsManager.swift */,
 				B1107FB82A3A3C9FC04B4F35 /* SettingsView.swift */,
 				AE78F9309453F3DD790709FB /* ShortcutLoader.swift */,
@@ -238,6 +244,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D988C9F08A41AF0828D4838 /* NotifierTests.swift in Sources */,
 				520015116107224E61B90E08 /* ShortcutLoaderTests.swift in Sources */,
 				CA4C19637A5CD709F1C57EDA /* UsageServiceTests.swift in Sources */,
 			);
@@ -251,6 +258,7 @@
 				5D8932AAFA5B1921C7485311 /* HermesClient.swift in Sources */,
 				B16C157BEB9F9EE50447910B /* Logger.swift in Sources */,
 				22F4B6C5A7558EED3BD2DB95 /* MenuBarView.swift in Sources */,
+				B8960D15CB49779D67C80C8E /* Notifier.swift in Sources */,
 				F25EDEE38ABF1A0E15C849DC /* SettingsManager.swift in Sources */,
 				59259AC8C5B89477A67D5A8D /* SettingsView.swift in Sources */,
 				9C4A4F1EBFE74DD0318F450D /* ShortcutLoader.swift in Sources */,

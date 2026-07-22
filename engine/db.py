@@ -81,6 +81,37 @@ CREATE TABLE IF NOT EXISTS engine_state (
     value      TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS pe_cost_snapshot (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts            TEXT    NOT NULL,
+    instance      TEXT    NOT NULL,
+    cost_24h_usd  REAL    NOT NULL,
+    calls         INTEGER NOT NULL,
+    available     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pe_cost_snapshot_instance_ts
+    ON pe_cost_snapshot(instance, ts);
+
+CREATE TABLE IF NOT EXISTS pe_alert_state (
+    alert_id   TEXT PRIMARY KEY,
+    first_seen TEXT NOT NULL,
+    last_seen  TEXT NOT NULL,
+    active     INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pe_op_log (
+    op_id     TEXT PRIMARY KEY,
+    instance  TEXT NOT NULL,
+    kind      TEXT NOT NULL,
+    target    TEXT,
+    state     TEXT NOT NULL,
+    detail    TEXT,
+    ts        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pe_op_log_ts ON pe_op_log(ts);
 """
 
 
@@ -239,6 +270,81 @@ class UsageDB:
         self._conn.commit()
         return cur.rowcount
 
+    # ── PE supervisor (US-PESUP-ENGINE-01) ──────────────────────
+
+    PE_SNAPSHOT_RETENTION_DAYS = 90
+
+    def insert_pe_cost_snapshot(
+        self, ts: str, instance: str, cost_24h_usd: float, calls: int, available: bool
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO pe_cost_snapshot (ts, instance, cost_24h_usd, calls, available) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (ts, instance, cost_24h_usd, calls, int(available)),
+        )
+        self._conn.commit()
+
+    def get_latest_pe_cost_snapshot(self, instance: str):
+        return self._conn.execute(
+            "SELECT * FROM pe_cost_snapshot WHERE instance = ? "
+            "ORDER BY ts DESC LIMIT 1",
+            (instance,),
+        ).fetchone()
+
+    def get_pe_cost_snapshots_since(self, instance: str, since: str):
+        return self._conn.execute(
+            "SELECT * FROM pe_cost_snapshot WHERE instance = ? AND ts >= ? "
+            "ORDER BY ts ASC",
+            (instance, since),
+        ).fetchall()
+
+    def prune_pe_cost_snapshot(self) -> None:
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=self.PE_SNAPSHOT_RETENTION_DAYS)
+        ).isoformat()
+        self._conn.execute("DELETE FROM pe_cost_snapshot WHERE ts < ?", (cutoff,))
+        self._conn.commit()
+
+    def upsert_pe_alert_state(
+        self, alert_id: str, first_seen: str, last_seen: str, active: bool
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO pe_alert_state (alert_id, first_seen, last_seen, active) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(alert_id) DO UPDATE SET last_seen = excluded.last_seen, "
+            "active = excluded.active",
+            (alert_id, first_seen, last_seen, int(active)),
+        )
+        self._conn.commit()
+
+    def get_active_pe_alerts(self):
+        return self._conn.execute(
+            "SELECT * FROM pe_alert_state WHERE active = 1 ORDER BY first_seen ASC"
+        ).fetchall()
+
+    def insert_pe_op_log(
+        self, op_id: str, instance: str, kind: str, target: str | None,
+        state: str, detail: str | None, ts: str,
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO pe_op_log (op_id, instance, kind, target, state, detail, ts) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (op_id, instance, kind, target, state, detail, ts),
+        )
+        self._conn.commit()
+
+    def update_pe_op_log(self, op_id: str, state: str, detail: str | None) -> None:
+        self._conn.execute(
+            "UPDATE pe_op_log SET state = ?, detail = ? WHERE op_id = ?",
+            (state, detail, op_id),
+        )
+        self._conn.commit()
+
+    def get_recent_pe_ops(self, limit: int = 10):
+        return self._conn.execute(
+            "SELECT * FROM pe_op_log ORDER BY ts DESC LIMIT ?", (limit,)
+        ).fetchall()
+
     # ── reads ───────────────────────────────────────────────
 
     def get_latest_snapshot(self) -> sqlite3.Row | None:
@@ -275,7 +381,8 @@ class UsageDB:
     def get_cycle_peaks(self) -> list[sqlite3.Row]:
         """Return peak utilisation per cycle with stoppage flag.
 
-        stoppage = 1 when peak five_hour_util >= 0.95 in the cycle.
+        stoppage = 1 when peak five_hour_util >= 95.0 in the cycle
+        (utilisation is stored percent-scale, 0-100).
         """
         cur = self._conn.execute(
             """SELECT

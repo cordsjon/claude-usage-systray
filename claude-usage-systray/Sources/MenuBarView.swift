@@ -3,7 +3,9 @@ import SwiftUI
 struct MenuBarView: View {
     @ObservedObject var usageService: UsageService
     @ObservedObject var settingsManager: SettingsManager
+    @ObservedObject var posterEngineService: PosterEngineService
     @State private var showSettings = false
+    @State private var expandedPEInstance: String? = nil
     @State private var showDashboard = false
     @State private var projectionLine: String = ""
     @State private var shortcutsConfig: WorkspaceConfig? = nil
@@ -19,6 +21,8 @@ struct MenuBarView: View {
             shortcutsSection
 
             modelBreakdown
+
+            peSection
 
             Divider()
                 .padding(.vertical, 4)
@@ -100,6 +104,106 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var peSection: some View {
+        if let status = posterEngineService.status, !status.instances.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                if posterEngineService.supervisorStale {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("PE supervisor stale")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                }
+                ForEach(status.instances, id: \.name) { instance in
+                    peInstanceRow(instance)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func peInstanceRow(_ instance: PEInstanceStatus) -> some View {
+        let isExpanded = expandedPEInstance == instance.name
+        VStack(alignment: .leading, spacing: 2) {
+            Button(action: {
+                expandedPEInstance = isExpanded ? nil : instance.name
+            }) {
+                HStack {
+                    Image(systemName: instance.reachable ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(peInstanceColor(instance))
+                        .font(.caption)
+                    Text(instance.name)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Text("\(instance.counts.running ?? 0) running")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(String(format: "$%.2f / $%.2f", instance.cost.d24hUsd, instance.budget.target24hUsd))
+                        .font(.caption2)
+                        .foregroundColor(instance.budget.crossed ? .red : .secondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded || instance.stalled {
+                if instance.stalled {
+                    Button("Kick worker") {
+                        dispatchKick(instance: instance.name)
+                    }
+                    .font(.caption2)
+                    .padding(.leading, 20)
+                }
+                ForEach(instance.recentTerminal) { job in
+                    HStack {
+                        Text("\(job.status): \(job.topic)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Retry") {
+                            dispatchRetry(instance: instance.name, jobId: job.jobId)
+                        }
+                        .font(.caption2)
+                    }
+                    .padding(.leading, 20)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 2)
+    }
+
+    private func peInstanceColor(_ instance: PEInstanceStatus) -> Color {
+        if !instance.reachable || instance.stalled || instance.budget.crossed { return .red }
+        return .green
+    }
+
+    private func dispatchRetry(instance: String, jobId: String) {
+        Task {
+            do {
+                _ = try await posterEngineService.retry(instance: instance, jobId: jobId)
+            } catch {
+                AppLogger.error("pe", "Retry dispatch failed: \(error)")
+            }
+        }
+    }
+
+    private func dispatchKick(instance: String) {
+        Task {
+            do {
+                _ = try await posterEngineService.kick(instance: instance)
+            } catch {
+                AppLogger.error("pe", "Kick dispatch failed: \(error)")
             }
         }
     }

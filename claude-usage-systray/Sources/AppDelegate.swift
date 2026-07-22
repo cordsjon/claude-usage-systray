@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover!
     private let usageService = UsageService.shared
     private let settingsManager = SettingsManager.shared
+    private let posterEngineService = PosterEngineService.shared
 
     private var lastWarningNotified: Int = 0
     private var lastCriticalNotified: Int = 0
@@ -28,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupPopover()
         Notifier.requestAuthorization()
         startUsagePolling()
+        posterEngineService.startPolling()
         spawnEngineProcess()
         startHealthCheck()
 
@@ -64,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stopEngineProcess()
         healthCheckTimer?.invalidate()
         usageService.stopPolling()
+        posterEngineService.stopPolling()
     }
 
     private func setupStatusItem() {
@@ -84,7 +87,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(
             rootView: MenuBarView(
                 usageService: usageService,
-                settingsManager: settingsManager
+                settingsManager: settingsManager,
+                posterEngineService: posterEngineService
             )
         )
     }

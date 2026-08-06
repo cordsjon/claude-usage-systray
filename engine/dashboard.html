@@ -1398,25 +1398,32 @@ function overviewRender(data) {
       ${errBlock}
     </div>`;
   }).join('');
-  meta.textContent = `Generated ${new Date(data.generated_at).toLocaleString()} · ${data.range_days}d window · refreshes every 60s`;
+  // Server serves stale-while-revalidate: first paint after idle can be days old.
+  const ageMs = Date.now() - new Date(data.generated_at).getTime();
+  const stale = ageMs > 5 * 60 * 1000;
+  meta.textContent = `Generated ${new Date(data.generated_at).toLocaleString()} · ${data.range_days}d window · ` +
+    (stale ? 'STALE — refresh in progress…' : 'refreshes every 60s');
+  meta.style.color = stale ? 'var(--amber)' : '';
+  return stale;
 }
 
 async function overviewLoad() {
   const grid = document.getElementById('ov-grid');
+  let stale = false;
   try {
     const r = await fetch('/api/overview?range=' + encodeURIComponent(overviewRange));
     if (!r.ok) {
       grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">HTTP ${r.status}</div>`;
       return;
     }
-    overviewRender(await r.json());
+    stale = overviewRender(await r.json());
   } catch (e) {
     grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">${e}</div>`;
   }
   if (overviewTimer) clearTimeout(overviewTimer);
   overviewTimer = setTimeout(() => {
     if (document.getElementById('tab-overview').classList.contains('active')) overviewLoad();
-  }, 60000);
+  }, stale ? 5000 : 60000);
 }
 
 document.querySelectorAll('.ov-range-btn').forEach(btn => {

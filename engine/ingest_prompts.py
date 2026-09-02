@@ -275,7 +275,10 @@ if __name__ == "__main__":
             "patterns_yaml_exists": patterns_yaml.exists(),
         }
         try:
-            with urllib.request.urlopen("http://127.0.0.1:17420/api/status", timeout=2) as resp:
+            engine_host = os.environ.get("ENGINE_HOST", "100.92.111.112")
+            with urllib.request.urlopen(
+                f"http://{engine_host}:17420/api/status", timeout=2
+            ) as resp:
                 info["engine_api_status_code"] = resp.status
         except Exception:
             info["engine_api_status_code"] = None

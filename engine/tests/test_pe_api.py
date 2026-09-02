@@ -24,7 +24,8 @@ class TestPEStatusRoute(unittest.TestCase):
                        token_ref="x", kick_method="launchctl", budget_24h_usd=1.0),
         ]
         cls.server = create_server(
-            cls.db, cls.token_holder, port=0, pe_instances=cls.pe_instances
+            cls.db, cls.token_holder, port=0, host="127.0.0.1",
+            pe_instances=cls.pe_instances
         )
         cls.port = cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -96,7 +97,8 @@ class TestPEControlRoutes(unittest.TestCase):
                        token_ref="x", kick_method="launchctl", budget_24h_usd=1.0),
         ]
         cls.server = create_server(
-            cls.db, cls.token_holder, port=0, pe_instances=cls.pe_instances
+            cls.db, cls.token_holder, port=0, host="127.0.0.1",
+            pe_instances=cls.pe_instances
         )
         cls.port = cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)

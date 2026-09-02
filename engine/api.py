@@ -655,9 +655,13 @@ def create_server(
     classification_path: Path | None = None,
     patterns_yaml_path: Path | None = None,
     pe_instances: list | None = None,
+    host: str | None = None,
 ) -> HTTPServer:
-    """Create an HTTPServer bound to 127.0.0.1 with the given db and token holder.
+    """Create an HTTPServer bound to `host` with the given db and token holder.
 
+    `host` defaults to $ENGINE_HOST, else the tailnet address — the engine is
+    reachable from the tailnet, not from the LAN or loopback. Pass
+    host="127.0.0.1" explicitly for local-only use (tests do).
     Use port=0 to let the OS pick a random available port (useful for tests).
     `classification_path` and `patterns_yaml_path` default to on-disk locations.
     """
@@ -668,5 +672,6 @@ def create_server(
         patterns_yaml_path or _DEFAULT_PATTERNS_YAML_PATH,
         pe_instances=pe_instances,
     )
-    server = HTTPServer(("127.0.0.1", port), handler_class)
+    bind_host = host or os.environ.get("ENGINE_HOST", "100.92.111.112")
+    server = HTTPServer((bind_host, port), handler_class)
     return server

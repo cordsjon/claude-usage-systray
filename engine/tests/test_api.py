@@ -52,7 +52,9 @@ class TestAPI(unittest.TestCase):
             "updated_at": "2026-03-26T12:00:00Z",
         })
         # Start server on random port
-        cls.server = create_server(cls.db, TokenHolder("test-token"), port=0)
+        cls.server = create_server(
+            cls.db, TokenHolder("test-token"), port=0, host="127.0.0.1"
+        )
         cls.port = cls.server.server_address[1]
         cls.base_url = f"http://127.0.0.1:{cls.port}"
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -186,6 +188,7 @@ class TestPromptsAPI(unittest.TestCase):
             cls.db,
             cls.token_holder,
             port=0,
+            host="127.0.0.1",
             classification_path=cls.classification_path,
             patterns_yaml_path=cls.patterns_yaml_path,
         )

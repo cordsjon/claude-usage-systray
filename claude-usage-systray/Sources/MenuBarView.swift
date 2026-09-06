@@ -9,7 +9,6 @@ struct MenuBarView: View {
     @State private var showDashboard = false
     @State private var projectionLine: String = ""
     @State private var shortcutsConfig: WorkspaceConfig? = nil
-    private let enginePort = 17420
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -282,7 +281,7 @@ struct MenuBarView: View {
     }
 
     private func openDashboard() {
-        if let url = URL(string: "http://localhost:\(enginePort)") {
+        if let url = URL(string: EngineConfig.baseURL) {
             NSWorkspace.shared.open(url)
         }
     }
@@ -393,7 +392,7 @@ struct MenuBarView: View {
     }
 
     private func fetchProjection() {
-        guard let url = URL(string: "http://localhost:\(enginePort)/api/status") else { return }
+        guard let url = EngineConfig.url("/api/status") else { return }
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
                 AppLogger.error("engine", "Engine fetch error: \(error.localizedDescription)")

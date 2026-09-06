@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Python engine process management
     private var engineProcess: Process?
     private var healthCheckTimer: Timer?
-    private let enginePort = 17420
+    private let enginePort = EngineConfig.port
     private var spawnFailureCount = 0
     private var lastSpawnAttempt: Date = .distantPast
     private let maxSpawnBackoff: TimeInterval = 300  // 5 minutes cap
@@ -232,24 +232,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// files, codeburn). A false "engine is down" makes the supervisor spawn a
     /// duplicate that cannot bind the port held by the launchd-managed engine,
     /// dies, and respawns every 60s — re-reading the Keychain each time.
+    ///
+    /// Probes `EngineConfig.host`, not a hardcoded 127.0.0.1: the engine binds
+    /// a single interface address (the tailnet IP by default), so a loopback
+    /// probe reports "down" for a perfectly healthy engine and triggers exactly
+    /// the respawn loop described above.
+    ///
+    /// Uses `getaddrinfo` rather than `inet_addr` because the configured host
+    /// may be a name ("localhost") and not a dotted-quad literal; `inet_addr`
+    /// returns INADDR_NONE for names, which would silently probe 255.255.255.255.
     private func isEnginePortInUse() -> Bool {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        if fd < 0 { return false }
-        defer { close(fd) }
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = in_port_t(UInt16(enginePort)).bigEndian
-        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-        let rc = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
-                connect(fd, sa, socklen_t(MemoryLayout<sockaddr_in>.size))
-            }
+        var hints = addrinfo()
+        hints.ai_family = AF_UNSPEC       // accept IPv4 or IPv6
+        hints.ai_socktype = SOCK_STREAM
+
+        var info: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(EngineConfig.host, "\(enginePort)", &hints, &info) == 0,
+              let head = info else {
+            return false
         }
-        return rc == 0
+        defer { freeaddrinfo(info) }
+
+        // A host can resolve to several addresses; the port is in use if any
+        // of them accepts a connection.
+        var candidate: UnsafeMutablePointer<addrinfo>? = head
+        while let entry = candidate {
+            let fd = socket(entry.pointee.ai_family,
+                            entry.pointee.ai_socktype,
+                            entry.pointee.ai_protocol)
+            if fd >= 0 {
+                let rc = connect(fd, entry.pointee.ai_addr, entry.pointee.ai_addrlen)
+                close(fd)
+                if rc == 0 { return true }
+            }
+            candidate = entry.pointee.ai_next
+        }
+        return false
     }
 
     private func isEngineAlreadyRunning() -> Bool {
-        guard let url = URL(string: "http://localhost:\(enginePort)/api/health") else { return false }
+        guard let url = EngineConfig.url("/api/health") else { return false }
         var request = URLRequest(url: url)
         request.timeoutInterval = 2
         let semaphore = DispatchSemaphore(value: 0)
@@ -291,6 +313,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
 
+        // The engine needs Python >= 3.10 (engine/db.py uses PEP 604 `float | None`
+        // annotations). A GUI app inherits a PATH where /usr/bin/env python3 can
+        // resolve to Xcode's bundled Python 3.9, which raises
+        //   TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
+        // at import time and crash-loops. Resolve an explicit interpreter instead
+        // of trusting PATH; fall back to bare "python3" so a machine without
+        // Homebrew still behaves as before rather than failing outright.
+        let interpreterCandidates = [
+            "/opt/homebrew/bin/python3",   // Apple silicon Homebrew
+            "/usr/local/bin/python3",      // Intel Homebrew
+        ]
+        let pythonExecutable = interpreterCandidates.first {
+            FileManager.default.isExecutableFile(atPath: $0)
+        } ?? "python3"
+        AppLogger.info("engine", "Engine interpreter: \(pythonExecutable)")
+
         // Resolve engine directory: prefer next to .app bundle, fall back to source repo.
         let bundlePath = Bundle.main.bundlePath
         let bundleParent = (bundlePath as NSString).deletingLastPathComponent
@@ -304,13 +342,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         AppLogger.info("engine", "Engine working dir: \(engineDir)")
         process.arguments = [
-            "python3", "-m", "engine.server",
+            pythonExecutable, "-m", "engine.server",
             "--port", "\(enginePort)",
         ]
         // Pass the OAuth token via the environment, not argv, so it does not
         // appear in `ps` output (process arguments are world-readable).
         var env = ProcessInfo.processInfo.environment
         env["CLAUDE_OAUTH_TOKEN"] = token
+        // Bind the child engine to the same host this app polls. Without this the
+        // engine would fall back to its own default in engine/api.py and could
+        // bind an address we never talk to — the drift this refactor removes.
+        env["ENGINE_HOST"] = EngineConfig.host
         process.environment = env
         process.currentDirectoryURL = URL(fileURLWithPath: engineDir)
 
@@ -347,7 +389,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppLogger.error("engine", "Cannot read OAuth token for hot-swap")
             return
         }
-        guard let url = URL(string: "http://localhost:\(enginePort)/api/token") else { return }
+        guard let url = EngineConfig.url("/api/token") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -405,7 +447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Poll /api/health and hot-swap the token if the engine reports it needs refresh.
     private func checkEngineHealth() {
-        guard let url = URL(string: "http://localhost:\(enginePort)/api/health") else { return }
+        guard let url = EngineConfig.url("/api/health") else { return }
         URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             guard error == nil, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

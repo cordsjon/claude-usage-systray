@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - PE status model (decodes GET http://localhost:17420/pe/status)
+// MARK: - PE status model (decodes GET {EngineConfig.baseURL}/pe/status)
 
 struct PEStatus: Decodable {
     let instances: [PEInstanceStatus]
@@ -182,7 +182,7 @@ final class PosterEngineService: ObservableObject {
 
     func fetchStatus() {
         Task {
-            guard let url = URL(string: "http://localhost:17420/pe/status") else { return }
+            guard let url = EngineConfig.url("/pe/status") else { return }
             do {
                 let (data, response) = try await urlSession.data(from: url)
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -295,7 +295,7 @@ extension PosterEngineService {
     }
 
     private func postControl(path: String) async throws -> String {
-        guard let url = URL(string: "http://localhost:17420\(path)") else {
+        guard let url = EngineConfig.url(path) else {
             throw PEControlError.network("bad URL")
         }
         var request = URLRequest(url: url)

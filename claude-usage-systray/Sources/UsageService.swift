@@ -209,7 +209,7 @@ final class UsageService: ObservableObject {
     /// Read current utilization from the local Python engine.
     /// Returns nil if the engine is unreachable or has no data yet (503).
     private func fetchFromEngine() async -> UsageSnapshot? {
-        guard let url = URL(string: "http://localhost:17420/api/status") else { return nil }
+        guard let url = EngineConfig.url("/api/status") else { return nil }
         do {
             let (data, response) = try await urlSession.data(from: url)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {

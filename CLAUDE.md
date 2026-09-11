@@ -12,6 +12,19 @@ Ingests Claude Code transcripts (`~/.claude/projects/*.jsonl`) into `token_budge
 - Inspect (counts + samples + config sanity): `python3 -m engine.ingest_prompts --inspect`
 - Reset ingest state (watermarks + prompt tables) then ingest: `python3 -m engine.ingest_prompts --reset`
 
+## PE instance probe
+
+One-shot read-only health check of the PosterEngine instances in
+`~/.local/share/token-budget/pe_instances.json` — resolves each instance's Keychain
+token, then hits the same `/api/jobs/summary` + `/api/admin/router-metrics` the poller
+uses. Use it when `/pe/status` looks wrong, to tell instance/token/engine faults apart.
+Never prints the token.
+
+- All instances: `python3 -m engine.pe_probe`
+- One instance, machine-readable: `python3 -m engine.pe_probe --instance dev --json`
+- Exit codes: `0` all reachable, `1` at least one failed, `2` nothing to probe
+  (missing/empty/bad config, unknown `--instance`).
+
 ## launchd (macOS)
 
 Two agents, two installers:

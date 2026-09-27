@@ -327,6 +327,30 @@ def _extract_assistant_text(api_calls: list[dict]) -> str:
     return " ".join(parts)
 
 
+def _content_block_key(block: dict) -> tuple:
+    """Identity of a content block, for folding split response lines."""
+    if block.get("id"):
+        return (block.get("type"), block["id"])
+    return (block.get("type"), block.get("text") or block.get("thinking")
+            or json.dumps(block, sort_keys=True))
+
+
+def _merge_content_blocks(target: dict, repeat: dict, keys: set) -> None:
+    """Append blocks from a repeat line of the same message.id not yet in target."""
+    blocks = repeat.get("content")
+    if not isinstance(blocks, list):
+        return
+    if not isinstance(target.get("content"), list):
+        target["content"] = []
+    for b in blocks:
+        if not isinstance(b, dict):
+            continue
+        k = _content_block_key(b)
+        if k not in keys:
+            keys.add(k)
+            target["content"].append(b)
+
+
 def _extract_tool_result_text(content) -> str:
     """Extract text from a tool_result content field (string or block list)."""
     if isinstance(content, str):
@@ -794,6 +818,11 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
 
     # Collect all entries with dedup
     seen_ids: set[str] = set()
+    # Claude Code logs one API response as one line per content block, all
+    # sharing message.id with identical usage. The first line is kept (usage
+    # counted once); later lines' distinct blocks are folded into its content.
+    first_msgs: dict[str, dict] = {}
+    first_block_keys: dict[str, set] = {}
     # entries grouped by file for project attribution
     # Each entry: (timestamp_dt, role, message_dict, file_path, cwd)
     all_entries: list[tuple[datetime, str, dict, str, str]] = []
@@ -830,9 +859,15 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
 
                     # Dedup by message.id (assistant) or uuid (user)
                     msg_id = msg.get("id") or obj.get("uuid")
+                    is_repeat = False
                     if msg_id:
                         if msg_id in seen_ids:
-                            continue
+                            if role != "assistant" or msg_id not in first_msgs:
+                                continue
+                            is_repeat = True
+                            _merge_content_blocks(
+                                first_msgs[msg_id], msg, first_block_keys[msg_id]
+                            )
                         seen_ids.add(msg_id)
 
                     # Parse timestamp
@@ -868,6 +903,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                         ):
                             subagent_entries[session_id].append(obj)
 
+                    # Repeat line: blocks merged above, usage already counted
+                    if is_repeat:
+                        continue
+
                     # Filter by date range
                     if ts < date_from or ts > date_to:
                         continue
@@ -881,6 +920,12 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                             + (usage.get("cache_creation_input_tokens") or 0)
                         )
 
+                    if role == "assistant" and msg_id:
+                        first_msgs[msg_id] = msg
+                        first_block_keys[msg_id] = {
+                            _content_block_key(b) for b in content
+                            if isinstance(b, dict)
+                        } if isinstance(content, list) else set()
                     all_entries.append((ts, role, msg, fpath, obj.get("cwd", "")))
         except OSError:
             continue

@@ -16,11 +16,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+# Derived from $HOME: the home dir differs per host (jcords-macmini vs jc-folder)
+PROJECTS_ROOT = str(Path.home() / "projects") + "/"
 WORKSPACE_DIR = os.path.expanduser(
-    "~/.claude/projects/-Users-jcords-macmini-projects"
+    "~/.claude/projects/" + PROJECTS_ROOT.rstrip("/").replace("/", "-")
 )
 OUTPUT = os.path.expanduser("~/.local/state/codeburn/session-projects.jsonl")
-PROJECTS_ROOT = "/Users/jc-folder/projects/"
 
 # Known project directories (canonical names)
 PROJECT_DIRS = [
@@ -175,7 +176,7 @@ def scan_session(jsonl_path: str) -> tuple[str | None, str]:
                             result_content = block.get("content", "")
                             if isinstance(result_content, str):
                                 for match in re.finditer(
-                                    r"/Users/jc-folder/projects/([^/\s\"']+)",
+                                    re.escape(PROJECTS_ROOT) + r"([^/\s\"']+)",
                                     result_content[:2000],  # Cap to avoid huge results
                                 ):
                                     proj = extract_project_from_path(

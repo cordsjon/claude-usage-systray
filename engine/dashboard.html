@@ -1410,20 +1410,30 @@ function overviewRender(data) {
 async function overviewLoad() {
   const grid = document.getElementById('ov-grid');
   let stale = false;
+  let failed = false;
+  // A fetch with no timeout that never settles left "Loading…" up forever and
+  // never reached the retry timer below (2026-09-27). Abort, show it, retry.
+  const ctrl = new AbortController();
+  const abortTimer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const r = await fetch('/api/overview?range=' + encodeURIComponent(overviewRange));
+    const r = await fetch('/api/overview?range=' + encodeURIComponent(overviewRange), { signal: ctrl.signal });
     if (!r.ok) {
-      grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">HTTP ${r.status}</div>`;
-      return;
+      failed = true;
+      grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">HTTP ${r.status} — retrying</div>`;
+    } else {
+      stale = overviewRender(await r.json());
     }
-    stale = overviewRender(await r.json());
   } catch (e) {
-    grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">${e}</div>`;
+    failed = true;
+    const msg = e.name === 'AbortError' ? 'Server did not answer in 15s' : String(e);
+    grid.innerHTML = `<div style="color:var(--red);padding:40px;text-align:center;grid-column:1/-1">${msg} — retrying</div>`;
+  } finally {
+    clearTimeout(abortTimer);
   }
   if (overviewTimer) clearTimeout(overviewTimer);
   overviewTimer = setTimeout(() => {
     if (document.getElementById('tab-overview').classList.contains('active')) overviewLoad();
-  }, stale ? 5000 : 60000);
+  }, (stale || failed) ? 5000 : 60000);
 }
 
 document.querySelectorAll('.ov-range-btn').forEach(btn => {
@@ -3399,7 +3409,7 @@ var TENET_REGISTRY = [
   // ── Coding Discipline ──────────────────────────────────────────────────────
   { slug: 'architecture-first',   title: 'Architecture before code',
     desc: 'On new features or redesigns, spend effort on spec and design first. Claude generates wrong code at 10× speed, amplifying wrong direction.' },
-  { slug: 'MVA',                  title: 'Minimum Viable Abstraction',
+  { slug: 'mva',                  title: 'Minimum Viable Abstraction',
     desc: 'Before designing a feature, ask: what is the smallest thing we could remove or skip and still solve the problem? "What can we add?" is the wrong starting question.' },
   { slug: 'delete-first',         title: 'Delete before you abstract',
     desc: 'The most robust logic is logic that no longer exists because the problem was solved at a higher architectural level. Before adding a workaround, ask whether the constraint that makes it necessary can be removed instead.' },

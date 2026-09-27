@@ -79,6 +79,44 @@ _RESEARCH_RE = re.compile(
 _TENET_RE = re.compile(r'\[TENET:\s*([^\]]+)\]', re.IGNORECASE)
 # Placeholder slugs that appear in our own docs/UI/comments — never a real citation
 _TENET_PLACEHOLDERS = {"name", "<name>", "slug", "<slug>", "example"}
+# Tenet definitions: "N. **slug**" (TENETS.md) and "- **slug**" (PHILOSOPHY.md)
+_TENET_DEF_RE = re.compile(r'^\s*(?:\d+\.|-)\s+\*\*([A-Za-z0-9-]+)\*\*', re.MULTILINE)
+# End of the slug part of a free-form tag: dash-separated rationale, or punctuation
+_TENET_CLAUSE_END_RE = re.compile(r'\s[—–-]\s|[,;:(\[/]')
+
+
+def _load_known_tenets(claude_dir: Path) -> set[str]:
+    """Lowercased tenet slugs defined in TENETS.md and PHILOSOPHY.md."""
+    known: set[str] = set()
+    for name in ("TENETS.md", "PHILOSOPHY.md"):
+        try:
+            text = (claude_dir / name).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        known.update(m.lower() for m in _TENET_DEF_RE.findall(text))
+    return known
+
+
+def _normalize_tenet_tag(body: str, known) -> list[str]:
+    """Map one [TENET: ...] body to tenet slugs.
+
+    Known slugs anywhere in the body win (compound tags cite each one);
+    otherwise the first clause becomes a hyphenated lowercase slug.
+    """
+    low = body.lower().replace("`", "")
+    hits = []
+    for slug in known:
+        m = re.search(r'(?<![a-z0-9-])' + re.escape(slug) + r'(?![a-z0-9-])', low)
+        if m:
+            hits.append((m.start(), slug))
+    if hits:
+        return [s for _, s in sorted(hits)]
+    head = _TENET_CLAUSE_END_RE.split(low, maxsplit=1)[0]
+    slug = "-".join(head.replace("-", " ").split()).strip("'\"*")
+    # "[TENET: ...]" in quoted docs has no letters — not a citation
+    if not re.search(r'[a-z0-9]', slug) or slug in _TENET_PLACEHOLDERS:
+        return []
+    return [slug]
 
 # Quota / rate-limit error regex for subagent tool_result errors (US-TBD-A AC-03)
 _QUOTA_ERROR_RE = re.compile(r"quota|rate.?limit|exhausted", re.IGNORECASE)
@@ -991,6 +1029,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         lambda: defaultdict(float)
     )
     tenet_citations: list[dict] = []
+    known_tenets = _load_known_tenets(Path.home() / ".claude")
 
     for turn in turns:
         # Collect all tools and bash commands across API calls
@@ -1060,17 +1099,15 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         # Tenet citations — extract from assistant text at this turn
         assistant_text = _extract_assistant_text(turn["api_calls"])
         for match in _TENET_RE.finditer(assistant_text):
-            slug = match.group(1).strip()
-            if slug.lower() in _TENET_PLACEHOLDERS:
-                continue
-            tenet_citations.append({
-                "tenet": slug,
-                "session": Path(turn["file_path"]).stem,
-                "project": turn["project"],
-                "category": category,
-                "net_edit_delta": _extract_edit_delta(turn["api_calls"]),
-                "date": turn["date"],
-            })
+            for slug in _normalize_tenet_tag(match.group(1), known_tenets):
+                tenet_citations.append({
+                    "tenet": slug,
+                    "session": Path(turn["file_path"]).stem,
+                    "project": turn["project"],
+                    "category": category,
+                    "net_edit_delta": _extract_edit_delta(turn["api_calls"]),
+                    "date": turn["date"],
+                })
 
         # Aggregate category
         cat = cat_agg[category]

@@ -108,6 +108,18 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"<!DOCTYPE html>", body)
 
+    def test_idle_connection_does_not_block_other_requests(self):
+        """A browser preconnect opens a socket and sends nothing. On a single-threaded
+        HTTPServer that socket holds the only thread, and every other request (the
+        Overview tab's fetch) hangs — the dashboard sat on "Loading…" (2026-09-27)."""
+        import socket
+        idle = socket.create_connection(("127.0.0.1", self.port))
+        try:
+            with urllib.request.urlopen(f"{self.base_url}/api/health", timeout=3) as resp:
+                self.assertEqual(resp.status, 200)
+        finally:
+            idle.close()
+
     def test_unknown_path_404(self):
         status, data = self._get_json("/nonexistent")
         self.assertEqual(status, 404)

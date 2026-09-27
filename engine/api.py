@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from engine.codeburn import get_codeburn_report
@@ -55,9 +55,8 @@ _DEFAULT_PATTERNS_YAML_PATH = (
 _dashboard_cache: bytes | None = None
 _dashboard_mtime: float = 0.0
 
-# PE kick rate-limit tracker (US-PESUP-ENGINE-01). The lock is defensive:
-# HTTPServer serializes requests today, but the check-and-set below must stay
-# atomic if this ever moves to ThreadingHTTPServer.
+# PE kick rate-limit tracker (US-PESUP-ENGINE-01). The server is a
+# ThreadingHTTPServer, so the check-and-set below must stay under this lock.
 _pe_kick_lock = threading.Lock()
 _pe_kick_last_ts: dict = {}  # instance_name -> monotonic ts of last kick
 _PE_KICK_RATE_LIMIT_S = 60
@@ -207,12 +206,13 @@ def _make_handler_class(
                     with open(_DASHBOARD_PATH, "r", encoding="utf-8") as f:
                         _dashboard_cache = f.read().encode("utf-8")
                     _dashboard_mtime = mtime
+                body = _dashboard_cache  # one read: another thread may swap the global
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self.send_header("Cache-Control", "no-cache")
-                self.send_header("Content-Length", str(len(_dashboard_cache)))
+                self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(_dashboard_cache)
+                self.wfile.write(body)
             except FileNotFoundError:
                 _json_response(self, {"error": "Dashboard not found"}, 404)
 
@@ -656,8 +656,8 @@ def create_server(
     patterns_yaml_path: Path | None = None,
     pe_instances: list | None = None,
     host: str | None = None,
-) -> HTTPServer:
-    """Create an HTTPServer bound to `host` with the given db and token holder.
+) -> ThreadingHTTPServer:
+    """Create a ThreadingHTTPServer bound to `host` with the given db and token holder.
 
     `host` defaults to $ENGINE_HOST, else the tailnet address — the engine is
     reachable from the tailnet, not from the LAN or loopback. Pass
@@ -673,5 +673,9 @@ def create_server(
         pe_instances=pe_instances,
     )
     bind_host = host or os.environ.get("ENGINE_HOST", "100.92.111.112")
-    server = HTTPServer((bind_host, port), handler_class)
+    # Threading, not HTTPServer: a browser preconnect opens a socket and sends
+    # nothing, and a single-threaded server blocks in readline() on it while every
+    # real request waits — the Overview tab sat on "Loading…" (2026-09-27).
+    # db is safe across threads: check_same_thread=False, sqlite3.threadsafety 3.
+    server = ThreadingHTTPServer((bind_host, port), handler_class)
     return server

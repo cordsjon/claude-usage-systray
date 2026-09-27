@@ -1527,12 +1527,15 @@ def _compute_and_cache(days: int) -> dict:
     date_to = datetime.now(timezone.utc)
     date_from = (date_to - timedelta(days=days)) if days > 0 else datetime(2024, 1, 1, tzinfo=timezone.utc)
 
-    report = _scan_sessions(date_from, date_to)
-
-    with _cache_lock:
-        _cached_reports[days] = report
-        _cached_at[days] = time.monotonic()
-        _refresh_in_progress.discard(days)
+    try:
+        report = _scan_sessions(date_from, date_to)
+        with _cache_lock:
+            _cached_reports[days] = report
+            _cached_at[days] = time.monotonic()
+    finally:
+        # Cleared on failure too, or the range is served stale forever
+        with _cache_lock:
+            _refresh_in_progress.discard(days)
 
     _write_disk_cache(days, report)
     return report

@@ -33,11 +33,13 @@ class ClaudeProvider:
 
         # Balance/cap: Claude Code subscriptions don't expose a $ cap; we
         # surface weekly utilization as percent-of-cap proxy. Cap_usd stays
-        # None — UI shows utilization gauge instead.
+        # None — the Overview card shows weekly_pct instead.
         status = get_current_status() or {}
         weekly_pct: Optional[float] = None
         try:
-            weekly_pct = float(status.get("weekly_pct"))
+            # poller status v2 nests it: current.seven_day_util, 0-100.
+            # A top-level "weekly_pct" never existed, so this always read None.
+            weekly_pct = float((status.get("current") or {}).get("seven_day_util"))
         except (TypeError, ValueError):
             weekly_pct = None
 
@@ -48,6 +50,7 @@ class ClaudeProvider:
             range_days=range_days,
             balance_usd=None,
             cap_usd=None,
+            weekly_pct=weekly_pct,
             spend_usd=round(spend, 2),
             daily_avg_usd=round(spend / range_days, 2) if range_days else 0.0,
             top_consumers=top,

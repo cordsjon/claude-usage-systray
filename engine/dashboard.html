@@ -1361,7 +1361,10 @@ function overviewRender(data) {
   grid.innerHTML = data.providers.map(p => {
     const balanceStr = p.balance_usd !== null && p.balance_usd !== undefined
       ? overviewMoney(p.balance_usd) + ' left'
-      : (p.cap_usd ? overviewMoney(p.cap_usd) + ' cap' : 'no balance api');
+      : p.cap_usd ? overviewMoney(p.cap_usd) + ' cap'
+      : (p.weekly_pct !== null && p.weekly_pct !== undefined)
+        ? Math.round(p.weekly_pct) + '% of weekly cap'
+      : 'no balance api';
     const balanceClass = p.balance_usd !== null && p.balance_usd !== undefined ? '' : 'dim';
     const consumers = (p.top_consumers || []).map(c =>
       `<div class="ov-consumer">

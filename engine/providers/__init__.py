@@ -44,6 +44,7 @@ class ProviderState:
     range_days: int
     balance_usd: Optional[float] = None
     cap_usd: Optional[float] = None
+    weekly_pct: Optional[float] = None   # subscription providers: % of weekly cap used
     spend_usd: float = 0.0
     daily_avg_usd: float = 0.0
     top_consumers: list[Consumer] = field(default_factory=list)

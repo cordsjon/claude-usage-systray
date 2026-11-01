@@ -84,9 +84,6 @@ def _resolve_token(args, log) -> str:
 
 
 def main():
-    _setup_logging()
-    log = logging.getLogger("engine.server")
-
     parser = argparse.ArgumentParser(description="Token Budget Engine")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--token", default=None,
@@ -98,6 +95,9 @@ def main():
     parser.add_argument("--poll-interval", type=int, default=None,
                         help="Seconds between usage API polls (default: poller.POLL_INTERVAL)")
     args = parser.parse_args()
+
+    _setup_logging()
+    log = logging.getLogger("engine.server")
 
     # Ensure db directory exists
     if args.db_path:

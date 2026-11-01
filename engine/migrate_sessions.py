@@ -48,7 +48,7 @@ def scan_sessions(sessions_dir: str) -> dict[str, int]:
                     except json.JSONDecodeError:
                         continue
 
-                    if obj.get("type") != "assistant":
+                    if not isinstance(obj, dict) or obj.get("type") != "assistant":
                         continue
 
                     ts = obj.get("timestamp", "")

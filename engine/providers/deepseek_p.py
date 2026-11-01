@@ -64,7 +64,7 @@ def _scan_log(since_ts: float) -> tuple[float, dict[str, float], int]:
                     rec = json.loads(line)
                 except ValueError:
                     continue
-                if rec.get("ts", 0) < since_ts:
+                if not isinstance(rec, dict) or rec.get("ts", 0) < since_ts:
                     continue
                 cost = _price(
                     rec.get("model", ""),

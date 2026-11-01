@@ -11,6 +11,7 @@ two-tuple (data, error) fetch contract, stop_event-interruptible sleep).
 
 import json
 import logging
+import sqlite3
 import urllib.error
 import urllib.request
 
@@ -226,14 +227,18 @@ def pe_poll_loop(
 
     while not stop_event.is_set():
         now_monotonic = _time.monotonic()
-        for instance in instances:
-            token = get_token(instance.token_ref)
-            if token is None:
-                log.warning("PE poller: no token for instance %s, skipping", instance.name)
-                continue
-            do_router = (now_monotonic - last_router_poll.get(instance.name, 0.0)) >= router_interval
-            if do_router:
-                last_router_poll[instance.name] = now_monotonic
-            pe_poll_once(instance, db, token, fetch_router=do_router)
-        db.prune_pe_cost_snapshot()
+        try:
+            for instance in instances:
+                token = get_token(instance.token_ref)
+                if token is None:
+                    log.warning("PE poller: no token for instance %s, skipping", instance.name)
+                    continue
+                do_router = (now_monotonic - last_router_poll.get(instance.name, 0.0)) >= router_interval
+                if do_router:
+                    last_router_poll[instance.name] = now_monotonic
+                pe_poll_once(instance, db, token, fetch_router=do_router)
+            db.prune_pe_cost_snapshot()
+        except sqlite3.Error as exc:
+            db.rollback()
+            log.warning("PE poller database error, retrying: %s", exc)
         stop_event.wait(jobs_interval)

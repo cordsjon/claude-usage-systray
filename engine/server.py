@@ -164,7 +164,7 @@ def main():
             get_token_history()
             warm_overview_cache([(7, "7d"), (30, "30d"), (355, "all")])
             log.info("Cache warmup complete (codeburn + token-history + overview)")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             log.warning("Cache warmup failed: %s", exc)
 
     warmup_thread = threading.Thread(target=_warm_caches, daemon=True)

@@ -4,6 +4,7 @@ WAL journal mode, 355-day retention, thread-safe.
 """
 
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 
 RETENTION_DAYS = 355
@@ -119,14 +120,36 @@ class UsageDB:
     """Thin wrapper around a SQLite database for usage snapshots."""
 
     def __init__(self, db_path: str = "usage.db"):
-        self._conn = sqlite3.connect(
-            db_path,
+        self._db_path = db_path
+        self._local = threading.local()
+        # A ":memory:" database exists only inside its connection, so it cannot
+        # be split per thread. Tests use it; the engine always has a file.
+        self._shared_conn = self._connect() if db_path == ":memory:" else None
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.executescript(_SCHEMA)
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(
+            self._db_path,
             check_same_thread=False,
             timeout=30,
         )
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.executescript(_SCHEMA)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """This thread's connection. A transaction belongs to its connection, so
+        sharing one let a failed write in one thread pin a read snapshot for all
+        of them: every later write raised "database is locked" and the WAL could
+        not be checkpointed.
+        """
+        if self._shared_conn is not None:
+            return self._shared_conn
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._local.conn = self._connect()
+        return conn
 
     # ── writes ──────────────────────────────────────────────
 
@@ -487,6 +510,10 @@ class UsageDB:
         """Force a WAL checkpoint."""
         self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
+    def rollback(self):
+        """Abandon this thread's open transaction, if any."""
+        self._conn.rollback()
+
     def close(self):
-        """Close the database connection."""
+        """Close this thread's database connection."""
         self._conn.close()

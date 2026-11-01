@@ -52,6 +52,8 @@ def _scan_sessions() -> dict:
                         obj = json.loads(line)
                     except (json.JSONDecodeError, ValueError):
                         continue
+                    if not isinstance(obj, dict):
+                        continue
 
                     # Extract date from first timestamp in session
                     if not session_day:
@@ -61,7 +63,7 @@ def _scan_sessions() -> dict:
                                 dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                                 if dt.year >= 2026:
                                     session_day = dt.strftime("%Y-%m-%d")
-                            except (ValueError, TypeError):
+                            except (ValueError, TypeError, AttributeError):
                                 pass
 
                     # Extract usage data from assistant messages

@@ -7,6 +7,7 @@ shared state for the systray to read.
 
 import json
 import logging
+import sqlite3
 import subprocess
 import threading
 import urllib.error
@@ -323,6 +324,21 @@ def _seed_from_db(db: UsageDB) -> None:
 
 
 def poll_loop(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Event, poll_interval: int = POLL_INTERVAL) -> None:
+    """Poll until stop_event is set, surviving database errors.
+
+    Retries at poll_interval, not BACKOFF_INTERVAL: each retry fetches from the
+    rate-limited API again, and the API is not what failed.
+    """
+    while not stop_event.is_set():
+        try:
+            _poll_until_stopped(token_holder, db, stop_event, poll_interval)
+        except sqlite3.Error as exc:
+            db.rollback()
+            log.warning("Poller database error, retrying in %ds: %s", poll_interval, exc)
+            stop_event.wait(poll_interval)
+
+
+def _poll_until_stopped(token_holder: TokenHolder, db: UsageDB, stop_event: threading.Event, poll_interval: int) -> None:
     """Poll the API until stop_event is set.
 
     Each iteration fetches usage, persists a snapshot, computes projections,

@@ -60,6 +60,8 @@ def _is_user_entry(obj):
     Older samples also used flat ``{"role": "user", "content": ...}``.
     Both shapes are accepted.
     """
+    if not isinstance(obj, dict):
+        return False
     if obj.get("type") == "user":
         msg = obj.get("message")
         if isinstance(msg, dict) and msg.get("role") == "user":

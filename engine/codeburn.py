@@ -739,6 +739,8 @@ def _load_attribution() -> dict[str, str]:
                     continue
                 try:
                     entry = json.loads(line)
+                    if not isinstance(entry, dict):
+                        continue
                     sid = entry.get("session_id", "")
                     proj = entry.get("project", "")
                     if sid and proj and sid not in result:
@@ -882,6 +884,8 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                         obj = json.loads(line)
                     except (json.JSONDecodeError, ValueError):
                         continue
+                    if not isinstance(obj, dict):
+                        continue
 
                     # Skip sidechain entries (agent-delegated work)
                     if obj.get("isSidechain", False):
@@ -914,7 +918,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                         continue
                     try:
                         ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, AttributeError):
                         continue
 
                     # Subagent burn candidates — collected before the range

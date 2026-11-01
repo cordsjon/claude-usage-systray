@@ -6,6 +6,8 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 ## Ideation
 
+- TODO: show stale usage data as stale. `/api/health` answers `ok` and the menu bar shows the last numbers when a poller thread is dead, which hid a frozen poller for 19 days (fixed in 60927fc for sqlite errors; any other exception still ends the thread). Needs a freshness signal from `updated_at` that allows for the 4h 429 backoff, and a Swift change to display it.
+
 ### US-CUS-DEPLOY-01: dist-deploy script for the Swift app
 
 > Origin: Automation debt analysis (2026-07-22) — app deploy chain (xcodebuild Release → cp to dist → codesign --force --deep → launchctl kickstart) run manually 2× this session; caused 2 codesign SIGKILLs when the re-sign step was skipped.

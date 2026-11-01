@@ -147,10 +147,11 @@ def migrate(db_path: str, sessions_dir: str, dry_run: bool = False):
         for s in snapshots[:5]:
             print(f"  {s['timestamp']} → {s['seven_day_util']}% (cycle {s['cycle_id']})",
                   file=sys.stderr)
-        print(f"  ... ({len(snapshots) - 5} more)", file=sys.stderr)
+        if len(snapshots) > 5:
+            print(f"  ... ({len(snapshots) - 5} more)", file=sys.stderr)
         return
 
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     db = UsageDB(db_path)
 
     # Check for existing data to avoid duplicates

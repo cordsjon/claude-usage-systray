@@ -257,7 +257,8 @@ class TestPESchema(unittest.TestCase):
             cost_24h_usd=0.01, calls=1, available=True,
         )
         self.db.insert_pe_cost_snapshot(
-            ts="2026-07-22T00:00:00Z", instance="dev",
+            ts=(datetime.now(timezone.utc) - timedelta(days=89)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            instance="dev",
             cost_24h_usd=0.02, calls=1, available=True,
         )
         self.db.prune_pe_cost_snapshot()

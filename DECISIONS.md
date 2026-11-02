@@ -21,3 +21,25 @@
 **Justification:** The handover's reason covered a start-up-only change. This restart ends 19 days of frozen usage numbers and releases a 23 GB WAL. Backed up and verified on KINGSTON first. It also loaded 20cdeea and 7e24637.
 **Outcome:** assumed
 **Ref:** 60927fc
+
+
+## Q3 — usage-engine-poller-watchdog — tradeoff
+
+**Question:** How should a poller survive an exception other than sqlite3.Error?
+**Options considered:** watchdog thread that restarts dead workers / `except Exception` around each loop / list each further exception type
+**Chosen:** watchdog, restarting a worker after its normal interval, with one thread per PE instance
+**Decided-by:** agent
+**Justification:** A broad catch hides bugs and is against the house rule; a list never covers the next unknown exception. A restart releases the dead thread's connection, so it cannot pin a transaction. The restart delay equals the poll interval because each restart calls the rate-limited API. Cost: a crashing usage poller stays down up to 60 min, shown as "degraded" in /api/health. A hung (alive but stuck) thread is not restarted; /api/health shows it only through the 5 h usage age.
+**Outcome:** assumed
+**Ref:** c86a8b4
+
+
+## Q4 — usage-engine-poller-watchdog — deviation
+
+**Question:** Restart the live engine again, one session after Q2?
+**Options considered:** restart now / wait for the next start
+**Chosen:** restart now
+**Decided-by:** agent
+**Justification:** 60927fc leaked one connection per request thread; the engine had hit its 256-file limit, the PE poller was dead and no usage poll had succeeded for 7 h. No data was pruned by this restart.
+**Outcome:** assumed
+**Ref:** c86a8b4

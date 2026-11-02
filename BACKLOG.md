@@ -6,7 +6,7 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 ## Ideation
 
-- TODO: show stale usage data as stale. `/api/health` answers `ok` and the menu bar shows the last numbers when a poller thread is dead, which hid a frozen poller for 19 days (fixed in 60927fc for sqlite errors; any other exception still ends the thread). Needs a freshness signal from `updated_at` that allows for the 4h 429 backoff, and a Swift change to display it.
+- TODO: show stale usage data as stale in the menu bar. Since c86a8b4 `/api/health` answers `"status": "degraded"` (still HTTP 200) when a poller is down or `usage_age_seconds` exceeds 5 h, and lists each worker. The Swift app still reads only `token_needs_refresh` and shows the last numbers; it needs to read `status` / `usage_age_seconds` and mark the numbers as old.
 
 ### US-CUS-DEPLOY-01: dist-deploy script for the Swift app
 

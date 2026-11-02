@@ -246,9 +246,12 @@ def _make_handler_class(
             uptime = round(time.monotonic() - _START_TIME, 1)
             workers = watchdog.status() if watchdog else {}
             usage_age = _usage_age_seconds()
-            healthy = all(w["alive"] for w in workers.values()) and (
-                usage_age is None or usage_age <= USAGE_STALE_AFTER
-            )
+            # No numbers at all is fine only while the first poll can still land.
+            if usage_age is None:
+                usage_fresh = uptime <= USAGE_STALE_AFTER
+            else:
+                usage_fresh = usage_age <= USAGE_STALE_AFTER
+            healthy = all(w["alive"] for w in workers.values()) and usage_fresh
             _json_response(self, {
                 "status": "ok" if healthy else "degraded",
                 "uptime_seconds": uptime,

@@ -357,6 +357,27 @@ def test_health_reports_usage_numbers_too_old_to_trust(tmp_path: Path, live_stat
     db.close()
 
 
+def test_health_reports_an_engine_that_never_fetched_once_the_window_passes(tmp_path: Path, live_status):
+    # The first Windows run: an expired token, an alive poller, no numbers ever, and "ok".
+    db = UsageDB(str(tmp_path / "t.db"))
+    stop_event = threading.Event()
+    watchdog = Watchdog(stop_event, check_interval=0.01)
+    watchdog.add("poller", stop_event.wait, restart_delay=0)
+    watchdog.start()
+    try:
+        _update_status({})
+        _, body = _health(db, watchdog)
+        assert (body["status"], body["usage_age_seconds"]) == ("ok", None)
+
+        started_long_ago = time.monotonic() - USAGE_STALE_AFTER - 60
+        with mock.patch("engine.api._START_TIME", started_long_ago):
+            _, body = _health(db, watchdog)
+        assert (body["status"], body["usage_age_seconds"]) == ("degraded", None)
+    finally:
+        stop_event.set()
+    db.close()
+
+
 def test_fetch_usage_treats_a_non_object_response_as_a_failed_fetch(httpserver: HTTPServer):
     httpserver.expect_request("/usage").respond_with_data("[1, 2]", content_type="application/json")
     with mock.patch("engine.poller.API_URL", httpserver.url_for("/usage")):

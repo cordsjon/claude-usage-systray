@@ -73,3 +73,25 @@
 **Justification:** Measured on 843 dir names in ~/.claude/projects: "/", "." and "_" all become "-" (e.g. 30_SVG-PAINT -> 30-SVG-PAINT, /.claude -> --claude); the Mac rule replace("/", "-") is a no-op on a Windows path. On this Mac the result equals the old hardcode. The Windows form C--Users-<user>-projects is inferred, not seen: the gaming PC did not answer ssh on 2026-11-02.
 **Outcome:** assumed
 **Ref:** 9421bf2 (at write time)
+
+
+## Q8 — winport/2026-11-02 — deviation
+
+**Question:** On a 401, where should the Windows engine re-read the OAuth token from?
+**Options considered:** CLAUDE_OAUTH_TOKEN env var only (as ported) / credentials file first, env var fallback / engine refreshes the token itself
+**Chosen:** Off macOS, read %USERPROFILE%\.claude\.credentials.json (claudeAiOauth.accessToken) first, env var as fallback; also add the missing `import os`.
+**Decided-by:** agent
+**Justification:** First real Windows run: the env var token had expired (expiresAt 2026-11-01 04:24 UTC) and the re-read raised NameError (os never imported, also in the pre-port KINGSTON copy). An env var cannot change after start, so the 401 re-read could never heal; the credentials file is what Claude Code rewrites on refresh, the Windows analogue of the macOS Keychain read. Refreshing in the engine was rejected: rotating the refresh token could log Claude Code out. Startup still takes the token from the env var or --token.
+**Outcome:** assumed
+**Ref:** 792015c (at write time)
+
+
+## Q9 — winport/2026-11-02 — deviation
+
+**Question:** Should /api/health stay ok when the engine has never fetched usage numbers?
+**Options considered:** keep ok while usage_age is None / degraded once uptime passes USAGE_STALE_AFTER with no numbers
+**Chosen:** degraded once uptime exceeds USAGE_STALE_AFTER and no numbers exist; both Mac and Windows engines.
+**Decided-by:** agent
+**Justification:** The first Windows run reported ok with an alive poller, an expired token and usage_age_seconds null: the never-fetched case hid behind the None branch. The Mac seeds updated_at from the DB at startup, so None after 5 h there means an empty DB that never fetched. Same threshold the stale-numbers check already uses (Q6). Test: test_health_reports_an_engine_that_never_fetched_once_the_window_passes, red against HEAD.
+**Outcome:** assumed
+**Ref:** 792015c (at write time)

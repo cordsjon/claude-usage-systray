@@ -106,3 +106,108 @@
 **Justification:** operator ruling in /unblock 2026-11-02 (a2a-cli-registry session)
 **Outcome:** applied
 **Ref:** ae41950 (at write time)
+
+
+## Q11 — usage-engine-frozen-poller — tradeoff
+
+**Question:** How to stop threads corrupting each other on the shared sqlite3 connection?
+**Options considered:** per-thread connections / RLock around 45 methods plus direct db._conn callers / autocommit
+**Chosen:** per-thread connections
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q1 — resolved
+
+
+## Q12 — usage-engine-frozen-poller — deviation
+
+**Question:** Restart the live engine although the handover said not to restart it to prove a logging change?
+**Options considered:** restart now / leave until its next start
+**Chosen:** restart now
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q2 — resolved
+
+
+## Q13 — usage-engine-poller-watchdog — tradeoff
+
+**Question:** How should a poller survive an exception other than sqlite3.Error?
+**Options considered:** watchdog thread that restarts dead workers / `except Exception` around each loop / list each further exception type
+**Chosen:** watchdog, restarting a worker after its normal interval, with one thread per PE instance
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q3 — resolved
+
+
+## Q14 — usage-engine-poller-watchdog — deviation
+
+**Question:** Restart the live engine again, one session after Q2?
+**Options considered:** restart now / wait for the next start
+**Chosen:** restart now
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q4 — resolved
+
+
+## Q15 — winport/2026-11-02 — tradeoff
+
+**Question:** Port the Windows engine resilience fixes by copying Mac files or hunk by hunk?
+**Chosen:** Hunk by hunk: 60927fc + c86a8b4 + the a599df5 codeburn finally + the 51c728d null resets_at fallback; keep the single-threaded HTTPServer (3f34dcd not ported).
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q5 — resolved
+
+
+## Q16 — winport/2026-11-02 — tradeoff
+
+**Question:** What usage age makes the Windows /api/health report degraded?
+**Chosen:** USAGE_STALE_AFTER = POLL_INTERVAL + BACKOFF_INTERVAL = 960 s (Mac: 5 h).
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q6 — resolved
+
+
+## Q17 — winport/2026-11-02 — gate-resolution
+
+**Question:** How should the Windows engine find the projects memory dir instead of the hardcoded -Users-jcords-macmini-projects?
+**Chosen:** PROJECTS_SLUG in sessions.py: every non-alphanumeric character of str(Path.home() / "projects") replaced by "-"; used by api.py, codeburn.py, ingest_prompts.py.
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q7 — resolved
+
+
+## Q18 — winport/2026-11-02 — deviation
+
+**Question:** On a 401, where should the Windows engine re-read the OAuth token from?
+**Options considered:** CLAUDE_OAUTH_TOKEN env var only (as ported) / credentials file first, env var fallback / engine refreshes the token itself
+**Chosen:** Off macOS, read %USERPROFILE%\.claude\.credentials.json (claudeAiOauth.accessToken) first, env var as fallback; also add the missing `import os`.
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q8 — resolved
+
+
+## Q19 — winport/2026-11-02 — deviation
+
+**Question:** Should /api/health stay ok when the engine has never fetched usage numbers?
+**Options considered:** keep ok while usage_age is None / degraded once uptime passes USAGE_STALE_AFTER with no numbers
+**Chosen:** degraded once uptime exceeds USAGE_STALE_AFTER and no numbers exist; both Mac and Windows engines.
+**Decided-by:** human
+**Justification:** Operator ruling 2026-11-02 in /unblock: accept every assumed default as recommended (one ruling covering all 288 assumed review-queue entries). The original entry's reasoning stands.
+**Outcome:** applied
+**Ref:** d760f34 (at write time)
+**Supersedes:** Q9 — resolved

@@ -95,3 +95,14 @@
 **Justification:** The first Windows run reported ok with an alive poller, an expired token and usage_age_seconds null: the never-fetched case hid behind the None branch. The Mac seeds updated_at from the DB at startup, so None after 5 h there means an empty DB that never fetched. Same threshold the stale-numbers check already uses (Q6). Test: test_health_reports_an_engine_that_never_fetched_once_the_window_passes, red against HEAD.
 **Outcome:** assumed
 **Ref:** 792015c (at write time)
+
+
+## Q10 — unblock-2026-11-02 — tradeoff
+
+**Question:** Run the Windows usage engine permanently on the PC (scheduled task reading the credentials file)?
+**Options considered:** permanent / keep manual
+**Chosen:** keep manual: started by hand with a pasted token
+**Decided-by:** human
+**Justification:** operator ruling in /unblock 2026-11-02 (a2a-cli-registry session)
+**Outcome:** applied
+**Ref:** ae41950 (at write time)

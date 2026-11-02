@@ -43,3 +43,33 @@
 **Justification:** 60927fc leaked one connection per request thread; the engine had hit its 256-file limit, the PE poller was dead and no usage poll had succeeded for 7 h. No data was pruned by this restart.
 **Outcome:** assumed
 **Ref:** c86a8b4
+
+
+## Q5 — winport/2026-11-02 — tradeoff
+
+**Question:** Port the Windows engine resilience fixes by copying Mac files or hunk by hunk?
+**Chosen:** Hunk by hunk: 60927fc + c86a8b4 + the a599df5 codeburn finally + the 51c728d null resets_at fallback; keep the single-threaded HTTPServer (3f34dcd not ported).
+**Decided-by:** agent
+**Justification:** The Windows engine diverged across 12 files (no PE poller, 60 s POLL_INTERVAL, no 429 path); copying files would import unrelated features. Under HTTPServer only the main and poller threads hold connections, so the fd leak has no path; Handler.finish release still rolls back a failed request and makes a later ThreadingHTTPServer switch safe. The resets_at fallback was added because a null resets_at hits the NOT NULL column and, without it, the poller retries forever without storing a snapshot.
+**Outcome:** assumed
+**Ref:** 9421bf2 (at write time)
+
+
+## Q6 — winport/2026-11-02 — tradeoff
+
+**Question:** What usage age makes the Windows /api/health report degraded?
+**Chosen:** USAGE_STALE_AFTER = POLL_INTERVAL + BACKOFF_INTERVAL = 960 s (Mac: 5 h).
+**Decided-by:** agent
+**Justification:** Same rule as the Mac (one missed poll plus the longest backoff) applied to the Windows constants: 60 s polls, 15 min failure backoff, no 429 backoff. Any API outage longer than 16 min therefore shows degraded, which is accurate: the numbers are that old.
+**Outcome:** assumed
+**Ref:** 9421bf2 (at write time)
+
+
+## Q7 — winport/2026-11-02 — gate-resolution
+
+**Question:** How should the Windows engine find the projects memory dir instead of the hardcoded -Users-jcords-macmini-projects?
+**Chosen:** PROJECTS_SLUG in sessions.py: every non-alphanumeric character of str(Path.home() / "projects") replaced by "-"; used by api.py, codeburn.py, ingest_prompts.py.
+**Decided-by:** agent
+**Justification:** Measured on 843 dir names in ~/.claude/projects: "/", "." and "_" all become "-" (e.g. 30_SVG-PAINT -> 30-SVG-PAINT, /.claude -> --claude); the Mac rule replace("/", "-") is a no-op on a Windows path. On this Mac the result equals the old hardcode. The Windows form C--Users-<user>-projects is inferred, not seen: the gaming PC did not answer ssh on 2026-11-02.
+**Outcome:** assumed
+**Ref:** 9421bf2 (at write time)

@@ -514,6 +514,18 @@ class UsageDB:
         """Abandon this thread's open transaction, if any."""
         self._conn.rollback()
 
+    def release(self):
+        """Close this thread's connection, if it opened one. Call it as a thread ends.
+
+        An ended thread's connection is otherwise closed only when the cycle
+        collector gets to it. Until then it holds two file descriptors and any
+        transaction it left open, which blocks every writer.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            self._local.conn = None
+            conn.close()
+
     def close(self):
         """Close this thread's database connection."""
         self._conn.close()

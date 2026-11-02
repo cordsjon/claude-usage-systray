@@ -30,7 +30,11 @@ def _fetch_json(url: str, token: str, timeout: int):
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8")), None
+            data = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(data, dict):
+            log.warning("PE fetch %s -> a %s, not an object", url, type(data).__name__)
+            return None, "bad_json"
+        return data, None
     except urllib.error.HTTPError as e:
         log.warning("PE fetch %s -> HTTP %s", url, e.code)
         return None, f"http_{e.code}"

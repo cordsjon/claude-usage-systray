@@ -35,6 +35,9 @@ POLL_INTERVAL = 60 * 60       # 60 minutes — bumped from 30 min after sustaine
 BACKOFF_INTERVAL = 15 * 60    # 15 minutes on generic failure (network, 5xx, etc.)
 RATE_LIMIT_MIN_BACKOFF = 60   # floor for 429 backoff when Retry-After is missing/small
 RATE_LIMIT_MAX_BACKOFF = 4 * 3600  # ceiling on exponential growth (4h)
+# Older numbers than this mean polling has stopped working: one missed poll plus
+# the longest 429 backoff. /api/health reports "degraded" past it.
+USAGE_STALE_AFTER = POLL_INTERVAL + RATE_LIMIT_MAX_BACKOFF
 ZERO_STREAK_THRESHOLD = 3     # consecutive zero responses before requesting refresh
 
 # Persisted backoff state — survives engine restarts so Anthropic's
@@ -243,7 +246,11 @@ def fetch_usage(token_holder: TokenHolder) -> tuple[dict | None, int | None]:
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8")), None
+            data = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(data, dict):
+            log.error("Fetch error: response is a %s, not an object", type(data).__name__)
+            return None, None
+        return data, None
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
             log.warning("HTTP %d — attempting Keychain self-heal", exc.code)
@@ -344,7 +351,10 @@ def _poll_until_stopped(token_holder: TokenHolder, db: UsageDB, stop_event: thre
     Each iteration fetches usage, persists a snapshot, computes projections,
     and updates the shared status dict.  Backs off on failure.
     """
-    _seed_from_db(db)
+    # Only at first start: after a restart the live status is newer than the DB,
+    # and the seed would zero its projections until the next good poll.
+    if not get_current_status():
+        _seed_from_db(db)
     zero_streak = 0
 
     # ── Restore persisted backoff state ───────────────────────

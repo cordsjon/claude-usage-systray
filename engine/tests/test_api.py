@@ -49,7 +49,7 @@ class TestAPI(unittest.TestCase):
                 "recommended_daily": 0.14,
                 "days_remaining": 3,
             },
-            "updated_at": "2026-03-26T12:00:00Z",
+            "updated_at": now.isoformat(),
         })
         # Start server on random port
         cls.server = create_server(

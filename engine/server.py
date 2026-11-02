@@ -18,14 +18,15 @@ import threading
 from logging.handlers import RotatingFileHandler
 
 from engine.db import UsageDB
-from engine.poller import TokenHolder, poll_loop
-from engine.jsonl_rollup import rollup_loop
+from engine.poller import POLL_INTERVAL, TokenHolder, poll_loop
+from engine.jsonl_rollup import ROLLUP_INTERVAL, rollup_loop
 from engine.api import create_server
 from engine.codeburn import get_codeburn_report
 from engine.pe_config import load_pe_instances
-from engine.pe_poller import pe_poll_loop
+from engine.pe_poller import PE_POLL_INTERVAL_JOBS_S, pe_poll_loop
 from engine.providers import keychain_get, warm_overview_cache
 from engine.sessions import get_token_history
+from engine.watchdog import Watchdog
 
 DEFAULT_PORT = 17420
 DEFAULT_DB_DIR = os.path.expanduser("~/.local/share/token-budget")
@@ -120,6 +121,9 @@ def main():
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
 
+    # Every poller runs under the watchdog, which restarts it if it dies.
+    watchdog = Watchdog(stop_event)
+
     # Snapshot source: Anthropic OAuth API (default) or local JSONL rollup (fallback).
     # TOKEN_BUDGET_USE_API=1 (default): polls /api/oauth/usage — authoritative percentages.
     # TOKEN_BUDGET_USE_API=0: counts tokens from local JSONL transcripts against hardcoded
@@ -127,32 +131,29 @@ def main():
     #   Note: JSONL rollup and API report different scales and will not agree numerically.
     use_api_poller = os.environ.get("TOKEN_BUDGET_USE_API", "1") == "1"
     if use_api_poller:
-        poll_kwargs = {"poll_interval": args.poll_interval} if args.poll_interval else {}
-        poller_thread = threading.Thread(
-            target=poll_loop, args=(token_holder, db, stop_event), kwargs=poll_kwargs, daemon=True
+        poll_interval = args.poll_interval or POLL_INTERVAL
+        watchdog.add(
+            "usage", poll_loop, (token_holder, db, stop_event),
+            {"poll_interval": poll_interval}, restart_delay=poll_interval, on_exit=db.release,
         )
-        poller_thread.start()
         log.info("API poller started (TOKEN_BUDGET_USE_API=1)")
     else:
-        rollup_thread = threading.Thread(
-            target=rollup_loop, args=(db, stop_event), daemon=True
-        )
-        rollup_thread.start()
+        watchdog.add("rollup", rollup_loop, (db, stop_event), restart_delay=ROLLUP_INTERVAL, on_exit=db.release)
         log.info("JSONL rollup started")
 
-    # PE supervisor poller (US-PESUP-ENGINE-01)
+    # PE supervisor poller (US-PESUP-ENGINE-01). One thread per instance, so a
+    # fault that keeps killing one instance's poller cannot starve the others.
     pe_instances = load_pe_instances()
-    if pe_instances:
-        pe_poller_thread = threading.Thread(
-            target=pe_poll_loop,
-            args=(pe_instances, db, stop_event),
-            kwargs={"get_token": keychain_get},
-            daemon=True,
+    for instance in pe_instances:
+        watchdog.add(
+            f"pe:{instance.name}", pe_poll_loop, ([instance], db, stop_event),
+            {"get_token": keychain_get}, restart_delay=PE_POLL_INTERVAL_JOBS_S, on_exit=db.release,
         )
-        pe_poller_thread.start()
+    if pe_instances:
         log.info("PE poller started for %d instance(s)", len(pe_instances))
     else:
         log.info("PE poller not started (no pe_instances.json configured)")
+    watchdog.start()
 
     # Warm codeburn + token history caches in background so first page load is fast
     def _warm_caches():
@@ -171,7 +172,7 @@ def main():
     warmup_thread.start()
 
     # Start HTTP server (blocks main thread)
-    server = create_server(db, token_holder, port=args.port, pe_instances=pe_instances)
+    server = create_server(db, token_holder, port=args.port, pe_instances=pe_instances, watchdog=watchdog)
     actual_host, actual_port = server.server_address[0], server.server_address[1]
     log.info("Listening on http://%s:%d", actual_host, actual_port)
 

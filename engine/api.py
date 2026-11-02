@@ -20,9 +20,10 @@ from pathlib import Path
 from engine.codeburn import get_codeburn_report
 from engine.db import UsageDB
 from engine.pe_poller import get_current_pe_status
-from engine.poller import TokenHolder, get_current_status
+from engine.poller import USAGE_STALE_AFTER, TokenHolder, get_current_status
 from engine.providers import get_overview
 from engine.sessions import get_token_history
+from engine.watchdog import Watchdog
 
 _START_TIME = time.monotonic()
 
@@ -138,12 +139,27 @@ def _append_pattern_yaml(yaml_path, entry):
         raise
 
 
+def _usage_age_seconds() -> float | None:
+    """Seconds since the usage numbers in /api/status were fetched, or None if there are none."""
+    updated_at = get_current_status().get("updated_at")
+    if not updated_at:
+        return None
+    try:
+        fetched = datetime.fromisoformat(updated_at)
+    except (TypeError, ValueError):
+        return None
+    if fetched.tzinfo is None:
+        fetched = fetched.replace(tzinfo=timezone.utc)
+    return round((datetime.now(timezone.utc) - fetched).total_seconds(), 1)
+
+
 def _make_handler_class(
     db: UsageDB,
     token_holder: TokenHolder,
     classification_path: Path,
     patterns_yaml_path: Path,
     pe_instances: list | None = None,
+    watchdog: Watchdog | None = None,
 ):
     """Create a Handler class with a reference to the database and token holder."""
     pe_instances = pe_instances or []
@@ -152,6 +168,14 @@ def _make_handler_class(
 
         def log_message(self, format, *args):  # noqa: A002
             """Suppress default stderr logging."""
+
+        def finish(self):
+            # Each request runs in its own thread with its own db connection.
+            # Left open, they ran the engine out of file descriptors in 3 hours.
+            try:
+                super().finish()
+            finally:
+                db.release()
 
         def do_GET(self):  # noqa: N802
             parsed = urllib.parse.urlparse(self.path)
@@ -217,11 +241,20 @@ def _make_handler_class(
                 _json_response(self, {"error": "Dashboard not found"}, 404)
 
         def _handle_health(self):
+            # Stays HTTP 200 when degraded: the Swift app spawns a second engine
+            # unless this answers 200.
             uptime = round(time.monotonic() - _START_TIME, 1)
+            workers = watchdog.status() if watchdog else {}
+            usage_age = _usage_age_seconds()
+            healthy = all(w["alive"] for w in workers.values()) and (
+                usage_age is None or usage_age <= USAGE_STALE_AFTER
+            )
             _json_response(self, {
-                "status": "ok",
+                "status": "ok" if healthy else "degraded",
                 "uptime_seconds": uptime,
                 "token_needs_refresh": token_holder.needs_refresh,
+                "usage_age_seconds": usage_age,
+                "workers": workers,
             })
 
         def _read_json_body(self):
@@ -618,6 +651,8 @@ def _run_pe_retry_op(instance, job_id: str, op_id: str, db) -> None:
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         db.update_pe_op_log(op_id, state="failed", detail=str(e))
         _mint_op_failed_alert(instance.name, op_id, db)
+    finally:
+        db.release()
 
 
 def _run_pe_kick_op(instance, op_id: str, db) -> None:
@@ -646,6 +681,8 @@ def _run_pe_kick_op(instance, op_id: str, db) -> None:
     except Exception as e:  # noqa: BLE001 — surfacing any control failure into pe_op_log, not raising into a daemon thread
         db.update_pe_op_log(op_id, state="failed", detail=str(e))
         _mint_op_failed_alert(instance.name, op_id, db)
+    finally:
+        db.release()
 
 
 def create_server(
@@ -656,6 +693,7 @@ def create_server(
     patterns_yaml_path: Path | None = None,
     pe_instances: list | None = None,
     host: str | None = None,
+    watchdog: Watchdog | None = None,
 ) -> ThreadingHTTPServer:
     """Create a ThreadingHTTPServer bound to `host` with the given db and token holder.
 
@@ -671,11 +709,12 @@ def create_server(
         classification_path or _DEFAULT_CLASSIFICATION_PATH,
         patterns_yaml_path or _DEFAULT_PATTERNS_YAML_PATH,
         pe_instances=pe_instances,
+        watchdog=watchdog,
     )
     bind_host = host or os.environ.get("ENGINE_HOST", "100.92.111.112")
     # Threading, not HTTPServer: a browser preconnect opens a socket and sends
     # nothing, and a single-threaded server blocks in readline() on it while every
     # real request waits — the Overview tab sat on "Loading…" (2026-09-27).
-    # db is safe across threads: check_same_thread=False, sqlite3.threadsafety 3.
+    # db is safe across threads: it opens one sqlite3 connection per thread.
     server = ThreadingHTTPServer((bind_host, port), handler_class)
     return server

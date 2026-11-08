@@ -26,3 +26,7 @@ __pycache__/
 # Release artifacts
 *.zip
 *.p12
+
+# backlog_add.py sidecars (mirrors 00_Governance/.gitignore)
+eventlog.db
+BACKLOG.md.lock

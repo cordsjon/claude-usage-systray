@@ -6,6 +6,21 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 ## Ideation
 
+### US-CUS-TENETS-01: Tenets tab counts per-tenet referent events, not only [TENET:] tags [0d]
+
+> Origin: Tenets-tab inspection 2026-11-08: dashboard counts only [TENET:] tags in assistant text; same week foundation-first ran bin/foundations open 100x (1 tag), source-transparency produced ~3100 [verified] tags (0 tags), architecture-first ran brainstorming+writing-plans+spec-panel 14x (1 tag). Wired tenets stop producing tag vocabulary, so the tab ranks the best-enforced tenets lowest. See memory feedback_tenet_tag_count_is_not_usefulness.
+
+**As a** governance operator reading the Tenets tab,
+**I want** each tenet row to show its referent fires for the period — hook fires (tenet-gate, output-claim-guard), CLI runs (bin/foundations open), skill invocations (brainstorming, writing-plans, spec-panel, log-research, blueprint) and [verified] tags — with [TENET:] tags as one column among them, driven by a small per-tenet referent table in engine/codeburn.py,
+**so that** the tab reports which tenets fire through their wiring instead of which tenet words get said, and happy-path-first / abstract-on-third show as the only tenets with no referent at all.
+
+**Acceptance Criteria:**
+- [ ] AC-01: A referent table maps each TENETS.md slug to zero or more referents of kind hook|cli|skill|tag with a transcript-detectable pattern; happy-path-first and abstract-on-third map to none and the tab renders them as 'no referent'
+- [ ] AC-02: /api/codeburn returns per tenet: tag_count and referent_counts by kind for the selected period; for the week 2026-10-26..11-02 foundation-first reports cli >= 90 and source-transparency reports tag(verified) >= 1000 against the archived transcripts
+- [ ] AC-03: The Tenets tab shows referent columns beside the tag column and sorts by total referent fires; the tag-only ranking is no longer the default sort
+- [ ] AC-04: tenet-gate logs each block (session, gate, file) to ~/.local/state/tenet-gate/blocks.jsonl so hook fires become countable; the repurpose gate's search_done rate is reported as a diagnostic (measured 1060/1065 True on 2026-11-08)
+
+**Priority:** P2 · **Effort:** M · **State:** Ideation · **Tags:** `[tenets]` `[codeburn]` `[measurement]`
 - TODO: show stale usage data as stale in the menu bar. Since c86a8b4 `/api/health` answers `"status": "degraded"` (still HTTP 200) when a poller is down or `usage_age_seconds` exceeds 5 h, and lists each worker. The Swift app still reads only `token_needs_refresh` and shows the last numbers; it needs to read `status` / `usage_age_seconds` and mark the numbers as old.
 
 ### US-CUS-DEPLOY-01: dist-deploy script for the Swift app

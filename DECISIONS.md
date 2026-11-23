@@ -211,3 +211,25 @@
 **Outcome:** applied
 **Ref:** d760f34 (at write time)
 **Supersedes:** Q9 — resolved
+
+
+## Q20 — US-CUS-ORIGIN-01 / RESEARCH R2, session 2026-11-23 — deviation
+
+**Question:** Should /api/codeburn default to origin=human (as AC-02 first said) or keep origin=all?
+**Options considered:** default human / default all + dashboard toggle defaulting to Operator
+**Chosen:** default all + dashboard toggle defaulting to Operator
+**Decided-by:** agent
+**Justification:** Existing callers (bb-dashboard runway_sync, localStorage caches, tests) read total_cost_usd as the full spend; changing the API default would silently drop automation cost from every consumer. The operator view the story wants is a dashboard default, not an API default. Reversible: one query-string default.
+**Outcome:** assumed
+**Ref:** 9b64f3d (HEAD when logged, not the work commit)
+
+
+## Q21 — US-CUS-ORIGIN-01 / RESEARCH R2, session 2026-11-23 — deviation
+
+**Question:** Fix CodeBurn turn grouping (a turn starts on every user-role record, incl. tool results) inside ORIGIN-01, or file it separately?
+**Options considered:** fold into ORIGIN-01 / separate story
+**Chosen:** fold into ORIGIN-01
+**Decided-by:** agent
+**Justification:** Origin is a property of the prompt that starts a turn, so defining turns by origin requires deciding what starts a turn; measured 2026-11-23 on the live engine: 21,926 turns in 7 days vs 486 human prompts and 20,820 tool_result records, one-shot rate 0.988 computed on that unit. [TENET: fix-what-you-find]
+**Outcome:** applied
+**Ref:** 9b64f3d (HEAD when logged, not the work commit)

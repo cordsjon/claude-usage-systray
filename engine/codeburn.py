@@ -140,38 +140,39 @@ FALLBACK_PRICING: dict[str, dict[str, float]] = {
 }
 
 # ---------------------------------------------------------------------------
-# Thread-safe cache (keyed by days)
+# Thread-safe cache (keyed by (days, origin))
 # ---------------------------------------------------------------------------
 
 _cache_lock = threading.Lock()
-_cached_reports: dict[int, dict] = {}  # days -> report
-_cached_at: dict[int, float] = {}  # days -> monotonic timestamp
-_refresh_in_progress: set[int] = set()  # days currently being recomputed in background
+_cached_reports: dict[tuple[int, str], dict] = {}  # (days, origin) -> report
+_cached_at: dict[tuple[int, str], float] = {}  # (days, origin) -> monotonic timestamp
+# (days, origin) keys currently being recomputed in background
+_refresh_in_progress: set[tuple[int, str]] = set()
 
 _DISK_CACHE_DIR = Path.home() / ".cache" / "codeburn"
 
 
-def _disk_cache_path(days: int) -> Path:
-    return _DISK_CACHE_DIR / f"report-{days}.json"
+def _disk_cache_path(days: int, origin: str = "all") -> Path:
+    return _DISK_CACHE_DIR / f"report-{days}-{origin}.json"
 
 
-def _write_disk_cache(days: int, report: dict) -> None:
+def _write_disk_cache(days: int, origin: str, report: dict) -> None:
     """Persist report to disk atomically so it survives engine restarts."""
     import tempfile
     _DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = _disk_cache_path(days)
+    path = _disk_cache_path(days, origin)
     try:
         fd, tmp = tempfile.mkstemp(dir=_DISK_CACHE_DIR, suffix=".json")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(report, f)
         Path(tmp).replace(path)
     except OSError as exc:
-        log.warning("Failed to write disk cache for %dd: %s", days, exc)
+        log.warning("Failed to write disk cache for %dd/%s: %s", days, origin, exc)
 
 
-def _read_disk_cache(days: int) -> dict | None:
+def _read_disk_cache(days: int, origin: str = "all") -> dict | None:
     """Load persisted report from disk. Returns None if missing or unreadable."""
-    path = _disk_cache_path(days)
+    path = _disk_cache_path(days, origin)
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -350,6 +351,58 @@ def _extract_user_text(content_blocks) -> str:
                 parts.append(block)
         return " ".join(parts)
     return ""
+
+
+# Turn origin (US-CUS-ORIGIN-01): who started a turn — the operator typing
+# ("human") or a scripted session ("sdk": eval graders, nightshift, DoR runs).
+ORIGINS = ("human", "sdk", "all")
+_NON_PROMPT_PREFIXES = (
+    "<local-command", "<task-notification", "<system-reminder",
+    "[Request interrupted by user",
+)
+
+
+def classify_origin(obj: dict) -> str:
+    """Return "human" or "sdk" for a JSONL record.
+
+    ``turnOrigin`` wins when present. Older records lack it: fall back to
+    ``promptSource == "sdk"`` or ``entrypoint == "sdk-cli"``. ``entrypoint``
+    alone is not trusted to say "human" — scripted sessions spawned from
+    VS Code inherit ``claude-vscode``.
+    """
+    turn_origin = obj.get("turnOrigin")
+    if turn_origin in ("human", "sdk"):
+        return turn_origin
+    if obj.get("promptSource") == "sdk" or obj.get("entrypoint") == "sdk-cli":
+        return "sdk"
+    return "human"
+
+
+def is_prompt_record(obj: dict, msg: dict) -> bool:
+    """True when a user-role record starts a new turn.
+
+    Tool results (``toolUseResult`` key or a ``tool_result`` content block),
+    ``isMeta`` records, compaction summaries, system-injected prompts
+    (``turnOrigin`` other than human/sdk, e.g. "task_notification", or
+    ``promptSource == "system"``), interrupt markers and local-command /
+    task-notification / system-reminder injections continue the current turn.
+    """
+    if not isinstance(msg, dict) or msg.get("role") != "user":
+        return False
+    if obj.get("isMeta") or obj.get("isCompactSummary") or "toolUseResult" in obj:
+        return False
+    turn_origin = obj.get("turnOrigin")
+    if turn_origin is not None and turn_origin not in ("human", "sdk"):
+        return False
+    if obj.get("promptSource") == "system":
+        return False
+    content = msg.get("content", "")
+    if isinstance(content, list) and any(
+        isinstance(b, dict) and b.get("type") == "tool_result" for b in content
+    ):
+        return False
+    text = _extract_user_text(content).lstrip()
+    return not text.startswith(_NON_PROMPT_PREFIXES)
 
 
 def _extract_assistant_text(api_calls: list[dict]) -> str:
@@ -840,16 +893,21 @@ def _estimate_system_overhead() -> int:
     return overhead
 
 
-def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
+def _scan_sessions(date_from: datetime, date_to: datetime, origin: str = "all") -> dict:
     """Scan JSONL files and build the full codeburn report.
 
     Args:
         date_from: Start of range (inclusive), timezone-aware UTC.
         date_to: End of range (inclusive), timezone-aware UTC.
+        origin: "human" / "sdk" restrict the aggregates to turns of that
+            origin; "all" keeps every turn. ``origin_summary`` always
+            covers all turns.
 
     Returns:
         Full report dict matching the API response shape.
     """
+    if origin not in ORIGINS:
+        origin = "all"
     files = glob.glob(os.path.join(_SESSIONS_BASE, "**/*.jsonl"), recursive=True)
     # Exclude agent-*.jsonl
     files = [f for f in files if not os.path.basename(f).startswith("agent-")]
@@ -864,8 +922,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     first_msgs: dict[str, dict] = {}
     first_block_keys: dict[str, set] = {}
     # entries grouped by file for project attribution
-    # Each entry: (timestamp_dt, role, message_dict, file_path, cwd)
-    all_entries: list[tuple[datetime, str, dict, str, str]] = []
+    # Each entry: (timestamp_dt, role, message_dict, file_path, cwd,
+    #              is_prompt, origin). Only the derived flags are kept, not the
+    # raw record — toolUseResult can carry whole file bodies.
+    all_entries: list[tuple[datetime, str, dict, str, str, bool, str]] = []
 
     # Subagent burn collection (US-TBD-A): raw entries per session containing
     # Task/Agent tool_use blocks or their tool_result entries, plus per-session
@@ -968,7 +1028,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                             _content_block_key(b) for b in content
                             if isinstance(b, dict)
                         } if isinstance(content, list) else set()
-                    all_entries.append((ts, role, msg, fpath, obj.get("cwd", "")))
+                    all_entries.append((
+                        ts, role, msg, fpath, obj.get("cwd", ""),
+                        is_prompt_record(obj, msg), classify_origin(obj),
+                    ))
         except OSError:
             continue
 
@@ -978,37 +1041,48 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     # Load session attribution overrides (for workspace sessions)
     attribution = _load_attribution()
 
-    # Group into turns: one user message + subsequent assistant messages
+    # Group into turns: one prompt + every following record of the same
+    # session until the next prompt. Tool results, isMeta and local-command
+    # records continue the turn. The open turn is tracked per file: entries
+    # are sorted across files, so concurrent sessions interleave here.
     turns: list[dict] = []
-    current_turn: dict | None = None
+    open_turns: dict[str, dict] = {}  # file_path -> its current turn
 
-    for ts, role, msg, fpath, cwd in all_entries:
-        if role == "user":
-            if current_turn is not None:
-                turns.append(current_turn)
+    def _start_turn(ts, msg, fpath, cwd, turn_origin, user_text) -> dict:
+        project = _normalize_project_name(
+            _project_name_from_cwd(cwd) if cwd else _project_name_from_path(fpath)
+        )
+        # Override "workspace" with manual attribution if available
+        if project == "workspace":
+            session_id = Path(fpath).stem  # UUID from filename
+            if session_id in attribution:
+                project = attribution[session_id]
+        turn = {
+            "timestamp": ts,
+            "date": ts.strftime("%Y-%m-%d"),
+            "user_text": user_text,
+            "api_calls": [],
+            "file_path": fpath,
+            "project": project,
+            "origin": turn_origin,
+        }
+        turns.append(turn)
+        open_turns[fpath] = turn
+        return turn
 
-            project = _normalize_project_name(
-                _project_name_from_cwd(cwd) if cwd else _project_name_from_path(fpath)
-            )
-            # Override "workspace" with manual attribution if available
-            if project == "workspace":
-                session_id = Path(fpath).stem  # UUID from filename
-                if session_id in attribution:
-                    project = attribution[session_id]
-
-            current_turn = {
-                "timestamp": ts,
-                "date": ts.strftime("%Y-%m-%d"),
-                "user_text": _extract_user_text(msg.get("content", "")),
-                "api_calls": [],
-                "file_path": fpath,
-                "project": project,
-            }
-        elif role == "assistant" and current_turn is not None:
+    for ts, role, msg, fpath, cwd, is_prompt, rec_origin in all_entries:
+        current_turn = open_turns.get(fpath)
+        if role == "user" and is_prompt:
+            _start_turn(ts, msg, fpath, cwd, rec_origin,
+                        _extract_user_text(msg.get("content", "")))
+        elif current_turn is None:
+            # Range starts mid-turn (prompt before date_from): keep the cost
+            # in an orphan turn, origin from the record's own fallback fields.
+            current_turn = _start_turn(ts, msg, fpath, cwd, rec_origin, "")
+            if role == "assistant":
+                current_turn["api_calls"].append(msg)
+        elif role == "assistant":
             current_turn["api_calls"].append(msg)
-
-    if current_turn is not None:
-        turns.append(current_turn)
 
     # Process each turn
     cat_agg: dict[str, dict] = defaultdict(lambda: {
@@ -1034,12 +1108,22 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
     )
     tenet_citations: list[dict] = []
     known_tenets = _load_known_tenets(Path.home() / ".claude")
+    # Per-origin totals over ALL turns, regardless of the origin filter
+    origin_agg: dict[str, dict] = {
+        o: {"turns": 0, "cost_usd": 0.0, "edit_turns": 0, "oneshot_turns": 0,
+            "tool_calls": 0, "output_tokens": 0}
+        for o in ("human", "sdk")
+    }
+    included_turns = 0
 
     for turn in turns:
+        # Turns outside the origin filter feed only origin_summary
+        include = origin == "all" or turn["origin"] == origin
         # Collect all tools and bash commands across API calls
         all_tools: list[str] = []
         all_bash_cmds: list[str] = []
         turn_cost = 0.0
+        turn_output = 0
         has_edits = False
 
         for api_call in turn["api_calls"]:
@@ -1053,10 +1137,11 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                 has_edits = True
 
             # Count tools
-            for t in tools:
-                tool_agg[t] += 1
-                if _is_mcp_tool(t):
-                    mcp_agg[_mcp_server_name(t)] += 1
+            if include:
+                for t in tools:
+                    tool_agg[t] += 1
+                    if _is_mcp_tool(t):
+                        mcp_agg[_mcp_server_name(t)] += 1
 
             # Cost calculation per API call
             usage = api_call.get("usage", {})
@@ -1083,7 +1168,10 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
                     + ws_count * 0.01
                 )
                 turn_cost += call_cost
+                turn_output += out_tokens
 
+                if not include:
+                    continue
                 # Model aggregation
                 norm_model = _normalize_model_name(model)
                 model_agg[norm_model]["calls"] += 1
@@ -1095,6 +1183,20 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
 
         # One-shot rate tracking
         retries = _count_retries(turn["api_calls"])
+
+        o_agg = origin_agg[turn["origin"]]
+        o_agg["turns"] += 1
+        o_agg["cost_usd"] += turn_cost
+        o_agg["tool_calls"] += len(all_tools)
+        o_agg["output_tokens"] += turn_output
+        if has_edits:
+            o_agg["edit_turns"] += 1
+            if retries == 0:
+                o_agg["oneshot_turns"] += 1
+
+        if not include:
+            continue
+        included_turns += 1
 
         # Classification
         tool_set = set(all_tools)
@@ -1145,7 +1247,7 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
 
     # Build response
     total_cost = sum(d["cost_usd"] for d in daily_agg.values())
-    total_turns = len(turns)
+    total_turns = included_turns
 
     categories = sorted(
         [{"name": k, **v} for k, v in cat_agg.items()],
@@ -1379,6 +1481,22 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         + d["cache_read_tokens"] + d["cache_create_tokens"]
         for d in daily
     )
+    origin_summary = {
+        o: {
+            "turns": v["turns"],
+            "cost_usd": round(v["cost_usd"], 2),
+            "edit_turns": v["edit_turns"],
+            "oneshot_turns": v["oneshot_turns"],
+            "oneshot_rate": (
+                round(v["oneshot_turns"] / v["edit_turns"], 3)
+                if v["edit_turns"] > 0 else None
+            ),
+            "tool_calls": v["tool_calls"],
+            "output_tokens": v["output_tokens"],
+        }
+        for o, v in origin_agg.items()
+    }
+
     efficiency = {
         "total_tool_calls": total_tool_calls,
         "total_tokens": total_all_tokens,
@@ -1409,6 +1527,8 @@ def _scan_sessions(date_from: datetime, date_to: datetime) -> dict:
         "context_overhead": context_overhead,
         "subagent_stats": subagent_stats,
         "tenet_citations": tenet_citations,
+        "origin": origin,
+        "origin_summary": origin_summary,
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1563,26 +1683,27 @@ def _count_retries(api_calls: list[dict]) -> int:
 # Public API
 # ---------------------------------------------------------------------------
 
-def _compute_and_cache(days: int) -> dict:
+def _compute_and_cache(days: int, origin: str = "all") -> dict:
     """Run the full session scan and update both memory and disk caches."""
     date_to = datetime.now(timezone.utc)
     date_from = (date_to - timedelta(days=days)) if days > 0 else datetime(2024, 1, 1, tzinfo=timezone.utc)
+    key = (days, origin)
 
     try:
-        report = _scan_sessions(date_from, date_to)
+        report = _scan_sessions(date_from, date_to, origin)
         with _cache_lock:
-            _cached_reports[days] = report
-            _cached_at[days] = time.monotonic()
+            _cached_reports[key] = report
+            _cached_at[key] = time.monotonic()
     finally:
         # Cleared on failure too, or the range is served stale forever
         with _cache_lock:
-            _refresh_in_progress.discard(days)
+            _refresh_in_progress.discard(key)
 
-    _write_disk_cache(days, report)
+    _write_disk_cache(days, origin, report)
     return report
 
 
-def get_codeburn_report(days: int) -> dict:
+def get_codeburn_report(days: int, origin: str = "all") -> dict:
     """Return report for the given range. Never blocks on a cold cache.
 
     Priority order:
@@ -1593,13 +1714,17 @@ def get_codeburn_report(days: int) -> dict:
     """
     global _cached_reports, _cached_at, _refresh_in_progress
 
+    if origin not in ORIGINS:
+        origin = "all"
+    key = (days, origin)
+
     with _cache_lock:
         now = time.monotonic()
-        cached_time = _cached_at.get(days, 0.0)
-        cached_report = _cached_reports.get(days)
+        cached_time = _cached_at.get(key, 0.0)
+        cached_report = _cached_reports.get(key)
         is_fresh = cached_report is not None and (now - cached_time) < _CACHE_TTL
         is_stale = cached_report is not None and not is_fresh
-        already_refreshing = days in _refresh_in_progress
+        already_refreshing = key in _refresh_in_progress
 
     # 1. Fresh memory cache
     if is_fresh:
@@ -1609,23 +1734,23 @@ def get_codeburn_report(days: int) -> dict:
     if is_stale:
         if not already_refreshing:
             with _cache_lock:
-                _refresh_in_progress.add(days)
-            t = threading.Thread(target=_compute_and_cache, args=(days,), daemon=True)
+                _refresh_in_progress.add(key)
+            t = threading.Thread(target=_compute_and_cache, args=(days, origin), daemon=True)
             t.start()
         return cached_report
 
     # 3. No memory cache — try disk
-    disk_report = _read_disk_cache(days)
+    disk_report = _read_disk_cache(days, origin)
     if disk_report is not None:
         with _cache_lock:
             # Seed memory cache with disk data so subsequent requests are fast
-            _cached_reports[days] = disk_report
-            _cached_at[days] = 0.0  # mark as immediately stale so background refresh fires
-            if days not in _refresh_in_progress:
-                _refresh_in_progress.add(days)
-        t = threading.Thread(target=_compute_and_cache, args=(days,), daemon=True)
+            _cached_reports[key] = disk_report
+            _cached_at[key] = 0.0  # mark as immediately stale so background refresh fires
+            if key not in _refresh_in_progress:
+                _refresh_in_progress.add(key)
+        t = threading.Thread(target=_compute_and_cache, args=(days, origin), daemon=True)
         t.start()
         return disk_report
 
     # 4. Truly cold — blocking compute (first-ever run, no disk cache)
-    return _compute_and_cache(days)
+    return _compute_and_cache(days, origin)

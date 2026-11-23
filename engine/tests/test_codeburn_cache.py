@@ -10,12 +10,13 @@ class TestRefreshFlag(unittest.TestCase):
     def test_failed_scan_clears_refresh_flag(self):
         # A scan that raises must not leave the range marked "refreshing",
         # or get_codeburn_report serves the stale report forever.
-        codeburn._refresh_in_progress.add(9999)
-        self.addCleanup(codeburn._refresh_in_progress.discard, 9999)
+        key = (9999, "all")
+        codeburn._refresh_in_progress.add(key)
+        self.addCleanup(codeburn._refresh_in_progress.discard, key)
         with mock.patch.object(codeburn, "_scan_sessions", side_effect=OSError("disk")):
             with self.assertRaises(OSError):
-                codeburn._compute_and_cache(9999)
-        self.assertNotIn(9999, codeburn._refresh_in_progress)
+                codeburn._compute_and_cache(9999, "all")
+        self.assertNotIn(key, codeburn._refresh_in_progress)
 
 
 if __name__ == "__main__":

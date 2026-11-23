@@ -24,6 +24,7 @@ import os
 import threading
 from datetime import datetime, timedelta, timezone
 
+from engine.codeburn import classify_origin, is_prompt_record
 from engine.db import UsageDB
 from engine.poller import _update_status, _format_remaining, _hours_until, _seed_from_db
 from engine.stats import (
@@ -154,9 +155,13 @@ def compute_snapshot(now: datetime | None = None) -> dict:
     msgs_5h = 0
     msgs_7d = 0
     oldest_in_5h: datetime | None = None
+    # Weighted tokens by the origin of the prompt that started the turn
+    weighted_5h_by_origin = {"human": 0.0, "sdk": 0.0}
+    weighted_7d_by_origin = {"human": 0.0, "sdk": 0.0}
 
     pattern = os.path.join(JSONL_ROOT, "*", "*.jsonl")
     for path in glob.glob(pattern):
+        cur_origin = "human"  # one session per file; reset per file
         try:
             with open(path) as fh:
                 for line in fh:
@@ -164,7 +169,14 @@ def compute_snapshot(now: datetime | None = None) -> dict:
                         rec = json.loads(line)
                     except json.JSONDecodeError:
                         continue
-                    if not isinstance(rec, dict) or rec.get("type") != "assistant":
+                    if not isinstance(rec, dict):
+                        continue
+                    if rec.get("type") == "user":
+                        umsg = rec.get("message")
+                        if is_prompt_record(rec, umsg):
+                            cur_origin = classify_origin(rec)
+                        continue
+                    if rec.get("type") != "assistant":
                         continue
                     msg = rec.get("message") or {}
                     usage = msg.get("usage")
@@ -176,11 +188,13 @@ def compute_snapshot(now: datetime | None = None) -> dict:
                     model = msg.get("model", "")
                     w = _weighted(usage, model)
                     weighted_7d += w
+                    weighted_7d_by_origin[cur_origin] += w
                     msgs_7d += 1
                     if _family(model) == "sonnet":
                         sonnet_weighted_7d += w
                     if ts >= cutoff_5h:
                         weighted_5h += w
+                        weighted_5h_by_origin[cur_origin] += w
                         msgs_5h += 1
                         if oldest_in_5h is None or ts < oldest_in_5h:
                             oldest_in_5h = ts
@@ -205,6 +219,8 @@ def compute_snapshot(now: datetime | None = None) -> dict:
         "messages_7d": msgs_7d,
         "weighted_5h": int(weighted_5h),
         "weighted_7d": int(weighted_7d),
+        "weighted_5h_by_origin": {k: int(v) for k, v in weighted_5h_by_origin.items()},
+        "weighted_7d_by_origin": {k: int(v) for k, v in weighted_7d_by_origin.items()},
     }
 
 
@@ -222,6 +238,17 @@ def _daily_avg_this_cycle(db: UsageDB, seven_day_resets_at: str) -> float:
     if days_elapsed <= 0:
         return 0.0
     return max((last["seven_day_util"] - first["seven_day_util"]) / days_elapsed, 0.0)
+
+
+def _origin_shares(by_origin: dict | None) -> dict:
+    """Human/sdk fractions (0-1) of a weighted-token split; all-human when empty."""
+    by_origin = by_origin or {}
+    human = by_origin.get("human", 0) or 0
+    sdk = by_origin.get("sdk", 0) or 0
+    total = human + sdk
+    if total <= 0:
+        return {"human": 1.0, "sdk": 0.0}
+    return {"human": round(human / total, 4), "sdk": round(sdk / total, 4)}
 
 
 def _persist_and_publish(db: UsageDB, snap: dict, now: datetime) -> None:
@@ -253,6 +280,12 @@ def _persist_and_publish(db: UsageDB, snap: dict, now: datetime) -> None:
     effective_remaining = five_h_remaining if five_hour_resets_at else seven_d_remaining
     rw = runway_hours(snap["five_hour_util"], br_5h, effective_remaining)
     cycle_rw = runway_hours(snap["seven_day_util"], br_7d, seven_d_remaining)
+    # Runway if automation stopped now: only the operator's share of the burn
+    share_7d = _origin_shares(snap.get("weighted_7d_by_origin"))
+    share_5h = _origin_shares(snap.get("weighted_5h_by_origin"))
+    cycle_rw_human = runway_hours(
+        snap["seven_day_util"], br_7d * share_7d["human"], seven_d_remaining
+    )
     sd_7d = stoppage_detection(snap["seven_day_util"], br_7d, seven_d_remaining)
     budget = recommended_daily_budget(snap["seven_day_util"], seven_d_remaining)
     pacing = pacing_benchmark(snap["seven_day_util"], seven_d_remaining, 168.0)
@@ -272,10 +305,13 @@ def _persist_and_publish(db: UsageDB, snap: dict, now: datetime) -> None:
             "five_hour_resets_in": _format_remaining(five_hour_resets_at),
             "seven_day_resets_at": seven_day_resets_at,
             "seven_day_resets_in": _format_remaining(seven_day_resets_at),
+            "origin_share_7d": share_7d,
+            "origin_share_5h": share_5h,
         },
         "projection": {
             "runway_hours": rw,
             "cycle_runway_hours": cycle_rw,
+            "cycle_runway_hours_human_only": cycle_rw_human,
             "burn_rate_per_hour": br_7d,
             "stoppage_likely": sd_7d["stoppage_likely"],
             "hours_short": sd_7d["hours_short"],

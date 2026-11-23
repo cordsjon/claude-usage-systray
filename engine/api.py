@@ -395,7 +395,10 @@ def _make_handler_class(
         def _handle_codeburn(self, query: dict):
             range_key = query.get("range", ["7d"])[0]
             days = _RANGE_DAYS.get(range_key, 7)
-            data = get_codeburn_report(days)
+            origin = query.get("origin", ["all"])[0]
+            if origin not in ("human", "sdk", "all"):
+                origin = "all"
+            data = get_codeburn_report(days, origin)
             _json_response(self, data)
 
         def _handle_history(self, query: dict):

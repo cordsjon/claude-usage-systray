@@ -158,10 +158,12 @@ def main():
     # Warm codeburn + token history caches in background so first page load is fast
     def _warm_caches():
         try:
-            get_codeburn_report(7)
-            get_codeburn_report(30)
-            get_codeburn_report(364)
-            get_codeburn_report(355)
+            # Dashboard defaults to origin=human (US-CUS-ORIGIN-01); warm it
+            # first so the first Activity load never cold-scans, then "all".
+            for days in (7, 30, 364, 355):
+                get_codeburn_report(days, "human")
+            for days in (7, 30, 364, 355):
+                get_codeburn_report(days)
             get_token_history()
             warm_overview_cache([(7, "7d"), (30, "30d"), (355, "all")])
             log.info("Cache warmup complete (codeburn + token-history + overview)")

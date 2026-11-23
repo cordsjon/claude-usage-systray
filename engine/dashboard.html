@@ -480,7 +480,8 @@
       <div class="runway-hud__value" id="hud-hours" style="color: var(--green)">--h --m</div>
       <div class="runway-hud__sub">
         Cycle resets <strong id="hud-reset">--</strong> &middot;
-        Burn rate <strong id="hud-burn">--%/hr</strong>
+        Burn rate <strong id="hud-burn">--%/hr</strong> &middot;
+        Automation <strong id="hud-sdk-share">--%</strong> of 7d burn &middot; paused &rarr; <strong id="hud-runway-human">--</strong>
       </div>
     </div>
     <div class="runway-hud__right">
@@ -898,12 +899,19 @@
 <div class="tab-panel" id="tab-activity">
   <div class="activity-dash">
 
-    <!-- Range selector -->
-    <div class="cb-range" id="cb-range-activity">
-      <button class="cb-range__btn active" data-range="7d">7 Days</button>
-      <button class="cb-range__btn" data-range="30d">30 Days</button>
-      <button class="cb-range__btn" data-range="52w">52 Weeks</button>
-      <button class="cb-range__btn" data-range="all">All</button>
+    <!-- Range + origin selectors -->
+    <div style="display:flex; gap:16px; flex-wrap:wrap">
+      <div class="cb-range" id="cb-range-activity">
+        <button class="cb-range__btn active" data-range="7d">7 Days</button>
+        <button class="cb-range__btn" data-range="30d">30 Days</button>
+        <button class="cb-range__btn" data-range="52w">52 Weeks</button>
+        <button class="cb-range__btn" data-range="all">All</button>
+      </div>
+      <div class="cb-range" id="cb-origin-activity">
+        <button class="cb-range__btn active" data-origin="human">Operator</button>
+        <button class="cb-range__btn" data-origin="sdk">Automation</button>
+        <button class="cb-range__btn" data-origin="all">All</button>
+      </div>
     </div>
 
     <!-- Hero cards -->
@@ -912,6 +920,7 @@
         <div class="cb-hero__label">Total Cost</div>
         <div class="cb-hero__val" id="cb-total-cost" style="color:var(--cyan)">--</div>
         <div class="cb-hero__sub" id="cb-total-period">--</div>
+        <div class="cb-hero__sub" id="cb-origin-cost"></div>
       </div>
       <div class="cb-hero__card">
         <div class="cb-hero__label">Total Turns</div>
@@ -922,6 +931,7 @@
         <div class="cb-hero__label">One-Shot Rate</div>
         <div class="cb-hero__val" id="cb-oneshot-rate">--</div>
         <div class="cb-hero__sub" id="cb-oneshot-detail">edits without retries</div>
+        <div class="cb-hero__sub" id="cb-origin-oneshot"></div>
       </div>
     </div>
 
@@ -1706,6 +1716,14 @@ function updateHUD() {
 
   document.getElementById('hud-reset').textContent = formatResetDate(s.current.seven_day_resets_at);
   document.getElementById('hud-burn').textContent = s.projection.burn_rate_per_hour.toFixed(1) + '%/hr';
+
+  // Automation share of the 7d burn and the runway if it paused (older status: '--')
+  const share7d = s.current.origin_share_7d;
+  document.getElementById('hud-sdk-share').textContent =
+    (share7d && typeof share7d.sdk === 'number') ? Math.round(share7d.sdk * 100) + '%' : '--';
+  const rwHuman = s.projection.cycle_runway_hours_human_only;
+  document.getElementById('hud-runway-human').textContent =
+    (typeof rwHuman === 'number') ? formatRunway(rwHuman) : '--';
 
   const weeklyEl = document.getElementById('hud-weekly');
   weeklyEl.textContent = Math.min(Math.round(weeklyPct), 100) + '%';
@@ -2598,6 +2616,7 @@ function updateTokenTab() {
 
 // ─── CodeBurn: Activity Burn & Project/Model ────────────────────
 var cbRange = '7d';
+var cbOrigin = 'human';  // turn origin filter: human | sdk | all
 var cbData = null;
 var cbLastFetch = 0;
 
@@ -2621,7 +2640,7 @@ function oneshotClass(v) {
 }
 
 // Range selector wiring
-document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
+document.querySelectorAll('.cb-range__btn[data-range]').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var parent = btn.closest('.cb-range');
     parent.querySelectorAll('.cb-range__btn').forEach(function(b) { b.classList.remove('active'); });
@@ -2632,9 +2651,25 @@ document.querySelectorAll('.cb-range__btn').forEach(function(btn) {
       cbData = null;  // clear so stored data for new range renders immediately
       cbLastFetch = 0;
       // Sync both range selectors
-      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+      document.querySelectorAll('.cb-range__btn[data-range]').forEach(function(b) {
         b.classList.toggle('active', b.dataset.range === cbRange);
       });
+      fetchCodeburn();
+    }
+  });
+});
+
+// Origin selector wiring (operator / automation / all turns)
+document.querySelectorAll('.cb-range__btn[data-origin]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var newOrigin = btn.dataset.origin;
+    document.querySelectorAll('.cb-range__btn[data-origin]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.origin === newOrigin);
+    });
+    if (newOrigin !== cbOrigin) {
+      cbOrigin = newOrigin;
+      cbData = null;  // clear so stored data for new origin renders immediately
+      cbLastFetch = 0;
       fetchCodeburn();
     }
   });
@@ -2653,7 +2688,7 @@ function _cbRenderAll(data) {
 
 function _cbLoadFromStorage(range) {
   try {
-    var raw = localStorage.getItem(CB_STORAGE_KEY + '-' + range);
+    var raw = localStorage.getItem(CB_STORAGE_KEY + '-' + range + '-' + cbOrigin);
     if (!raw) return null;
     var entry = JSON.parse(raw);
     if (Date.now() - entry.ts > CB_STORAGE_TTL) return null;
@@ -2663,7 +2698,7 @@ function _cbLoadFromStorage(range) {
 
 function _cbSaveToStorage(range, data) {
   try {
-    localStorage.setItem(CB_STORAGE_KEY + '-' + range, JSON.stringify({ ts: Date.now(), data: data }));
+    localStorage.setItem(CB_STORAGE_KEY + '-' + range + '-' + cbOrigin, JSON.stringify({ ts: Date.now(), data: data }));
   } catch(e) { /* storage full — non-fatal */ }
 }
 
@@ -2686,7 +2721,7 @@ async function fetchCodeburn() {
   }
 
   try {
-    var res = await fetch('/api/codeburn?range=' + cbRange);
+    var res = await fetch('/api/codeburn?range=' + cbRange + '&origin=' + cbOrigin);
     if (!res.ok) return;
     var fresh = await res.json();
     cbLastFetch = Date.now();
@@ -2733,6 +2768,20 @@ function updateActivityTab() {
   osrEl.className = 'cb-hero__val ' + oneshotClass(osr);
   document.getElementById('cb-oneshot-detail').textContent =
     (cbData.total_oneshot_turns || 0) + '/' + (cbData.total_edit_turns || 0) + ' edits without retries';
+
+  // Operator vs automation split (always over all turns, whatever the filter)
+  var os = cbData.origin_summary;
+  var osHuman = os && os.human;
+  var osSdk = os && os.sdk;
+  document.getElementById('cb-origin-cost').textContent = (osHuman && osSdk)
+    ? 'operator ' + fmtCost(osHuman.cost_usd) + ' \u00b7 automation ' + fmtCost(osSdk.cost_usd)
+    : '';
+  var hasBothRates = osHuman && osSdk
+    && osHuman.oneshot_rate !== null && osHuman.oneshot_rate !== undefined
+    && osSdk.oneshot_rate !== null && osSdk.oneshot_rate !== undefined;
+  document.getElementById('cb-origin-oneshot').textContent = hasBothRates
+    ? 'operator ' + fmtPct(osHuman.oneshot_rate) + ' \u00b7 automation ' + fmtPct(osSdk.oneshot_rate)
+    : '';
 
   // Daily cost chart
   updateCbDailyChart();
@@ -3245,7 +3294,7 @@ document.querySelectorAll('#cb-range-efficiency .cb-range__btn').forEach(functio
     if (newRange !== cbRange) {
       cbRange = newRange;
       // Sync all range selectors
-      document.querySelectorAll('.cb-range__btn').forEach(function(b) {
+      document.querySelectorAll('.cb-range__btn[data-range]').forEach(function(b) {
         b.classList.toggle('active', b.dataset.range === cbRange);
       });
       fetchCodeburn();

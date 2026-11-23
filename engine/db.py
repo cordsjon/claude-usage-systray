@@ -455,10 +455,16 @@ class UsageDB:
         ]
 
     def get_weekday_averages(self, since: str) -> list[sqlite3.Row]:
-        """Return average utilisation grouped by weekday (0=Mon .. 6=Sun)."""
+        """Return average utilisation grouped by weekday (SQLite %w: 0=Sun .. 6=Sat).
+
+        ``'%w'`` must be a single percent: this is a plain string, not a
+        format string, and SQLite reads ``'%%w'`` as a literal ``%`` so every
+        row landed on weekday 0 (found 2026-11-23 while writing the
+        dashboard explainers).
+        """
         cur = self._conn.execute(
             """SELECT
-                 CAST(strftime('%%w', timestamp) AS INTEGER) AS weekday,
+                 CAST(strftime('%w', timestamp) AS INTEGER) AS weekday,
                  AVG(five_hour_util)  AS avg_five_hour,
                  AVG(seven_day_util)  AS avg_seven_day,
                  COUNT(*)             AS sample_count

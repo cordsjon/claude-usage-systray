@@ -414,6 +414,14 @@
   .habits-meta { font-size: 10px; color: var(--text-muted); font-family: var(--mono); text-align: right; padding: 4px 8px 0; }
   .habits-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); box-shadow: 0 4px 12px rgba(0,0,0,0.35); z-index: 500; opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; }
   .habits-toast--visible { opacity: 1; transform: translateY(0); }
+
+  /* Explainer popovers: any element with data-help (one shared #help-pop) */
+  [data-help]:not(.help-zone) { text-decoration: underline dotted var(--text-muted); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: help; }
+  .help-zone { cursor: help; }
+  [data-help]:focus { outline: none; }
+  [data-help]:focus-visible { outline: 1px dotted var(--cyan); outline-offset: 2px; }
+  .help-pop { position: fixed; z-index: 1000; display: none; max-width: 320px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: var(--font); font-size: 11px; font-weight: 400; line-height: 1.5; letter-spacing: normal; text-transform: none; color: var(--text); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .help-pop--pinned { border-color: var(--cyan); }
 </style>
 </head>
 <body>
@@ -426,6 +434,7 @@
 
 <div role="status" aria-live="polite" class="sr-only" id="a11y-runway">Runway data loading</div>
 <div class="chart-tooltip" id="tooltip"></div>
+<div class="help-pop" id="help-pop" role="tooltip"></div>
 
 <!-- Tab bar -->
 <div class="tab-bar">
@@ -441,9 +450,9 @@
     <button class="tab-btn" data-tab="overview">Overview</button>
   </div>
   <div class="tab-bar__right">
-    <span id="cb-stale-indicator" style="display:none;font-size:10px;color:var(--amber);font-family:var(--mono);letter-spacing:0.04em">STALE</span>
+    <span id="cb-stale-indicator" data-help="Shown when the CodeBurn tabs are drawing a copy saved in this browser (localStorage, kept 1 h) while a fresh /api/codeburn request is still running." tabindex="0" style="display:none;font-size:10px;color:var(--amber);font-family:var(--mono);letter-spacing:0.04em">STALE</span>
     <div class="conn-dot" id="conn-dot"></div>
-    <span id="conn-label">Connecting...</span>
+    <span id="conn-label" data-help="Time since the last successful /api/status fetch (updated_at); status is fetched every 60 s. The dot turns red when /api/health fails, checked every 10 s." tabindex="0">Connecting...</span>
   </div>
 </div>
 
@@ -451,7 +460,7 @@
 <div class="stale-banner" id="stale-banner" role="alert" aria-live="assertive">
   <div class="stale-banner__inner">
     <span class="stale-banner__dot"></span>
-    <span class="stale-banner__label">Stale data</span>
+    <span class="stale-banner__label" data-help="Shown when /api/status is older than 90 minutes (updated_at) or was restored from the database at engine start (restored_from_db). The numbers below are the last good snapshot, not live; the rollup normally refreshes every 5 minutes." tabindex="0">Stale data</span>
     <span class="stale-banner__text">
       Engine hasn't polled successfully for <strong id="stale-age">--</strong>.
       Numbers below are from <strong id="stale-when">--</strong> &mdash; do not trust the runway HUD.
@@ -461,7 +470,7 @@
 
 <div class="session-banner" id="session-banner" role="alert" aria-live="assertive">
   <div class="session-banner__inner">
-    <span class="session-banner__text">
+    <span class="session-banner__text" data-help="Appears when 5-hour utilisation (current.five_hour_util) reaches 70%, red from 90%; dismiss hides it until the next 5-hour window. Resets in = oldest message in the window + 5 h. Runway = projection.runway_hours: hours to 100% of the 5-hour quota at the 5-hour burn rate, capped at that reset." tabindex="0">
       You've used <strong id="banner-pct">--</strong>% of your session limit
       <span class="session-banner__sep">&middot;</span>
       resets in <strong id="banner-reset">--</strong>
@@ -476,25 +485,25 @@
   <!-- HUD -->
   <div class="runway-hud">
     <div class="runway-hud__left">
-      <div class="runway-hud__label" id="hud-label">Runway Remaining</div>
+      <div class="runway-hud__label" id="hud-label" data-help="Hours until weekly utilisation reaches 100% at the current burn rate, capped at the weekly reset: min((100 - seven_day_util) / burn_rate_per_hour, hours to reset), from projection.cycle_runway_hours. It assumes the burn continues around the clock. Green 36 h or more, amber 12-36 h, red under 12 h. At 100% the label switches to Renews In." tabindex="0">Runway Remaining</div>
       <div class="runway-hud__value" id="hud-hours" style="color: var(--green)">--h --m</div>
       <div class="runway-hud__sub">
-        Cycle resets <strong id="hud-reset">--</strong> &middot;
-        Burn rate <strong id="hud-burn">--%/hr</strong> &middot;
-        Automation <strong id="hud-sdk-share">--%</strong> of 7d burn &middot; paused &rarr; <strong id="hud-runway-human">--</strong>
+        <span data-help="When the 7-day window resets (current.seven_day_resets_at), shown in UTC. Taken from the latest snapshot and moved forward in 7-day steps; defaults to Wednesday 10:00 UTC when no snapshot exists." tabindex="0">Cycle resets <strong id="hud-reset">--</strong></span> &middot;
+        <span data-help="How fast weekly utilisation is rising, in percentage points per hour (projection.burn_rate_per_hour). Recency-weighted least-squares slope over the last 2 h of snapshots (45-minute half-life), with repeated identical readings collapsed first. It reacts to bursts within minutes and falls back when you pause." tabindex="0">Burn rate <strong id="hud-burn">--%/hr</strong></span> &middot;
+        <span data-help="Automation = share of the last 7 days&#x27; weighted tokens that followed a scripted prompt (current.origin_share_7d.sdk). Paused = runway if automation stopped now: burn rate x operator share (origin_share_7d.human) in the runway formula (projection.cycle_runway_hours_human_only). Operator = prompts you typed (turnOrigin human); Automation = scripted sessions (sdk: eval graders, nightshift, DoR runs); a turn starts at a prompt and runs until the next prompt; tool results do not start turns." tabindex="0">Automation <strong id="hud-sdk-share">--%</strong> of 7d burn &middot; paused &rarr; <strong id="hud-runway-human">--</strong></span>
       </div>
     </div>
     <div class="runway-hud__right">
       <div class="runway-stat">
-        <div class="runway-stat__label">Weekly</div>
+        <div class="runway-stat__label" data-help="Weekly utilisation (current.seven_day_util): weighted tokens in the last 7 days / the 7-day quota (TOKEN_BUDGET_QUOTA_7D, default 1 B). Weights per token: input x1, cache write x1.5, cache read x0.1, output x5. Colour: green under 60%, amber 60-80%, red 80% and above. Estimated from local transcripts, not Anthropic&#x27;s own meter." tabindex="0">Weekly</div>
         <div class="runway-stat__val" id="hud-weekly">--%</div>
       </div>
       <div class="runway-stat">
-        <div class="runway-stat__label">5-Hour</div>
+        <div class="runway-stat__label" data-help="5-hour utilisation (current.five_hour_util): weighted tokens in the last 5 hours / the 5-hour quota (TOKEN_BUDGET_QUOTA_5H, default 50 M), same weights as Weekly. Colour: green under 60%, amber 60-80%, red 80% and above. The window resets 5 h after its oldest message." tabindex="0">5-Hour</div>
         <div class="runway-stat__val" id="hud-5h">--%</div>
       </div>
       <div class="runway-stat">
-        <div class="runway-stat__label">Daily Budget</div>
+        <div class="runway-stat__label" data-help="Most weekly utilisation you can add per day and still land at 98% at the reset: (98 - seven_day_util) / days to reset (budget.recommended_daily). Spread over calendar days; the 14 active hours/day assumption is used only for headroom and the stoppage projection. Shows OVER once weekly use is at 98% or above." tabindex="0">Daily Budget</div>
         <div class="runway-stat__val" id="hud-budget" style="color: var(--blue)">--%</div>
       </div>
     </div>
@@ -507,8 +516,8 @@
       <div class="pacing-strip__marker" id="ps-marker" style="left:0%"></div>
     </div>
     <div class="pacing-strip__info">
-      <span class="pacing-strip__delta" id="ps-delta">--</span>
-      <span class="pacing-strip__grade" id="ps-grade">--</span>
+      <span class="pacing-strip__delta" id="ps-delta" data-help="Weekly utilisation minus where a straight line from 0% at cycle start to 98% at reset would be now (pacing.delta; the line value is pacing.optimal_util). Within 2 points counts as on pace; positive is ahead (amber), negative is behind with room to push (cyan); green when under 3 points off. The bar fills to your use, the marker shows the optimal point." tabindex="0">--</span>
+      <span class="pacing-strip__grade" id="ps-grade" data-help="Cycle grade from the distance to the linear ramp to 98% (pacing.grade): A under 3 points off, B under 8, C under 15, D under 25, F beyond. Far ahead and far behind grade the same." tabindex="0">--</span>
     </div>
   </div>
 
@@ -535,11 +544,11 @@
 
   <!-- Legend -->
   <div class="chart-legend">
-    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#06b6d4"></div>Actual</div>
-    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#22c55e;opacity:0.5"></div>Optimal pace</div>
-    <div class="chart-legend__item"><div class="chart-legend__line" style="background:repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)"></div>Projected</div>
-    <div class="chart-legend__item"><div class="chart-legend__line" style="background:rgba(59,130,246,0.5)"></div>Budget target</div>
-    <div class="chart-legend__item"><div class="chart-legend__line" style="background:#ef4444;height:1px"></div>100% exhaustion</div>
+    <div class="chart-legend__item" data-help="Weekly utilisation of each stored snapshot (/api/history snapshots[].seven_day_util) across the current 7-day cycle; X axis = days of the cycle, Y axis = percent of the weekly quota. Hover the chart for the value at a point in time." tabindex="0"><div class="chart-legend__line" style="background:#06b6d4"></div>Actual</div>
+    <div class="chart-legend__item" data-help="Straight line from 0% at cycle start to 98% (budget.target_at_reset) at the reset. The green diamond marks where you would be now on that line (pacing.optimal_util)." tabindex="0"><div class="chart-legend__line" style="background:#22c55e;opacity:0.5"></div>Optimal pace</div>
+    <div class="chart-legend__item" data-help="Line from now to projection.projected_util_at_reset = current use + burn rate x remaining active hours (14 per day). When a stoppage is likely, the red STOPPAGE band starts where the current burn rate reaches 100%." tabindex="0"><div class="chart-legend__line" style="background:repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)"></div>Projected</div>
+    <div class="chart-legend__item" data-help="Line from your current use to 98% at the reset: the path you follow by spending exactly the daily budget from now on." tabindex="0"><div class="chart-legend__line" style="background:rgba(59,130,246,0.5)"></div>Budget target</div>
+    <div class="chart-legend__item" data-help="The weekly quota. Crossing it means the estimate says your weekly budget is used up before the reset." tabindex="0"><div class="chart-legend__line" style="background:#ef4444;height:1px"></div>100% exhaustion</div>
   </div>
 </div>
 
@@ -549,7 +558,7 @@
 
     <!-- Hero -->
     <div class="hero hero--safe" id="hero">
-      <div class="hero__label">You can continue working for</div>
+      <div class="hero__label" data-help="Hours until weekly utilisation reaches 100% at the current burn rate, capped at the weekly reset: min((100 - seven_day_util) / burn_rate_per_hour, hours to reset), from projection.cycle_runway_hours. It assumes the burn continues around the clock. Green 36 h or more, amber 12-36 h, red under 12 h. The line below shows the weekly reset and projection.projected_util_at_reset." tabindex="0">You can continue working for</div>
       <div class="hero__value hero__value--safe" id="hero-value">--h --m</div>
       <div class="hero__sub" id="hero-sub">Loading data...</div>
     </div>
@@ -558,14 +567,14 @@
     <div class="stoppage stoppage--hidden" id="stoppage-alert">
       <span class="stoppage__icon" role="img" aria-label="Warning">&#9888;</span>
       <div class="stoppage__text" id="stoppage-text">
-        <strong>FORCED STOPPAGE:</strong> <span id="stoppage-detail">Calculating...</span>
+        <strong data-help="Shown when projection.stoppage_likely: current use + burn rate x remaining active hours (14 per day) passes 100% before the reset. The hours-before-reset figure is projection.hours_short, converted back to wall-clock time; the suggested cap is the daily budget." tabindex="0">FORCED STOPPAGE:</strong> <span id="stoppage-detail">Calculating...</span>
       </div>
     </div>
 
     <!-- Ring gauges -->
     <div class="gauges">
       <div class="gauge">
-        <div class="gauge__label">5-Hour</div>
+        <div class="gauge__label" data-help="5-hour utilisation (current.five_hour_util): weighted tokens in the last 5 h / the 5-hour quota. Colour: green under 60%, amber 60-80%, red 80% and above. Below: time to the 5-hour reset, or not active when no message is in the window." tabindex="0">5-Hour</div>
         <div class="gauge__ring">
           <svg viewBox="0 0 56 56" role="img" aria-label="5-hour utilization: --%">
             <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
@@ -577,7 +586,7 @@
         <div class="gauge__reset" id="reset-5h">--</div>
       </div>
       <div class="gauge">
-        <div class="gauge__label">Weekly</div>
+        <div class="gauge__label" data-help="Weekly utilisation (current.seven_day_util): weighted tokens in the last 7 days / the 7-day quota. Weights per token: input x1, cache write x1.5, cache read x0.1, output x5. Colour: green under 60%, amber 60-80%, red 80% and above." tabindex="0">Weekly</div>
         <div class="gauge__ring">
           <svg viewBox="0 0 56 56" role="img" aria-label="Weekly utilization: --%">
             <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
@@ -589,7 +598,7 @@
         <div class="gauge__reset" id="reset-weekly">--</div>
       </div>
       <div class="gauge">
-        <div class="gauge__label">Sonnet</div>
+        <div class="gauge__label" data-help="Weighted tokens from Sonnet-family models in the last 7 days / the same 7-day quota (current.sonnet_util). Colour: green under 60%, amber 60-80%, red 80% and above. Shares the weekly reset." tabindex="0">Sonnet</div>
         <div class="gauge__ring">
           <svg viewBox="0 0 56 56" role="img" aria-label="Sonnet utilization: --%">
             <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
@@ -605,7 +614,7 @@
     <!-- Throttle Intelligence -->
     <div class="throttle-card">
       <div class="throttle-card__header">
-        <span class="throttle-card__title">Throttle Intelligence</span>
+        <span class="throttle-card__title" data-help="Peak/off-peak status computed in the browser from Europe/Berlin time; no engine data. Peak = weekdays 14:00-20:00 with an assumed ~0.5x capacity; other weekday hours and weekends show 2.0x. The multipliers are fixed assumptions in this page, not measured." tabindex="0">Throttle Intelligence</span>
         <span class="throttle-pill throttle-pill--offpeak" id="throttle-pill">
           <span class="throttle-pill__dot"></span>
           <span id="throttle-pill-label">--</span>
@@ -613,19 +622,19 @@
       </div>
       <div class="throttle-grid">
         <div class="throttle-stat">
-          <div class="throttle-stat__lbl">Frankfurt time</div>
+          <div class="throttle-stat__lbl" data-help="Current Europe/Berlin wall-clock time from this computer&#x27;s clock, refreshed every 30 s." tabindex="0">Frankfurt time</div>
           <div class="throttle-stat__val throttle-stat__val--cyan" id="throttle-time">--:--</div>
         </div>
         <div class="throttle-stat">
-          <div class="throttle-stat__lbl">Transition in</div>
+          <div class="throttle-stat__lbl" data-help="Time until the next switch between peak and off-peak (weekends skip to Monday 14:00). Red while in peak, green otherwise." tabindex="0">Transition in</div>
           <div class="throttle-stat__val" id="throttle-transition" style="color:var(--text)">--h --m</div>
         </div>
         <div class="throttle-stat">
-          <div class="throttle-stat__lbl">Effective capacity</div>
+          <div class="throttle-stat__lbl" data-help="Assumed capacity multiplier for the current window: 2.0x off-peak and weekends, ~0.5x at peak. Hard-coded in the page, not measured." tabindex="0">Effective capacity</div>
           <div class="throttle-stat__val" id="throttle-capacity">--×</div>
         </div>
         <div class="throttle-stat">
-          <div class="throttle-stat__lbl">Peak window (CEST)</div>
+          <div class="throttle-stat__lbl" data-help="The fixed peak window this card assumes. It is static text, not read from Anthropic." tabindex="0">Peak window (CEST)</div>
           <div class="throttle-stat__val throttle-stat__val--amber" style="font-size:11px;padding-top:3px">Weekdays 14:00–20:00</div>
         </div>
       </div>
@@ -637,17 +646,17 @@
 
     <!-- Budget Advisor -->
     <div class="card">
-      <div class="card__title">Budget Advisor</div>
-      <div class="card__row"><span class="card__key">Current burn rate</span><span class="card__val" id="ba-burn" style="color:var(--amber)">--</span></div>
-      <div class="card__row"><span class="card__key">Daily average (this cycle)</span><span class="card__val" id="ba-daily">--</span></div>
-      <div class="card__row"><span class="card__key">Recommended daily budget</span><span class="card__val" id="ba-rec" style="color:var(--green)">--</span></div>
-      <div class="card__row"><span class="card__key">Days remaining in cycle</span><span class="card__val" id="ba-days" style="color:var(--blue)">--</span></div>
-      <div class="card__row"><span class="card__key">Headroom at reset</span><span class="card__val" id="ba-headroom" style="color:var(--green)">--</span></div>
+      <div class="card__title" data-help="Pace numbers from /api/status budget and projection fields, aimed at landing at 98% weekly use at the reset." tabindex="0">Budget Advisor</div>
+      <div class="card__row"><span class="card__key" data-help="How fast weekly utilisation is rising, in percentage points per hour (projection.burn_rate_per_hour). Recency-weighted least-squares slope over the last 2 h of snapshots (45-minute half-life), with repeated identical readings collapsed first. It reacts to bursts within minutes and falls back when you pause. Colour: green under 6 %/h, amber 6-8, red 8 and above." tabindex="0">Current burn rate</span><span class="card__val" id="ba-burn" style="color:var(--amber)">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="(Last - first weekly utilisation snapshot of this cycle) / days between them (budget.daily_avg_this_cycle), floored at 0. Needs at least two snapshots." tabindex="0">Daily average (this cycle)</span><span class="card__val" id="ba-daily">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="Most weekly utilisation you can add per day and still land at 98% at the reset: (98 - seven_day_util) / days to reset (budget.recommended_daily). Spread over calendar days; the 14 active hours/day assumption is used only for headroom and the stoppage projection. Shows OVER once weekly use is at 98% or above." tabindex="0">Recommended daily budget</span><span class="card__val" id="ba-rec" style="color:var(--green)">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="Hours until the weekly reset / 24 (budget.days_remaining)." tabindex="0">Days remaining in cycle</span><span class="card__val" id="ba-days" style="color:var(--blue)">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="Hours to reset minus the active hours left (days remaining x 14) (budget.headroom_hours). These are the off hours the budget assumes you will not burn tokens; it is not spare quota." tabindex="0">Headroom at reset</span><span class="card__val" id="ba-headroom" style="color:var(--green)">--</span></div>
     </div>
 
     <!-- Pacing vs Optimal -->
     <div class="card" id="pacing-card">
-      <div class="card__title">Pacing vs Optimal</div>
+      <div class="card__title" data-help="Weekly utilisation minus where a straight line from 0% at cycle start to 98% at reset would be now (pacing.delta; the line value is pacing.optimal_util). Within 2 points counts as on pace; positive is ahead (amber), negative is behind with room to push (cyan); green when under 3 points off. The bar fills to your use, the marker shows the optimal point." tabindex="0">Pacing vs Optimal</div>
       <div style="margin-bottom:12px">
         <div class="pacing-card__track">
           <div class="pacing-card__fill" id="pacing-fill" style="width:0%;background:var(--green)"></div>
@@ -660,21 +669,21 @@
         </div>
         <div class="pacing-card__delta" id="pacing-delta">--</div>
       </div>
-      <div class="card__row"><span class="card__key">Your weekly utilization</span><span class="card__val" id="pc-actual">--%</span></div>
-      <div class="card__row"><span class="card__key">Optimal at this point</span><span class="card__val" id="pc-optimal" style="color:var(--cyan)">--%</span></div>
-      <div class="card__row"><span class="card__key">Cycle grade</span><span class="card__val" id="pc-grade"><span class="grade-badge grade-badge--A">-</span></span></div>
+      <div class="card__row"><span class="card__key" data-help="Weekly utilisation now (current.seven_day_util), capped at 100% for display. Colour: green under 60%, amber 60-80%, red 80% and above." tabindex="0">Your weekly utilization</span><span class="card__val" id="pc-actual">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="Where the linear ramp from 0% to 98% over the 168-hour cycle is now: elapsed hours / 168 x 98 (pacing.optimal_util)." tabindex="0">Optimal at this point</span><span class="card__val" id="pc-optimal" style="color:var(--cyan)">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="Cycle grade from the distance to the linear ramp to 98% (pacing.grade): A under 3 points off, B under 8, C under 15, D under 25, F beyond. Far ahead and far behind grade the same." tabindex="0">Cycle grade</span><span class="card__val" id="pc-grade"><span class="grade-badge grade-badge--A">-</span></span></div>
     </div>
 
     <!-- Personal Benchmarks -->
     <div class="card">
-      <div class="card__title">Personal Benchmarks</div>
-      <div class="card__row"><span class="card__key">Avg peak per cycle</span><span class="card__val" id="bm-avg-peak">--%</span></div>
-      <div class="card__row"><span class="card__key">Best cycle peak</span><span class="card__val" id="bm-best-peak" style="color:var(--green)">--%</span></div>
-      <div class="card__row"><span class="card__key">Stoppage rate</span><span class="card__val" id="bm-stoppage-rate">--%</span></div>
-      <div class="card__row"><span class="card__key">Avg wasted capacity</span><span class="card__val" id="bm-wasted">--%</span></div>
-      <div class="card__row"><span class="card__key">Cycles tracked</span><span class="card__val" id="bm-cycles" style="color:var(--text-dim)">--</span></div>
+      <div class="card__title" data-help="Statistics over every 7-day cycle in the database (/api/status benchmarks). A cycle&#x27;s peak is its highest weekly utilisation snapshot." tabindex="0">Personal Benchmarks</div>
+      <div class="card__row"><span class="card__key" data-help="Mean of each cycle&#x27;s highest weekly utilisation (benchmarks.avg_peak). Colour: green under 60%, amber 60-80%, red 80% and above." tabindex="0">Avg peak per cycle</span><span class="card__val" id="bm-avg-peak">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="Highest cycle peak recorded (benchmarks.best_peak)." tabindex="0">Best cycle peak</span><span class="card__val" id="bm-best-peak" style="color:var(--green)">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="Share of cycles flagged as a stoppage: a cycle counts when its 5-hour utilisation reached 95% at least once (benchmarks.stoppage_rate). Red when above 0." tabindex="0">Stoppage rate</span><span class="card__val" id="bm-stoppage-rate">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="98 - average cycle peak, floored at 0 (benchmarks.wasted_avg): weekly quota left unused on average. Amber above 20 points." tabindex="0">Avg wasted capacity</span><span class="card__val" id="bm-wasted">--%</span></div>
+      <div class="card__row"><span class="card__key" data-help="Number of distinct cycle ids in the snapshot table, the current one included (benchmarks.cycles_total)." tabindex="0">Cycles tracked</span><span class="card__val" id="bm-cycles" style="color:var(--text-dim)">--</span></div>
       <div class="card__row card__row--highlight">
-        <span class="card__key">Overall grade<div class="card__sub">Sweet spot: high usage, zero stoppages</div></span>
+        <span class="card__key" data-help="score = 100 - wasted/98 x 50 - stoppage rate/100 x 50 (benchmarks.overall_grade): A 85+, B 70+, C 55+, D 40+, else F. Unused quota and stoppages cost the same." tabindex="0">Overall grade<div class="card__sub">Sweet spot: high usage, zero stoppages</div></span>
         <span class="card__val" id="bm-grade"><span class="grade-badge grade-badge--A">-</span></span>
       </div>
     </div>
@@ -682,7 +691,7 @@
     <!-- Burn Rate Chart -->
     <div class="card">
       <div class="chart-section__header">
-        <span class="chart-section__title">Burn Rate &mdash; This Cycle</span>
+        <span class="chart-section__title" data-help="Weekly utilisation of every snapshot from /api/history (last 7 days), spaced evenly by sample rather than by time; Y axis = percent of the weekly quota. Despite the title it plots the utilisation level, not its rate of change." tabindex="0">Burn Rate &mdash; This Cycle</span>
       </div>
       <div class="sparkline-area">
         <svg viewBox="0 0 640 120" preserveAspectRatio="none" id="burn-svg">
@@ -708,14 +717,14 @@
 
     <!-- Weekday Heatmap -->
     <div class="card">
-      <div class="card__title">Average Daily Consumption &mdash; by Weekday</div>
+      <div class="card__title" data-help="Average weekly utilisation (seven_day_util) of the snapshots taken on each weekday in the last 7 days (/api/history weekday_avg). It is the mean level of the 7-day meter on that day, not tokens used that day. Colour: green under 60%, amber 60-80%, red 80% and above." tabindex="0">Average Daily Consumption &mdash; by Weekday</div>
       <div class="heatmap" id="heatmap"></div>
       <div class="heatmap-summary" id="heatmap-summary"></div>
     </div>
 
     <!-- Weekly Cycle History -->
     <div class="card">
-      <div class="card__title">Weekly Cycle History &mdash; Peak Utilization</div>
+      <div class="card__title" data-help="Highest weekly utilisation reached in each 7-day cycle (/api/history cycles[].peak_util). Bars: green under 70%, amber 70-89%, red 90% and above; hover a bar for its cycle date and stoppage flag." tabindex="0">Weekly Cycle History &mdash; Peak Utilization</div>
       <div class="history__bars" id="history-bars"></div>
       <div class="history__legend">
         <span><span class="history__legend-dot" style="background:var(--green)"></span>&lt;70%</span>
@@ -726,11 +735,11 @@
 
     <!-- Monthly Rollup -->
     <div class="card">
-      <div class="card__title" id="rollup-title">Monthly Rollup</div>
-      <div class="card__row"><span class="card__key">Cycles completed</span><span class="card__val" id="mr-cycles">--</span></div>
-      <div class="card__row"><span class="card__key">Avg peak utilization</span><span class="card__val" id="mr-peak" style="color:var(--amber)">--</span></div>
-      <div class="card__row"><span class="card__key">Forced stoppages</span><span class="card__val" id="mr-stoppages">--</span></div>
-      <div class="card__row"><span class="card__key">Unused margin</span><span class="card__val" id="mr-margin" style="color:var(--green)">--</span></div>
+      <div class="card__title" id="rollup-title" data-help="Totals over every cycle stored in the database; despite the month in the title, it is not filtered to that month." tabindex="0">Monthly Rollup</div>
+      <div class="card__row"><span class="card__key" data-help="Number of cycles in the snapshot table, the running one included." tabindex="0">Cycles completed</span><span class="card__val" id="mr-cycles">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="Mean of the cycle peaks (highest weekly utilisation per cycle). Colour: green under 60%, amber 60-80%, red 80% and above." tabindex="0">Avg peak utilization</span><span class="card__val" id="mr-peak" style="color:var(--amber)">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="Cycles whose 5-hour utilisation reached 95% at least once. Red when above 0." tabindex="0">Forced stoppages</span><span class="card__val" id="mr-stoppages">--</span></div>
+      <div class="card__row"><span class="card__key" data-help="100 - average cycle peak. Note this uses 100, while Personal Benchmarks measure waste against 98." tabindex="0">Unused margin</span><span class="card__val" id="mr-margin" style="color:var(--green)">--</span></div>
     </div>
 
     <div class="footer">Token Budget Engine &middot; Polls Anthropic API every 60m &middot; Python + SQLite</div>
@@ -744,22 +753,22 @@
     <!-- YTD summary cards -->
     <div class="tokens-hero">
       <div class="tokens-stat">
-        <div class="tokens-stat__label">YTD Input</div>
+        <div class="tokens-stat__label" data-help="Uncached input tokens (usage.input_tokens; cache reads and writes excluded). Summed over every session transcript (subagent files included) whose first timestamp is in 2026 or later, each credited to the day of its first record (/api/token-history)." tabindex="0">YTD Input</div>
         <div class="tokens-stat__val" id="tk-input" style="color:var(--cyan)">--</div>
         <div class="tokens-stat__sub">tokens sent</div>
       </div>
       <div class="tokens-stat">
-        <div class="tokens-stat__label">YTD Output</div>
+        <div class="tokens-stat__label" data-help="Output tokens (usage.output_tokens), including thinking and tool-call input written by the model. Summed over every session transcript (subagent files included) whose first timestamp is in 2026 or later, each credited to the day of its first record (/api/token-history)." tabindex="0">YTD Output</div>
         <div class="tokens-stat__val" id="tk-output" style="color:var(--amber)">--</div>
         <div class="tokens-stat__sub">tokens received</div>
       </div>
       <div class="tokens-stat">
-        <div class="tokens-stat__label">I/O Ratio</div>
+        <div class="tokens-stat__label" data-help="Uncached input / output over the same period. Low values mean most context arrives from the cache; the full-context ratio below includes it." tabindex="0">I/O Ratio</div>
         <div class="tokens-stat__val" id="tk-ratio" style="color:var(--green)">--</div>
         <div class="tokens-stat__sub">input per output</div>
       </div>
       <div class="tokens-stat">
-        <div class="tokens-stat__label">Sessions</div>
+        <div class="tokens-stat__label" data-help="Number of transcript files with any tokens, subagent transcripts included, since 2026-01-01." tabindex="0">Sessions</div>
         <div class="tokens-stat__val" id="tk-sessions" style="color:var(--text-dim)">--</div>
         <div class="tokens-stat__sub">YTD total</div>
       </div>
@@ -768,21 +777,21 @@
     <!-- Daily I/O bar chart -->
     <div class="tokens-chart">
       <div class="tokens-chart__header">
-        <span class="tokens-chart__title">Daily Token Volume &mdash; Input vs Output</span>
+        <span class="tokens-chart__title" data-help="Uncached input (cyan) and output (amber) tokens per day; each session counts on the day it started. Hover a day for exact values, ratio and session count." tabindex="0">Daily Token Volume &mdash; Input vs Output</span>
       </div>
       <div class="tokens-chart__area">
         <svg id="tokens-bar-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div class="tokens-legend">
-        <div class="tokens-legend__item"><div class="tokens-legend__swatch" style="background:#06b6d4"></div>Input tokens</div>
-        <div class="tokens-legend__item"><div class="tokens-legend__swatch" style="background:#f59e0b"></div>Output tokens</div>
+        <div class="tokens-legend__item" data-help="usage.input_tokens per day, cache excluded." tabindex="0"><div class="tokens-legend__swatch" style="background:#06b6d4"></div>Input tokens</div>
+        <div class="tokens-legend__item" data-help="usage.output_tokens per day." tabindex="0"><div class="tokens-legend__swatch" style="background:#f59e0b"></div>Output tokens</div>
       </div>
     </div>
 
     <!-- Ratio trend line -->
     <div class="tokens-ratio-chart">
       <div class="tokens-chart__header">
-        <span class="tokens-chart__title">Input / Output Ratio &mdash; Daily Trend</span>
+        <span class="tokens-chart__title" data-help="Uncached input / output for each day. The dashed AVG line is the plain mean of the daily ratios, not the ratio of the totals." tabindex="0">Input / Output Ratio &mdash; Daily Trend</span>
       </div>
       <div class="tokens-chart__area" style="height:180px">
         <svg id="tokens-ratio-svg" viewBox="0 0 800 180" preserveAspectRatio="xMidYMid meet"></svg>
@@ -791,7 +800,7 @@
 
     <!-- Comparison vs benchmarks -->
     <div class="cmp-card">
-      <div class="cmp-card__title">Your Usage vs Benchmarks</div>
+      <div class="cmp-card__title" data-help="Compares your token totals with public reference figures hard-coded in this page (sources listed below). The profile name comes from the uncached input/output ratio: under 0.15 Automation Engine, under 0.5 Code Generator, under 1.5 Balanced Builder, under 3 Conversationalist, else Context Architect; those thresholds are this dashboard&#x27;s own." tabindex="0">Your Usage vs Benchmarks</div>
       <div class="cmp-card__subtitle">Sources: OpenRouter 100T Token Study (arXiv:2601.10088), onprem.ai 64-task dataset, Anthropic published cost data</div>
 
       <!-- Profile badge -->
@@ -805,7 +814,7 @@
 
       <!-- Full context ratio vs OpenRouter benchmark -->
       <div class="cmp-scale">
-        <div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Full Context Ratio &mdash; total input (incl. cache) per output token</div>
+        <div data-help="(input + cache write + cache read) / output over all days, on a log scale from 1:1 to 1000:1. The grey marker is the OpenRouter 100T-token study average of 15:1 as entered in this page." tabindex="0" style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Full Context Ratio &mdash; total input (incl. cache) per output token</div>
         <div class="cmp-scale__track" id="cmp-full-track" style="background:linear-gradient(90deg, rgba(34,197,94,0.3) 0%, rgba(6,182,212,0.3) 40%, rgba(245,158,11,0.3) 70%, rgba(239,68,68,0.3) 100%)">
           <div class="cmp-scale__marker" id="cmp-openrouter-marker" style="left:0%;background:var(--text-muted);width:16px;height:16px;border-width:1px">
             <div class="cmp-scale__marker-label" style="color:var(--text-muted)"></div>
@@ -823,7 +832,7 @@
 
       <!-- Per-task ratio vs onprem.ai benchmarks -->
       <div class="cmp-scale" style="margin-top:8px">
-        <div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Uncached Input Ratio &mdash; new tokens only, per onprem.ai task benchmarks</div>
+        <div data-help="Input / output with cache excluded, placed on a piecewise scale. Band labels are the onprem.ai task ranges as entered in this page: coding 1-3x, analysis 3-8x, documents 8-20x." tabindex="0" style="font-size:9px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Uncached Input Ratio &mdash; new tokens only, per onprem.ai task benchmarks</div>
         <div class="cmp-scale__track" id="cmp-ratio-track" style="background:linear-gradient(90deg, rgba(245,158,11,0.3) 0%, rgba(6,182,212,0.3) 25%, rgba(34,197,94,0.3) 50%, rgba(59,130,246,0.3) 100%)">
           <div class="cmp-scale__marker" id="cmp-ratio-marker" style="left:0%"></div>
         </div>
@@ -838,19 +847,19 @@
       <!-- Comparison metrics -->
       <div class="cmp-metrics">
         <div class="cmp-metric">
-          <div class="cmp-metric__label">Daily Output</div>
+          <div class="cmp-metric__label" data-help="Output tokens / days with data. Compared with 400K/day, this page&#x27;s estimate of the average user ($6/day at $15 per million output tokens). Green up to 1.5x that, amber to 3x, red above." tabindex="0">Daily Output</div>
           <div class="cmp-metric__val" id="cmp-daily-out">--</div>
           <div class="cmp-metric__ctx" id="cmp-daily-ctx">--</div>
           <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-daily-bar" style="width:0%;background:var(--amber)"></div></div>
         </div>
         <div class="cmp-metric">
-          <div class="cmp-metric__label">Billable Cost Equiv</div>
+          <div class="cmp-metric__label" data-help="Input + output tokens at Sonnet 4.6 list prices ($3 / $15 per million), cache excluded, per day with data. Green up to $6/day (Anthropic&#x27;s published average), amber to $12 (published P90), red above." tabindex="0">Billable Cost Equiv</div>
           <div class="cmp-metric__val" id="cmp-cost-val" style="color:var(--green)">--</div>
           <div class="cmp-metric__ctx" id="cmp-cost-ctx">--</div>
           <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-cost-bar" style="width:0%;background:var(--green)"></div></div>
         </div>
         <div class="cmp-metric">
-          <div class="cmp-metric__label">Est. Percentile</div>
+          <div class="cmp-metric__label" data-help="Interpolates your billable $/day between anchors P50 ~$4, P75 ~$8, P90 $12, P95 ~$20. Only the $6 average and $12 P90 are published; the other anchors are this page&#x27;s guesses, so read it as a direction only." tabindex="0">Est. Percentile</div>
           <div class="cmp-metric__val" id="cmp-pct-val" style="color:var(--cyan)">--</div>
           <div class="cmp-metric__ctx" id="cmp-pct-ctx">--</div>
           <div class="cmp-metric__bar"><div class="cmp-metric__bar-fill" id="cmp-pct-bar" style="width:0%;background:var(--cyan)"></div></div>
@@ -860,11 +869,11 @@
       <!-- Full cost breakdown -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:11px;font-family:var(--mono)">
         <div style="padding:8px 12px;border-radius:6px;background:var(--bg-elevated)">
-          <div style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Billable (input + output)</div>
+          <div data-help="Daily and total cost of uncached input + output at Sonnet 4.6 list prices ($3 / $15 per million tokens)." tabindex="0" style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Billable (input + output)</div>
           <div id="cmp-cost-billable" style="font-weight:600">--</div>
         </div>
         <div style="padding:8px 12px;border-radius:6px;background:var(--bg-elevated)">
-          <div style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Full (incl. cache)</div>
+          <div data-help="Billable cost plus cache writes at $3.75 and cache reads at $0.30 per million tokens (Sonnet 4.6 list prices)." tabindex="0" style="color:var(--text-muted);font-size:9px;text-transform:uppercase;margin-bottom:2px">Full (incl. cache)</div>
           <div id="cmp-cost-full" style="font-weight:600">--</div>
         </div>
       </div>
@@ -882,10 +891,10 @@
 
     <!-- Monthly breakdown table -->
     <div class="tokens-table">
-      <div class="tokens-table__header">Monthly Breakdown</div>
+      <div class="tokens-table__header" data-help="Token-history days summed per calendar month, plus a total row." tabindex="0">Monthly Breakdown</div>
       <table id="tk-monthly-table">
         <thead>
-          <tr><th>Month</th><th class="num">Input</th><th class="num">Output</th><th class="num">Ratio</th><th class="num">Sessions</th></tr>
+          <tr><th data-help="Calendar month of each session&#x27;s first record." tabindex="0">Month</th><th class="num" data-help="Uncached input tokens (usage.input_tokens)." tabindex="0">Input</th><th class="num" data-help="Output tokens (usage.output_tokens)." tabindex="0">Output</th><th class="num" data-help="Input / output for the month, cache excluded." tabindex="0">Ratio</th><th class="num" data-help="Transcript files started that month, subagent files included." tabindex="0">Sessions</th></tr>
         </thead>
         <tbody id="tk-monthly-body"></tbody>
       </table>
@@ -901,13 +910,13 @@
 
     <!-- Range + origin selectors -->
     <div style="display:flex; gap:16px; flex-wrap:wrap">
-      <div class="cb-range" id="cb-range-activity">
+      <div class="cb-range help-zone" id="cb-range-activity" data-help="Time window for the CodeBurn report (/api/codeburn?range=): 7 or 30 days back from now, 52 Weeks = 364 days, All = 355 days. It is shared by Activity, Project &amp; Model, Efficiency and Tenets." tabindex="0">
         <button class="cb-range__btn active" data-range="7d">7 Days</button>
         <button class="cb-range__btn" data-range="30d">30 Days</button>
         <button class="cb-range__btn" data-range="52w">52 Weeks</button>
         <button class="cb-range__btn" data-range="all">All</button>
       </div>
-      <div class="cb-range" id="cb-origin-activity">
+      <div class="cb-range help-zone" id="cb-origin-activity" data-help="Operator = prompts you typed (turnOrigin human); Automation = scripted sessions (sdk: eval graders, nightshift, DoR runs); a turn starts at a prompt and runs until the next prompt; tool results do not start turns. Origin comes from the JSONL turnOrigin field (older records: promptSource / entrypoint); the Anthropic expertise study excluded headless/SDK sessions, so Operator is the comparable view. The choice filters Activity, Project &amp; Model, Efficiency and Tenets." tabindex="0">
         <button class="cb-range__btn active" data-origin="human">Operator</button>
         <button class="cb-range__btn" data-origin="sdk">Automation</button>
         <button class="cb-range__btn" data-origin="all">All</button>
@@ -917,18 +926,18 @@
     <!-- Hero cards -->
     <div class="cb-hero">
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Total Cost</div>
+        <div class="cb-hero__label" data-help="List-price equivalent of the turns in the selected range and origin (total_cost_usd), not what a subscription bills. Per API call: tokens x the model&#x27;s LiteLLM list price for input, output, cache write and cache read, plus $0.01 per web search, x1.25 in fast mode. The operator / automation line is origin_summary and always covers both origins." tabindex="0">Total Cost</div>
         <div class="cb-hero__val" id="cb-total-cost" style="color:var(--cyan)">--</div>
         <div class="cb-hero__sub" id="cb-total-period">--</div>
         <div class="cb-hero__sub" id="cb-origin-cost"></div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Total Turns</div>
+        <div class="cb-hero__label" data-help="Turns in the range for the selected origin (total_turns). A turn starts at a prompt and runs until the next prompt in the same session; tool results, meta records and injected notifications do not start one. The average divides by days with activity." tabindex="0">Total Turns</div>
         <div class="cb-hero__val" id="cb-total-turns" style="color:var(--text)">--</div>
         <div class="cb-hero__sub" id="cb-avg-per-day">--</div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">One-Shot Rate</div>
+        <div class="cb-hero__label" data-help="Share of turns with edits that had no edit -&gt; shell -&gt; edit cycle (oneshot_rate = oneshot_turns / edit_turns). Green 80% and above, amber 60% and above, red below. A telemetry proxy, not verified success: the Anthropic expertise study&#x27;s verified success needs a hard signal (a commit, passing tests, matching output, or explicit confirmation), which this count does not check." tabindex="0">One-Shot Rate</div>
         <div class="cb-hero__val" id="cb-oneshot-rate">--</div>
         <div class="cb-hero__sub" id="cb-oneshot-detail">edits without retries</div>
         <div class="cb-hero__sub" id="cb-origin-oneshot"></div>
@@ -937,7 +946,7 @@
 
     <!-- Daily cost chart -->
     <div class="cb-chart">
-      <div class="cb-chart__title">Daily Cost (USD)</div>
+      <div class="cb-chart__title" data-help="Cost per UTC day of each turn&#x27;s prompt for the selected range and origin (daily[].cost_usd). Y axis in USD, rounded up to the next $10; X axis MM-DD." tabindex="0">Daily Cost (USD)</div>
       <div class="cb-chart__area">
         <svg id="cb-daily-svg" viewBox="0 0 800 250" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
@@ -945,10 +954,10 @@
 
     <!-- Activity table -->
     <div class="cb-table">
-      <div class="cb-table__header">Activity Breakdown</div>
+      <div class="cb-table__header" data-help="Turns, cost and edit quality per activity category for the selected range and origin (categories[]). Group rows (coding, conversation, qa, devops) are display-only subtotals." tabindex="0">Activity Breakdown</div>
       <table>
         <thead>
-          <tr><th>Activity</th><th class="num">Turns</th><th class="num">Cost</th><th class="num">% Cost</th><th class="num">Target</th><th class="num">1-Shot</th><th class="num">Retries</th></tr>
+          <tr><th data-help="Category per turn, first from the tools used (EnterPlanMode planning, Agent delegation, shell-only test/git/build commands testing/git/build-deploy, any Edit/Write coding, reads/search/MCP exploration, task tools planning, no tools conversation). Then keywords in the prompt refine it: fix/bug -&gt; debugging, refactor/rename -&gt; refactoring, add/implement -&gt; feature, brainstorm/design -&gt; brainstorming." tabindex="0">Activity</th><th class="num" data-help="Turns classified into this category." tabindex="0">Turns</th><th class="num" data-help="Summed list-price cost of the category&#x27;s turns. Per API call: tokens x the model&#x27;s LiteLLM list price for input, output, cache write and cache read, plus $0.01 per web search, x1.25 in fast mode." tabindex="0">Cost</th><th class="num" data-help="Category cost / total cost of the range." tabindex="0">% Cost</th><th class="num" data-help="Direction you want this category to move (up, down, hold) and the habits that support it; hover an arrow for the list with enforced / partial / not-yet status. Hand-written in this page (last updated 2026-04-16), not computed." tabindex="0">Target</th><th class="num" data-help="Edit turns without an edit -&gt; shell -&gt; edit cycle / edit turns in the category. Green 80%+, amber 60%+, red below; blank without edits. A telemetry proxy, not verified success: the Anthropic expertise study&#x27;s verified success needs a hard signal (a commit, passing tests, matching output, or explicit confirmation), which this count does not check." tabindex="0">1-Shot</th><th class="num" data-help="Edit -&gt; shell -&gt; edit cycles counted across the category&#x27;s edit turns; each re-edit after a shell command is one retry." tabindex="0">Retries</th></tr>
         </thead>
         <tbody id="cb-activity-body"></tbody>
       </table>
@@ -956,7 +965,7 @@
 
     <!-- Subagent Burn -->
     <div class="util-card" id="cb-subagent-section" style="display:none">
-      <div class="util-card__title">Subagent Burn</div>
+      <div class="util-card__title" data-help="Work delegated to Agent/Task subagents in the range (subagent_stats). Tokens come from toolUseResult.usage on each subagent result, which covers only its final API iteration(s), so it is a lower bound. Not filtered by origin." tabindex="0">Subagent Burn</div>
       <div id="cb-subagent-content" style="font-size:12px"></div>
     </div>
 
@@ -969,7 +978,7 @@
   <div class="proj-dash model-colors">
 
     <!-- Range selector -->
-    <div class="cb-range" id="cb-range-projects">
+    <div class="cb-range help-zone" id="cb-range-projects" data-help="Time window for the CodeBurn report (/api/codeburn?range=): 7 or 30 days back from now, 52 Weeks = 364 days, All = 355 days. It is shared by Activity, Project &amp; Model, Efficiency and Tenets." tabindex="0">
       <button class="cb-range__btn active" data-range="7d">7 Days</button>
       <button class="cb-range__btn" data-range="30d">30 Days</button>
       <button class="cb-range__btn" data-range="52w">52 Weeks</button>
@@ -978,22 +987,22 @@
 
     <!-- Project cost bars -->
     <div class="proj-bars">
-      <div class="proj-bars__title">Cost by Project</div>
+      <div class="proj-bars__title" data-help="List-price cost per project, top 10 (projects[]). Project = the session&#x27;s working directory (cwd) mapped to a project name; workspace sessions use manual attribution when present. Hover a name for the transcript path." tabindex="0">Cost by Project</div>
       <div id="cb-project-bars"></div>
     </div>
 
     <!-- Model cost bars -->
     <div class="proj-bars">
-      <div class="proj-bars__title">Cost by Model</div>
+      <div class="proj-bars__title" data-help="List-price cost and API call count per model, top 10 (models[]). Bar colour by family: opus, sonnet, haiku, other." tabindex="0">Cost by Model</div>
       <div id="cb-model-bars"></div>
     </div>
 
     <!-- Top tools -->
     <div class="cb-table">
-      <div class="cb-table__header">Top Tools</div>
+      <div class="cb-table__header" data-help="Most-called tools in the range, top 10 (tools[])." tabindex="0">Top Tools</div>
       <table>
         <thead>
-          <tr><th>Tool</th><th class="num">Calls</th></tr>
+          <tr><th data-help="Tool name as logged in the assistant&#x27;s tool_use block." tabindex="0">Tool</th><th class="num" data-help="Number of tool_use blocks with that name in the selected range and origin." tabindex="0">Calls</th></tr>
         </thead>
         <tbody id="cb-tools-body"></tbody>
       </table>
@@ -1001,10 +1010,10 @@
 
     <!-- MCP servers -->
     <div class="cb-table" id="cb-mcp-section" style="display:none">
-      <div class="cb-table__header">MCP Servers</div>
+      <div class="cb-table__header" data-help="Calls to mcp__&lt;server&gt;__ tools grouped by server (mcp_servers[]); the card is hidden when there are none." tabindex="0">MCP Servers</div>
       <table>
         <thead>
-          <tr><th>Server</th><th class="num">Calls</th></tr>
+          <tr><th data-help="MCP server name taken from the mcp__&lt;server&gt;__&lt;tool&gt; tool name." tabindex="0">Server</th><th class="num" data-help="tool_use calls to any tool of that server." tabindex="0">Calls</th></tr>
         </thead>
         <tbody id="cb-mcp-body"></tbody>
       </table>
@@ -1012,13 +1021,13 @@
 
     <!-- Context Overhead -->
     <div class="util-card" id="cb-overhead-section" style="display:none">
-      <div class="util-card__title">Context Overhead</div>
+      <div class="util-card__title" data-help="Token mix of every API call in the range and origin (context_overhead): how much context is cached, new, or written to cache, and an estimate of the runtime&#x27;s hidden per-turn overhead." tabindex="0">Context Overhead</div>
       <div id="cb-overhead-content" style="font-size:12px"></div>
     </div>
 
     <!-- Utilization signals -->
     <div class="util-card" id="cb-util-section" style="display:none">
-      <div class="util-card__title">Tool Utilization Signal</div>
+      <div class="util-card__title" data-help="Number of distinct tools invoked and MCP servers with at least one call in the range." tabindex="0">Tool Utilization Signal</div>
       <div id="cb-util-summary" style="font-size:11px;color:var(--text-dim);margin-bottom:8px"></div>
       <div id="cb-util-details"></div>
     </div>
@@ -1032,7 +1041,7 @@
   <div class="activity-dash">
 
     <!-- Range selector -->
-    <div class="cb-range" id="cb-range-efficiency">
+    <div class="cb-range help-zone" id="cb-range-efficiency" data-help="Time window for the CodeBurn report (/api/codeburn?range=): 7 or 30 days back from now, 52 Weeks = 364 days, All = 355 days. It is shared by Activity, Project &amp; Model, Efficiency and Tenets." tabindex="0">
       <button class="cb-range__btn active" data-range="7d">7 Days</button>
       <button class="cb-range__btn" data-range="30d">30 Days</button>
       <button class="cb-range__btn" data-range="52w">52 Weeks</button>
@@ -1042,17 +1051,17 @@
     <!-- Hero cards -->
     <div class="cb-hero">
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Mean Tokens / Tool Call</div>
+        <div class="cb-hero__label" data-help="All tokens (input + output + cache read + cache write) / tool calls in the range (efficiency.mean_tokens_per_call). Lower means less context processed per action; turns without tool calls still add tokens." tabindex="0">Mean Tokens / Tool Call</div>
         <div class="cb-hero__val" id="eff-mean-tpt" style="color:var(--cyan)">--</div>
         <div class="cb-hero__sub" id="eff-mean-period">--</div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Total Tool Calls</div>
+        <div class="cb-hero__label" data-help="tool_use blocks in assistant messages for the selected range and origin (efficiency.total_tool_calls); the average divides by days with activity. Study reference: per prompt, novices averaged ~5 actions and experts ~12 (Anthropic expertise study)." tabindex="0">Total Tool Calls</div>
         <div class="cb-hero__val" id="eff-total-calls" style="color:var(--text)">--</div>
         <div class="cb-hero__sub" id="eff-total-calls-sub">--</div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Total Tokens</div>
+        <div class="cb-hero__label" data-help="Input + output + cache read + cache write tokens (efficiency.total_tokens). The line below shows uncached input and output only." tabindex="0">Total Tokens</div>
         <div class="cb-hero__val" id="eff-total-tokens" style="color:var(--text)">--</div>
         <div class="cb-hero__sub" id="eff-total-tokens-sub">--</div>
       </div>
@@ -1060,7 +1069,7 @@
 
     <!-- Rolling weekly chart -->
     <div class="cb-chart">
-      <div class="cb-chart__title">Weekly Rolling Mean: Tokens per Tool Call</div>
+      <div class="cb-chart__title" data-help="Per ISO week: total tokens / tool calls (cyan line, left axis tok/call); amber bars are tool calls (right axis). The dashed MEAN line covers the whole range. Each point is one ISO week, not a rolling window." tabindex="0">Weekly Rolling Mean: Tokens per Tool Call</div>
       <div class="cb-chart__area">
         <svg id="eff-weekly-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
@@ -1068,7 +1077,7 @@
 
     <!-- Dev Work % trend chart -->
     <div class="cb-chart">
-      <div class="cb-chart__title">Weekly Dev Work % (Coding + Delegation vs Total Cost)</div>
+      <div class="cb-chart__title" data-help="Per ISO week: cost of coding, feature, refactoring and delegation turns / total cost (green line, left axis dev %); amber bars are that dev cost in USD (right axis). The dashed MEAN line is the range-wide share." tabindex="0">Weekly Dev Work % (Coding + Delegation vs Total Cost)</div>
       <div class="cb-chart__area">
         <svg id="devwork-weekly-svg" viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
@@ -1076,17 +1085,17 @@
 
     <!-- Weekly data table -->
     <div class="cb-table">
-      <div class="cb-table__header">Weekly Breakdown</div>
+      <div class="cb-table__header" data-help="Tool calls and tokens per ISO week (efficiency.weekly[]), with a total/mean row." tabindex="0">Weekly Breakdown</div>
       <table>
         <thead>
           <tr>
-            <th>Week</th>
-            <th class="num">Tool Calls</th>
-            <th class="num">Input Tokens</th>
-            <th class="num">Output Tokens</th>
-            <th class="num">Cache Read</th>
-            <th class="num">Total Tokens</th>
-            <th class="num">Tokens/Call</th>
+            <th data-help="ISO year-week (Monday start) of the turns&#x27; prompt dates." tabindex="0">Week</th>
+            <th class="num" data-help="tool_use blocks that week." tabindex="0">Tool Calls</th>
+            <th class="num" data-help="Uncached input tokens (usage.input_tokens)." tabindex="0">Input Tokens</th>
+            <th class="num" data-help="Output tokens, thinking and tool-call input included." tabindex="0">Output Tokens</th>
+            <th class="num" data-help="Tokens served from the prompt cache (cache_read_input_tokens)." tabindex="0">Cache Read</th>
+            <th class="num" data-help="Input + output + cache read + cache write; cache write has no column of its own." tabindex="0">Total Tokens</th>
+            <th class="num" data-help="Total tokens / tool calls that week. Red above 1.5x the range mean, green below 0.7x." tabindex="0">Tokens/Call</th>
           </tr>
         </thead>
         <tbody id="eff-weekly-body"></tbody>
@@ -1102,24 +1111,24 @@
   <div class="habits-layout" id="habits-layout">
 
     <div class="habits-main">
-      <div class="habits-meta" id="habits-meta">&mdash;</div>
+      <div class="habits-meta" id="habits-meta" data-help="Time since /api/prompts generated this list." tabindex="0">&mdash;</div>
 
       <!-- Everyday section -->
       <div class="habits-section" id="habits-everyday-section">
         <div class="habits-section__header">
-          <div class="habits-section__title">Everyday</div>
+          <div class="habits-section__title" data-help="Prompt patterns you promoted as everyday habits (saved in the classification file); the arrow demotes one. Rows with no use in 30 days are greyed and sorted last." tabindex="0">Everyday</div>
           <div class="habits-section__sub">promoted &middot; arrow demotes</div>
-          <div class="habits-section__count" id="habits-everyday-count">0</div>
+          <div class="habits-section__count" id="habits-everyday-count" data-help="Number of patterns in this section." tabindex="0">0</div>
         </div>
         <table class="habits-table">
           <thead>
             <tr>
-              <th>Pattern</th>
-              <th>Intent</th>
-              <th class="num">7d</th>
-              <th class="num">30d</th>
-              <th class="num">all</th>
-              <th>Type</th>
+              <th data-help="Pattern id: the slash-command name for /commands (structured), else the id of the first regex in patterns.yaml that matches the prompt." tabindex="0">Pattern</th>
+              <th data-help="Intent text from the pattern&#x27;s entry in patterns.yaml." tabindex="0">Intent</th>
+              <th class="num" data-help="Prompts matched in the last 7 days (prompt_usage rows)." tabindex="0">7d</th>
+              <th class="num" data-help="Prompts matched in the last 30 days." tabindex="0">30d</th>
+              <th class="num" data-help="Prompts matched since ingestion began." tabindex="0">all</th>
+              <th data-help="struct = slash command, unstruct = free-text regex match. The -&gt; skill? badge appears at 3+ uses in 30 days for an unstructured pattern with no skill file of that name." tabindex="0">Type</th>
               <th class="action">&nbsp;</th>
             </tr>
           </thead>
@@ -1130,19 +1139,19 @@
       <!-- Case-by-case section -->
       <div class="habits-section" id="habits-caseby-section">
         <div class="habits-section__header">
-          <div class="habits-section__title">Case-by-case</div>
+          <div class="habits-section__title" data-help="Matched prompt patterns not promoted yet; the arrow promotes one. Sorted by 7-day count." tabindex="0">Case-by-case</div>
           <div class="habits-section__sub">unclassified by default &middot; arrow promotes</div>
-          <div class="habits-section__count" id="habits-caseby-count">0</div>
+          <div class="habits-section__count" id="habits-caseby-count" data-help="Number of patterns in this section." tabindex="0">0</div>
         </div>
         <table class="habits-table">
           <thead>
             <tr>
-              <th>Pattern</th>
-              <th>Intent</th>
-              <th class="num">7d</th>
-              <th class="num">30d</th>
-              <th class="num">all</th>
-              <th>Type</th>
+              <th data-help="Pattern id: the slash-command name for /commands (structured), else the id of the first regex in patterns.yaml that matches the prompt." tabindex="0">Pattern</th>
+              <th data-help="Intent text from the pattern&#x27;s entry in patterns.yaml." tabindex="0">Intent</th>
+              <th class="num" data-help="Prompts matched in the last 7 days (prompt_usage rows)." tabindex="0">7d</th>
+              <th class="num" data-help="Prompts matched in the last 30 days." tabindex="0">30d</th>
+              <th class="num" data-help="Prompts matched since ingestion began." tabindex="0">all</th>
+              <th data-help="struct = slash command, unstruct = free-text regex match. The -&gt; skill? badge appears at 3+ uses in 30 days for an unstructured pattern with no skill file of that name." tabindex="0">Type</th>
               <th class="action">&nbsp;</th>
             </tr>
           </thead>
@@ -1156,7 +1165,7 @@
     <!-- Candidate patterns side panel (AC-12a) -->
     <aside class="candidates-panel" id="candidates-panel">
       <div class="candidates-panel__header" id="candidates-panel-header">
-        <div class="candidates-panel__title">Candidate patterns</div>
+        <div class="candidates-panel__title" data-help="Top 10 prompt texts of the last 7 days that no pattern matched (/api/prompts/unmatched), with hit counts and last-seen date. Preview dry-runs a regex against those texts; Add appends it to patterns.yaml." tabindex="0">Candidate patterns</div>
         <button class="candidates-panel__toggle" id="candidates-panel-toggle" aria-label="Collapse candidates">&minus;</button>
       </div>
       <div class="candidates-panel__body" id="candidates-panel-body">
@@ -1175,7 +1184,7 @@
 <div class="tab-panel" id="tab-tenets">
   <div class="activity-dash">
 
-    <div class="cb-range" id="cb-range-tenets">
+    <div class="cb-range help-zone" id="cb-range-tenets" data-help="Time window for the CodeBurn report (/api/codeburn?range=): 7 or 30 days back from now, 52 Weeks = 364 days, All = 355 days. It is shared by Activity, Project &amp; Model, Efficiency and Tenets." tabindex="0">
       <button class="cb-range__btn active" data-range="7d">7 Days</button>
       <button class="cb-range__btn" data-range="30d">30 Days</button>
       <button class="cb-range__btn" data-range="52w">52 Weeks</button>
@@ -1185,17 +1194,17 @@
     <!-- Hero cards -->
     <div class="cb-hero">
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Total Citations</div>
+        <div class="cb-hero__label" data-help="[TENET: name] tags found in assistant text of turns in the range and origin (tenet_citations). A tag naming several known tenets counts once per tenet; placeholders like [TENET: name] are ignored." tabindex="0">Total Citations</div>
         <div class="cb-hero__val" id="tn-total" style="color:var(--cyan)">--</div>
         <div class="cb-hero__sub" id="tn-period">--</div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Unique Tenets Cited</div>
+        <div class="cb-hero__label" data-help="Distinct tenet slugs among the citations. &#x27;of N defined&#x27; counts this page&#x27;s built-in tenet catalog, which can differ from TENETS.md." tabindex="0">Unique Tenets Cited</div>
         <div class="cb-hero__val" id="tn-unique" style="color:var(--text)">--</div>
         <div class="cb-hero__sub" id="tn-unique-sub">of <span id="tn-total-defined">--</span> defined</div>
       </div>
       <div class="cb-hero__card">
-        <div class="cb-hero__label">Most Active Tenet</div>
+        <div class="cb-hero__label" data-help="The slug with the most citations in the range, and its count." tabindex="0">Most Active Tenet</div>
         <div class="cb-hero__val" id="tn-top" style="color:var(--amber);font-size:18px;letter-spacing:-0.01em">--</div>
         <div class="cb-hero__sub" id="tn-top-sub">--</div>
       </div>
@@ -1203,7 +1212,7 @@
 
     <!-- Citation frequency chart -->
     <div class="cb-chart">
-      <div class="cb-chart__title">Daily Tenet Citations</div>
+      <div class="cb-chart__title" data-help="Citations per UTC date of the citing turn&#x27;s prompt; only dates with citations are drawn." tabindex="0">Daily Tenet Citations</div>
       <div class="cb-chart__area">
         <svg id="tn-daily-svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
@@ -1211,16 +1220,16 @@
 
     <!-- Tenet leaderboard table -->
     <div class="cb-table">
-      <div class="cb-table__header">Tenet Leaderboard — citations in period</div>
+      <div class="cb-table__header" data-help="Every cited slug with its count and where it was cited, sorted by citations." tabindex="0">Tenet Leaderboard — citations in period</div>
       <table>
         <thead>
           <tr>
-            <th>Tenet</th>
-            <th class="num">Citations</th>
-            <th class="num">Projects</th>
-            <th class="num">Avg Δ chars</th>
-            <th>Top Activity</th>
-            <th>Top Project</th>
+            <th data-help="Tenet slug as normalised from the tag (known slugs from TENETS.md / PHILOSOPHY.md win; otherwise the tag&#x27;s first clause, hyphenated)." tabindex="0">Tenet</th>
+            <th class="num" data-help="Number of citations in the range." tabindex="0">Citations</th>
+            <th class="num" data-help="Distinct projects the citing turns belong to." tabindex="0">Projects</th>
+            <th class="num" data-help="Mean net characters changed by Edit/Write in the citing turn: len(new) - len(old) per Edit, full length per Write. Green = net removal, amber = net addition." tabindex="0">Avg Δ chars</th>
+            <th data-help="Most frequent activity category among the citing turns." tabindex="0">Top Activity</th>
+            <th data-help="Project with the most citations of this tenet." tabindex="0">Top Project</th>
           </tr>
         </thead>
         <tbody id="tn-leaderboard-body"></tbody>
@@ -1229,13 +1238,13 @@
 
     <!-- Project × Tenet heatmap -->
     <div class="cb-table">
-      <div class="cb-table__header">Project × Tenet — citation counts</div>
+      <div class="cb-table__header" data-help="Citation counts for the top 10 tenets by project." tabindex="0">Project × Tenet — citation counts</div>
       <div id="tn-heatmap" style="overflow-x:auto;padding:12px 0"></div>
     </div>
 
     <!-- Longform tenet catalog -->
     <div class="cb-table">
-      <div class="cb-table__header">Tenet Catalog — full definitions with live citation data</div>
+      <div class="cb-table__header" data-help="Every tenet in this page&#x27;s catalog with its definition, citation count, average edit delta and top project; uncited tenets are dimmed." tabindex="0">Tenet Catalog — full definitions with live citation data</div>
       <div id="tn-longform"></div>
     </div>
 
@@ -1277,8 +1286,8 @@
     .ov-meta { color: var(--text-muted); font-size: 11px; font-family: var(--mono); margin-top: 18px; text-align: right; }
   </style>
   <div class="ov-head">
-    <h2>LLM Budget Overview</h2>
-    <div class="ov-head__range">
+    <h2 data-help="Spend per provider over the selected window (/api/overview). Claude = CodeBurn list-price cost over all origins; OpenAI = admin usage API; DeepSeek = the local usage log. Refreshes every 60 s; a stale response is flagged in the footer." tabindex="0">LLM Budget Overview</h2>
+    <div class="ov-head__range help-zone" data-help="Window for /api/overview: 7 days, 30 days, or All." tabindex="0">
       <button class="ov-range-btn active" data-ov-range="7d">7d</button>
       <button class="ov-range-btn" data-ov-range="30d">30d</button>
       <button class="ov-range-btn" data-ov-range="all">All</button>
@@ -1336,6 +1345,118 @@ function timeAgo(iso) {
   return Math.floor(sec / 3600) + 'h ago';
 }
 
+// ─── Explainer popovers (data-help) ─────────────────────────────
+// One shared #help-pop serves every element carrying data-help. Hover or
+// focus shows it, leaving/blur/Escape hides it, a click pins it (touch).
+// Delegated on document, so labels rendered later by innerHTML work too.
+var HELP_TEXT = {
+  'sub.runs': 'Agent/Task tool calls made by the main sessions in the range (subagent_stats.count).',
+  'sub.share': 'Subagent input tokens / input context of the main sessions in the range (context_overhead.total_context_tokens = input + cache read + cache write). The line below gives subagent input and output tokens, a lower bound: only the final API iteration of each run is reported.',
+  'sub.quota': 'Subagent results whose error text matches quota, rate limit or exhausted (subagent_stats.quota_error_count). Red when above 0; last = time of the latest one.',
+  'sub.types': 'Subagent types (the subagent_type argument of the Agent call) ranked by reported tokens, run count as tie-break; top 3.',
+  'co.hit': 'Cache reads / (input + cache read + cache write) over all API calls in the range (context_overhead.cache_hit_rate). Green above 90%, amber otherwise.',
+  'co.full': '(Input + cache read + cache write) / output (context_overhead.full_context_ratio): context tokens processed per output token.',
+  'co.io': 'Uncached input / output (context_overhead.io_ratio).',
+  'co.comp': 'Split of all context tokens into cache reads (green), new uncached input (amber) and cache writes (red).',
+  'co.overhead': 'Context the Claude Code runtime adds every turn that the JSONL does not show. Estimated from files on disk, not measured: 2,000-token base prompt + CLAUDE.md and MEMORY.md sizes / 4 + 15 tokens per command file + 250 per configured MCP server.',
+  'co.perturn': 'The per-turn overhead estimate in tokens (context_overhead.est_overhead_per_turn).',
+  'co.total': 'Per-turn estimate x turns in the range (context_overhead.est_total_overhead).',
+  'co.share': 'Estimated total overhead / all context tokens (context_overhead.est_overhead_pct). Red above 40%.',
+  'co.ctxcall': '(Input + cache read + cache write) / API calls (context_overhead.avg_context_per_call).',
+  'co.inturn': 'Uncached input tokens / turns (context_overhead.avg_input_per_turn).',
+  'co.outturn': 'Output tokens / turns (context_overhead.avg_output_per_turn): output per prompt, thinking and tool-call input included. Study reference: novices got ~5 actions and ~600 words per prompt, experts ~12 actions and ~3,200 words. At ~0.75 words per token 3,200 words is ~4,300 tokens; this count runs higher than visible words.',
+  'ov.balance': 'Balance left when the provider reports one, else its cap; for Claude, which exposes no dollar balance, weekly utilisation (current.seven_day_util) stands in.',
+  'ov.spend': 'Cost in the selected window. Claude: CodeBurn list-price cost over all origins; OpenAI: admin usage API; DeepSeek: local usage log.',
+  'ov.daily': 'Spend / days in the window.',
+  'ov.calls': 'API calls in the window; for Claude this is CodeBurn turns, not API calls.',
+  'ov.roi': 'Spend / calls; for Claude, spend / turns. Lower means cheaper per unit of work.',
+  'ov.top': 'Top 3 projects by cost in the window, with their share of the provider spend.'
+};
+
+function helpAttr(key) {
+  var text = HELP_TEXT[key] || '';
+  return ' data-help="' + text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '" tabindex="0"';
+}
+
+(function initHelpPopovers() {
+  var pop = document.getElementById('help-pop');
+  var current = null;
+  var pinned = false;
+
+  function place(el) {
+    if (!document.body.contains(el)) { hide(); return; }
+    var r = el.getBoundingClientRect();
+    var margin = 8, gap = 6;
+    var w = pop.offsetWidth, h = pop.offsetHeight;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = Math.max(margin, Math.min(r.left, vw - w - margin));
+    var top = r.bottom + gap;                       // prefer below
+    if (top + h > vh - margin) {
+      top = r.top - h - gap;                        // flip above
+      if (top < margin) top = Math.max(margin, vh - h - margin);
+    }
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  function show(el) {
+    if (current && current !== el) current.removeAttribute('aria-describedby');
+    current = el;
+    pop.textContent = el.getAttribute('data-help');
+    pop.classList.toggle('help-pop--pinned', pinned);
+    pop.style.display = 'block';
+    el.setAttribute('aria-describedby', 'help-pop');
+    place(el);
+  }
+
+  function hide() {
+    if (current) current.removeAttribute('aria-describedby');
+    current = null;
+    pinned = false;
+    pop.style.display = 'none';
+    pop.classList.remove('help-pop--pinned');
+  }
+
+  function helpTarget(node) {
+    return node && node.closest ? node.closest('[data-help]') : null;
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    if (pinned) return;
+    var el = helpTarget(e.target);
+    if (el && el !== current) show(el);
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (pinned || !current) return;
+    if (!current.contains(e.relatedTarget)) hide();
+  });
+  document.addEventListener('focusin', function(e) {
+    var el = helpTarget(e.target);
+    if (el) { pinned = false; show(el); }
+  });
+  document.addEventListener('focusout', function(e) {
+    if (!pinned && current && helpTarget(e.target) === current) hide();
+  });
+  document.addEventListener('click', function(e) {
+    var el = helpTarget(e.target);
+    if (!el) {
+      if (pinned && !pop.contains(e.target)) hide();
+      return;
+    }
+    // Buttons inside a help zone (range/origin toggles) keep their own click
+    var ctl = e.target.closest('button, a, input, select, textarea');
+    if (ctl && ctl !== el && el.contains(ctl)) return;
+    if (pinned && current === el) { hide(); return; }
+    pinned = true;
+    show(el);
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && current) hide();
+  });
+  window.addEventListener('scroll', function() { if (current) place(current); }, true);
+  window.addEventListener('resize', function() { if (current) place(current); });
+})();
+
 // ─── Tab Switching ───────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1390,22 +1511,22 @@ function overviewRender(data) {
     return `<div class="ov-card">
       <div class="ov-card__title">
         <div class="ov-card__name">${overviewProviderLabel(p.name)}</div>
-        <div class="ov-card__balance ${balanceClass}">${balanceStr}</div>
+        <div class="ov-card__balance ${balanceClass}"${helpAttr('ov.balance')}>${balanceStr}</div>
       </div>
       <div class="ov-card__head-stats">
         <div class="ov-stat">
-          <div class="ov-stat__lbl">Spend (${data.range})</div>
+          <div class="ov-stat__lbl"${helpAttr('ov.spend')}>Spend (${data.range})</div>
           <div class="ov-stat__val">${overviewMoney(p.spend_usd, p.spend_usd < 1 ? 4 : 2)}</div>
         </div>
         <div class="ov-stat">
-          <div class="ov-stat__lbl">Mean Daily</div>
+          <div class="ov-stat__lbl"${helpAttr('ov.daily')}>Mean Daily</div>
           <div class="ov-stat__val">${overviewMoney(p.daily_avg_usd, p.daily_avg_usd < 1 ? 4 : 2)}</div>
         </div>
       </div>
-      <div class="ov-card__row"><span class="ov-card__label">Calls</span><span class="ov-card__val">${(p.total_calls||0).toLocaleString()}</span></div>
-      <div class="ov-card__row"><span class="ov-card__label">ROI</span><span class="ov-card__val">${roiStr}</span></div>
+      <div class="ov-card__row"><span class="ov-card__label"${helpAttr('ov.calls')}>Calls</span><span class="ov-card__val">${(p.total_calls||0).toLocaleString()}</span></div>
+      <div class="ov-card__row"><span class="ov-card__label"${helpAttr('ov.roi')}>ROI</span><span class="ov-card__val">${roiStr}</span></div>
       <div class="ov-consumers">
-        <div class="ov-card__label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Top consumers</div>
+        <div class="ov-card__label"${helpAttr('ov.top')} style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Top consumers</div>
         ${consumers}
       </div>
       ${errBlock}
@@ -3069,9 +3190,9 @@ function updateActivityTab() {
     var html = '';
     // Summary stats
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">Subagent Runs</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (sub.count || 0) + '</div></div>';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">Share of Session Input</div><div style="font-size:18px;font-weight:700">' + sharePct + '</div><div style="color:var(--text-muted);font-size:10px">' + fmtK(subInput) + ' in / ' + fmtK(subOutput) + ' out</div></div>';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">Quota Errors</div><div style="font-size:18px;font-weight:700;color:' + (quotaCount > 0 ? 'var(--red)' : 'var(--green)') + '">' + quotaCount + '</div><div style="color:var(--text-muted);font-size:10px">last: ' + lastQuota + '</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('sub.runs') + '>Subagent Runs</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (sub.count || 0) + '</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('sub.share') + '>Share of Session Input</div><div style="font-size:18px;font-weight:700">' + sharePct + '</div><div style="color:var(--text-muted);font-size:10px">' + fmtK(subInput) + ' in / ' + fmtK(subOutput) + ' out</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('sub.quota') + '>Quota Errors</div><div style="font-size:18px;font-weight:700;color:' + (quotaCount > 0 ? 'var(--red)' : 'var(--green)') + '">' + quotaCount + '</div><div style="color:var(--text-muted);font-size:10px">last: ' + lastQuota + '</div></div>';
     html += '</div>';
 
     // Top-3 subagent types by spend (count as tiebreak / token-free fallback)
@@ -3081,7 +3202,7 @@ function updateActivityTab() {
     });
     types.sort(function(a, b) { return (b.tokens - a.tokens) || (b.count - a.count); });
     if (types.length > 0) {
-      html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Top Subagent Types by Spend</div>';
+      html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px"' + helpAttr('sub.types') + '>Top Subagent Types by Spend</div>';
       types.slice(0, 3).forEach(function(t) {
         var safeName = String(t.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         html += '<div class="util-card__row"><span class="util-card__name">' + safeName + '</span>' +
@@ -3230,13 +3351,13 @@ function updateProjectTab() {
     var html = '';
     // Summary stats
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">Cache Hit Rate</div><div style="font-size:18px;font-weight:700;color:' + (parseFloat(cacheHit) > 90 ? 'var(--green)' : 'var(--amber)') + '">' + cacheHit + '%</div></div>';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">Full Context Ratio</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (co.full_context_ratio || 0) + ':1</div></div>';
-    html += '<div><div style="color:var(--text-muted);font-size:10px">I/O Ratio</div><div style="font-size:18px;font-weight:700">' + (co.io_ratio || 0) + 'x</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('co.hit') + '>Cache Hit Rate</div><div style="font-size:18px;font-weight:700;color:' + (parseFloat(cacheHit) > 90 ? 'var(--green)' : 'var(--amber)') + '">' + cacheHit + '%</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('co.full') + '>Full Context Ratio</div><div style="font-size:18px;font-weight:700;color:var(--cyan)">' + (co.full_context_ratio || 0) + ':1</div></div>';
+    html += '<div><div style="color:var(--text-muted);font-size:10px"' + helpAttr('co.io') + '>I/O Ratio</div><div style="font-size:18px;font-weight:700">' + (co.io_ratio || 0) + 'x</div></div>';
     html += '</div>';
 
     // Context composition bar
-    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px">Context Composition (total ' + fmtK(totalCtx) + ' tokens)</div>';
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:4px"' + helpAttr('co.comp') + '>Context Composition (total ' + fmtK(totalCtx) + ' tokens)</div>';
     html += '<div style="display:flex;height:20px;border-radius:4px;overflow:hidden;margin-bottom:4px">';
     html += '<div style="width:' + crPct + '%;background:var(--green);min-width:1px" title="Cache read: ' + fmtK(cacheRead) + '"></div>';
     html += '<div style="width:' + niPct + '%;background:var(--amber);min-width:1px" title="New input: ' + fmtK(newInput) + '"></div>';
@@ -3250,20 +3371,20 @@ function updateProjectTab() {
 
     // System overhead estimate
     html += '<div style="margin-top:14px;padding:10px;background:var(--card-bg);border-radius:6px;border:1px solid var(--border)">';
-    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:6px">Estimated System Overhead (invisible in JSONL)</div>';
+    html += '<div style="color:var(--text-muted);font-size:10px;margin-bottom:6px"' + helpAttr('co.overhead') + '>Estimated System Overhead (invisible in JSONL)</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">';
-    html += '<div>Per turn: <strong style="color:var(--amber)">~' + fmtK(overheadPerTurn) + '</strong> tokens</div>';
-    html += '<div>Total: <strong>~' + fmtK(co.est_total_overhead || 0) + '</strong> tokens</div>';
-    html += '<div>Share of input: <strong style="color:' + (overheadPct > 40 ? 'var(--red)' : 'var(--text)') + '">' + overheadPct + '%</strong></div>';
-    html += '<div>Avg context/call: <strong>' + fmtK(co.avg_context_per_call || 0) + '</strong></div>';
+    html += '<div' + helpAttr('co.perturn') + '>Per turn: <strong style="color:var(--amber)">~' + fmtK(overheadPerTurn) + '</strong> tokens</div>';
+    html += '<div' + helpAttr('co.total') + '>Total: <strong>~' + fmtK(co.est_total_overhead || 0) + '</strong> tokens</div>';
+    html += '<div' + helpAttr('co.share') + '>Share of input: <strong style="color:' + (overheadPct > 40 ? 'var(--red)' : 'var(--text)') + '">' + overheadPct + '%</strong></div>';
+    html += '<div' + helpAttr('co.ctxcall') + '>Avg context/call: <strong>' + fmtK(co.avg_context_per_call || 0) + '</strong></div>';
     html += '</div>';
     html += '<div style="font-size:10px;color:var(--text-dim);margin-top:6px">Includes: system prompt, CLAUDE.md, skill catalog, deferred tools, MCP instructions, memory index</div>';
     html += '</div>';
 
     // Output stats
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:11px">';
-    html += '<div style="color:var(--text-muted)">Avg input/turn: <strong>' + fmtK(co.avg_input_per_turn || 0) + '</strong></div>';
-    html += '<div style="color:var(--text-muted)">Avg output/turn: <strong>' + fmtK(co.avg_output_per_turn || 0) + '</strong></div>';
+    html += '<div style="color:var(--text-muted)"' + helpAttr('co.inturn') + '>Avg input/turn: <strong>' + fmtK(co.avg_input_per_turn || 0) + '</strong></div>';
+    html += '<div style="color:var(--text-muted)"' + helpAttr('co.outturn') + '>Avg output/turn: <strong>' + fmtK(co.avg_output_per_turn || 0) + '</strong></div>';
     html += '</div>';
 
     document.getElementById('cb-overhead-content').innerHTML = html;

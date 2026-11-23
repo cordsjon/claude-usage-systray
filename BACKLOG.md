@@ -69,12 +69,12 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 **so that** one-shot rate and cost per activity describe my own directing, and I can see how much of the 5h/7d quota the eval-runner, nightshift and DoR automation eats.
 
 **Acceptance Criteria:**
-- [ ] AC-01: a turn starts only at a prompt record (not tool_result, isMeta or local-command records); a fixture with edit -> bash -> tool_result -> edit yields total_turns == 1 and retries == 1
-- [ ] AC-02: classify_origin returns human|sdk from turnOrigin, falling back to promptSource == sdk or entrypoint == sdk-cli; a fixture with one human and one sdk prompt yields one turn per origin
-- [ ] AC-03: /api/codeburn accepts origin=human|sdk|all (default all, unchanged totals for existing callers) and the report always carries origin_summary with turns, cost_usd, edit_turns, oneshot_rate, tool_calls, output_tokens per origin
-- [ ] AC-04: the Activity Burn tab has an Operator / Automation / All toggle defaulting to Operator; the hero cards show operator vs automation cost and one-shot rate from origin_summary
+- [x] AC-01: a turn starts only at a prompt record (not tool_result, isMeta or local-command records); a fixture with edit -> bash -> tool_result -> edit yields total_turns == 1 and retries == 1
+- [x] AC-02: classify_origin returns human|sdk from turnOrigin, falling back to promptSource == sdk or entrypoint == sdk-cli; a fixture with one human and one sdk prompt yields one turn per origin
+- [x] AC-03: /api/codeburn accepts origin=human|sdk|all (default all, unchanged totals for existing callers) and the report always carries origin_summary with turns, cost_usd, edit_turns, oneshot_rate, tool_calls, output_tokens per origin
+- [x] AC-04: the Activity Burn tab has an Operator / Automation / All toggle defaulting to Operator; the hero cards show operator vs automation cost and one-shot rate from origin_summary
 - [ ] AC-05: /api/status carries current.origin_share_7d, current.origin_share_5h and projection.cycle_runway_hours_human_only; the Runway HUD shows automation's share of 7d burn and the runway if automation paused
-- [ ] AC-06: on the live transcripts for 2026-11-16..2026-11-23, /api/codeburn?range=7d&origin=human reports total_turns within 10% of 486 (human prompt count measured 2026-11-23)
+- [x] AC-06: on the live transcripts for 2026-11-16..2026-11-23, /api/codeburn?range=7d&origin=human reports total_turns within 10% of 486 (human prompt count measured 2026-11-23)
 
 > _AC block superseded 2026-11-23 23:30 CET by claude-code:87ca0751 — reason: re-spec 2026-11-23 after reading codeburn.py: turns split on every user-role record (21,926 turns vs 486 prompts in 7d); API default stays all per DECISIONS Q20, fix folded in per Q21_
 > Previous ACs:
@@ -87,6 +87,9 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 **Priority:** P1 · **Effort:** S · **State:** Ideation · **Tags:** `[codeburn]` `[runway]` `[measurement]`
 > _claude-code:87ca0751, 2026-11-23 23:30 CET_
 > DoR 2026-11-23 (20_agentflow dor_gate --track normal): FAIL no-score, missing-panel:architecture-panel. Promotion to Ready needs a spec-panel score and an architecture panel; not run this session.
+
+> _claude-code:87ca0751, 2026-11-23 23:49 CET_
+> 2026-11-23 status after commit 2053fc0: AC-01..04 and AC-06 verified (202 tests; live /api/codeburn?range=7d&origin=human -> total_turns 475 vs 486 prompts, one-shot 0.46; toggle + HUD markup served). AC-05 NOT met in production: the launchd engine runs TOKEN_BUDGET_USE_API=1, so engine.poller publishes /api/status and jsonl_rollup (where origin_share_* and cycle_runway_hours_human_only are computed) has not run since 2026-06-20 per engine-launchd.log. The HUD line shows '--'. Options: (a) derive the 7d share in the poller path from the cached codeburn origin_summary (cost share as proxy, no extra scan); (b) run the rollup alongside the poller only for the by-origin split. Also observed: compute_snapshot walks all ~18k JSONL files each tick (~25 min in June logs); pre-filter by file mtime before enabling it.
 
 ### US-CUS-TENETS-01: Tenets tab counts per-tenet referent events, not only [TENET:] tags [0d]
 

@@ -6,6 +6,51 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 ## Ideation
 
+### US-CUS-OUTCOME-01: Telemetry-only session outcome proxies: hard success signal, hits trouble, abandoned [0d]
+
+> Origin: RESEARCH.md R2 (2026-11-23): expertise-study appendix 'Derived measures' — verified success needs success-signal >= 4 (commit, passing tests, matching command output, explicit confirmation); abandoned = troubled + failed + 0 lines added
+
+**As a** operator tracking whether my operator sessions actually land work,
+**I want** CodeBurn to flag per operator session, deterministically from the transcript, a hard success signal (git commit, gh pr create/merge, test command exit 0, explicit user confirmation words), a trouble signal (unrecovered final tool error, failing test at end, frustration keywords) and an abandoned flag (trouble, no hard success, zero lines added), with weekly rates; an LLM classifier using the appendix prompts stays out of scope,
+**so that** I get a cheap weekly proxy for the study's verified-success and abandonment rates without paying for per-session model grading.
+
+**Acceptance Criteria:**
+- [ ] AC-01: a fixture session ending in git commit + pytest pass is flagged hard_success; one ending in an unrecovered error with no Edit/Write is flagged abandoned
+- [ ] AC-02: /api/codeburn returns hard_success_rate, trouble_rate and abandoned_rate for origin=human
+- [ ] AC-03: the panel labels these as telemetry proxies, not the study's classifier-based measures
+
+**Priority:** P3 · **Effort:** M · **State:** Ideation · **Tags:** `[codeburn]` `[measurement]` `[outcome]`
+### US-CUS-AGENTTIME-01: Agent-time panel using the Anthropic employment-report definitions (agent:human hours, idle share, reading load, per-prompt leverage) [0d]
+
+> Origin: RESEARCH.md R2 (2026-11-23): How employment is changing at Anthropic, Fig 2 + Fig 6 notes; scratch replication gave 1.57:1 agent:human, 85.6% idle, 317 h/wk token reading load vs 13 h/wk visible text
+
+**As a** operator comparing my agent use against Anthropic's published internal numbers,
+**I want** a CodeBurn panel computing, per week and per origin: agent runtime (inference plus tool use, waits over 30 min excluded, subagents pooled), agent:human hours with human = 40 h/week, idle share = 1 - runtime/wall clock for interactive sessions, reading load = output tokens x 0.75 / 250 wpm next to a visible-text-only variant, and median tool calls and output words per human prompt, each shown beside the study reference value (6:1, ~80%, half a work week, novice 5/600, expert 12/3200),
+**so that** the dashboard answers how my setup compares to the study with the study's own definitions instead of ad-hoc scripts.
+
+**Acceptance Criteria:**
+- [ ] AC-01: runtime uses a 1800 s wait cap and pools subagent files; for 2026-09-24..2026-11-23 it reports 538 h +/- 5% for interactive+subagent (scratch baseline)
+- [ ] AC-02: idle share for the same window reports 85.6% +/- 2 points
+- [ ] AC-03: reading load is shown twice, token-based and visible-text-based, with a note that output tokens include thinking
+- [ ] AC-04: each metric renders its study reference value and source (report + figure) as a static label
+- [ ] AC-05: depends on US-CUS-ORIGIN-01 for the interactive/automated split
+
+**Priority:** P2 · **Effort:** M · **State:** Ideation · **Tags:** `[codeburn]` `[measurement]` `[benchmark]`
+### US-CUS-ORIGIN-01: CodeBurn and runway split usage by turn origin (operator vs automation vs subagent) [0d]
+
+> Origin: RESEARCH.md R2 (2026-11-23): codeburn.py:891 filters only isSidechain; 60-day sample had 672 operator sessions vs 3,259 automated, all mixed into one-shot rate and cost-per-activity
+
+**As a** operator reading the CodeBurn tab and the runway counter,
+**I want** every turn tagged by origin from the JSONL turnOrigin field (human, sdk, subagent; fallback promptSource/entrypoint for records without it), CodeBurn metrics shown for operator turns by default with an origin toggle, and the runway view showing weighted-token burn share per origin plus runway with automation paused,
+**so that** one-shot rate and cost per activity describe my own directing, and I can see how much of the 5h/7d quota the eval-runner, nightshift and DoR automation eats.
+
+**Acceptance Criteria:**
+- [ ] AC-01: _scan_sessions classifies each turn as human/sdk/subagent; a fixture with one turnOrigin=human and one turnOrigin=sdk session yields one turn per origin
+- [ ] AC-02: /api/codeburn accepts origin=human|sdk|all (default human) and oneshot_rate, cost-per-category honour it
+- [ ] AC-03: the runway panel lists weighted-token share per origin for the current 5h and 7d windows and a runway_hours value recomputed with sdk burn removed
+- [ ] AC-04: against the archived transcripts for 2026-09-24..2026-11-23 the human-origin session count is 672 +/- 5 (scratch benchmark baseline)
+
+**Priority:** P1 · **Effort:** S · **State:** Ideation · **Tags:** `[codeburn]` `[runway]` `[measurement]`
 ### US-CUS-TENETS-01: Tenets tab counts per-tenet referent events, not only [TENET:] tags [0d]
 
 > Origin: Tenets-tab inspection 2026-11-08: dashboard counts only [TENET:] tags in assistant text; same week foundation-first ran bin/foundations open 100x (1 tag), source-transparency produced ~3100 [verified] tags (0 tags), architecture-first ran brainstorming+writing-plans+spec-panel 14x (1 tag). Wired tenets stop producing tag vocabulary, so the tab ranks the best-enforced tenets lowest. See memory feedback_tenet_tag_count_is_not_usefulness.

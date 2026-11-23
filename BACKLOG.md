@@ -16,10 +16,21 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 **Acceptance Criteria:**
 - [ ] AC-01: a fixture session ending in git commit + pytest pass is flagged hard_success; one ending in an unrecovered error with no Edit/Write is flagged abandoned
-- [ ] AC-02: /api/codeburn returns hard_success_rate, trouble_rate and abandoned_rate for origin=human
-- [ ] AC-03: the panel labels these as telemetry proxies, not the study's classifier-based measures
+- [ ] AC-02: /api/codeburn returns hard_success_rate, trouble_rate and abandoned_rate for origin=human, computed per session over ORIGIN-01's turn unit
+- [ ] AC-03: the panel labels these as telemetry proxies, not the study's classifier-based measures, and shows the study reference (novice 15% / expert 28-33% verified success; novice 19% / others 5-7% abandoned)
+- [ ] AC-04: signal rules are documented in the module docstring with the appendix definitions they approximate (success-signal >= 4, failure-signal >= 3, abandoned = failed + 0 lines added)
+
+> _AC block superseded 2026-11-23 23:30 CET by claude-code:87ca0751 — reason: refine 2026-11-23: pin to the corrected turn unit from ORIGIN-01_
+> Previous ACs:
+> - [ ] AC-01: a fixture session ending in git commit + pytest pass is flagged hard_success; one ending in an unrecovered error with no Edit/Write is flagged abandoned
+> - [ ] AC-02: /api/codeburn returns hard_success_rate, trouble_rate and abandoned_rate for origin=human
+> - [ ] AC-03: the panel labels these as telemetry proxies, not the study's classifier-based measures
+
 
 **Priority:** P3 · **Effort:** M · **State:** Ideation · **Tags:** `[codeburn]` `[measurement]` `[outcome]`
+> _claude-code:87ca0751, 2026-11-23 23:30 CET_
+> DoR 2026-11-23 (20_agentflow dor_gate --track normal): FAIL no-score, missing-panel:architecture-panel. Promotion to Ready needs a spec-panel score and an architecture panel; not run this session.
+
 ### US-CUS-AGENTTIME-01: Agent-time panel using the Anthropic employment-report definitions (agent:human hours, idle share, reading load, per-prompt leverage) [0d]
 
 > Origin: RESEARCH.md R2 (2026-11-23): How employment is changing at Anthropic, Fig 2 + Fig 6 notes; scratch replication gave 1.57:1 agent:human, 85.6% idle, 317 h/wk token reading load vs 13 h/wk visible text
@@ -31,11 +42,24 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 **Acceptance Criteria:**
 - [ ] AC-01: runtime uses a 1800 s wait cap and pools subagent files; for 2026-09-24..2026-11-23 it reports 538 h +/- 5% for interactive+subagent (scratch baseline)
 - [ ] AC-02: idle share for the same window reports 85.6% +/- 2 points
-- [ ] AC-03: reading load is shown twice, token-based and visible-text-based, with a note that output tokens include thinking
+- [ ] AC-03: reading load is shown twice, token-based (0.75 words/token, 250 wpm) and visible-text-based, with a note that output tokens include thinking
 - [ ] AC-04: each metric renders its study reference value and source (report + figure) as a static label
-- [ ] AC-05: depends on US-CUS-ORIGIN-01 for the interactive/automated split
+- [ ] AC-05: per-prompt leverage (median tool calls and output words per prompt) is computed on ORIGIN-01's turn unit and shown per origin; the human-origin medians for 2026-09-24..2026-11-23 are 11 tool calls and 433 visible words (scratch baseline)
+- [ ] AC-06: depends on US-CUS-ORIGIN-01 (turn grouping, origin_summary); no new dependencies, stdlib only like the rest of engine/
+
+> _AC block superseded 2026-11-23 23:30 CET by claude-code:87ca0751 — reason: refine 2026-11-23: build on ORIGIN-01 turn unit and origin_summary; add per-origin leverage_
+> Previous ACs:
+> - [ ] AC-01: runtime uses a 1800 s wait cap and pools subagent files; for 2026-09-24..2026-11-23 it reports 538 h +/- 5% for interactive+subagent (scratch baseline)
+> - [ ] AC-02: idle share for the same window reports 85.6% +/- 2 points
+> - [ ] AC-03: reading load is shown twice, token-based and visible-text-based, with a note that output tokens include thinking
+> - [ ] AC-04: each metric renders its study reference value and source (report + figure) as a static label
+> - [ ] AC-05: depends on US-CUS-ORIGIN-01 for the interactive/automated split
+
 
 **Priority:** P2 · **Effort:** M · **State:** Ideation · **Tags:** `[codeburn]` `[measurement]` `[benchmark]`
+> _claude-code:87ca0751, 2026-11-23 23:30 CET_
+> DoR 2026-11-23 (20_agentflow dor_gate --track normal): FAIL no-score, missing-panel:architecture-panel. Promotion to Ready needs a spec-panel score and an architecture panel; not run this session.
+
 ### US-CUS-ORIGIN-01: CodeBurn and runway split usage by turn origin (operator vs automation vs subagent) [0d]
 
 > Origin: RESEARCH.md R2 (2026-11-23): codeburn.py:891 filters only isSidechain; 60-day sample had 672 operator sessions vs 3,259 automated, all mixed into one-shot rate and cost-per-activity
@@ -45,12 +69,25 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 **so that** one-shot rate and cost per activity describe my own directing, and I can see how much of the 5h/7d quota the eval-runner, nightshift and DoR automation eats.
 
 **Acceptance Criteria:**
-- [ ] AC-01: _scan_sessions classifies each turn as human/sdk/subagent; a fixture with one turnOrigin=human and one turnOrigin=sdk session yields one turn per origin
-- [ ] AC-02: /api/codeburn accepts origin=human|sdk|all (default human) and oneshot_rate, cost-per-category honour it
-- [ ] AC-03: the runway panel lists weighted-token share per origin for the current 5h and 7d windows and a runway_hours value recomputed with sdk burn removed
-- [ ] AC-04: against the archived transcripts for 2026-09-24..2026-11-23 the human-origin session count is 672 +/- 5 (scratch benchmark baseline)
+- [ ] AC-01: a turn starts only at a prompt record (not tool_result, isMeta or local-command records); a fixture with edit -> bash -> tool_result -> edit yields total_turns == 1 and retries == 1
+- [ ] AC-02: classify_origin returns human|sdk from turnOrigin, falling back to promptSource == sdk or entrypoint == sdk-cli; a fixture with one human and one sdk prompt yields one turn per origin
+- [ ] AC-03: /api/codeburn accepts origin=human|sdk|all (default all, unchanged totals for existing callers) and the report always carries origin_summary with turns, cost_usd, edit_turns, oneshot_rate, tool_calls, output_tokens per origin
+- [ ] AC-04: the Activity Burn tab has an Operator / Automation / All toggle defaulting to Operator; the hero cards show operator vs automation cost and one-shot rate from origin_summary
+- [ ] AC-05: /api/status carries current.origin_share_7d, current.origin_share_5h and projection.cycle_runway_hours_human_only; the Runway HUD shows automation's share of 7d burn and the runway if automation paused
+- [ ] AC-06: on the live transcripts for 2026-11-16..2026-11-23, /api/codeburn?range=7d&origin=human reports total_turns within 10% of 486 (human prompt count measured 2026-11-23)
+
+> _AC block superseded 2026-11-23 23:30 CET by claude-code:87ca0751 — reason: re-spec 2026-11-23 after reading codeburn.py: turns split on every user-role record (21,926 turns vs 486 prompts in 7d); API default stays all per DECISIONS Q20, fix folded in per Q21_
+> Previous ACs:
+> - [ ] AC-01: _scan_sessions classifies each turn as human/sdk/subagent; a fixture with one turnOrigin=human and one turnOrigin=sdk session yields one turn per origin
+> - [ ] AC-02: /api/codeburn accepts origin=human|sdk|all (default human) and oneshot_rate, cost-per-category honour it
+> - [ ] AC-03: the runway panel lists weighted-token share per origin for the current 5h and 7d windows and a runway_hours value recomputed with sdk burn removed
+> - [ ] AC-04: against the archived transcripts for 2026-09-24..2026-11-23 the human-origin session count is 672 +/- 5 (scratch benchmark baseline)
+
 
 **Priority:** P1 · **Effort:** S · **State:** Ideation · **Tags:** `[codeburn]` `[runway]` `[measurement]`
+> _claude-code:87ca0751, 2026-11-23 23:30 CET_
+> DoR 2026-11-23 (20_agentflow dor_gate --track normal): FAIL no-score, missing-panel:architecture-panel. Promotion to Ready needs a spec-panel score and an architecture panel; not run this session.
+
 ### US-CUS-TENETS-01: Tenets tab counts per-tenet referent events, not only [TENET:] tags [0d]
 
 > Origin: Tenets-tab inspection 2026-11-08: dashboard counts only [TENET:] tags in assistant text; same week foundation-first ran bin/foundations open 100x (1 tag), source-transparency produced ~3100 [verified] tags (0 tags), architecture-first ran brainstorming+writing-plans+spec-panel 14x (1 tag). Wired tenets stop producing tag vocabulary, so the tab ranks the best-enforced tenets lowest. See memory feedback_tenet_tag_count_is_not_usefulness.

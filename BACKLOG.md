@@ -6,6 +6,20 @@ _(none yet — the automation-debt stories below are independent, no chain)_
 
 ## Ideation
 
+### US-CUS-ENGINE-MEM-01: Engine cache warmup must stay bounded in memory (33 GB orphan, 2026-11-26) [0d]
+
+> Origin: STEUB session 2026-11-26 disk-pressure diagnosis
+
+**As a** operator running the Mac Mini as a 24/7 pipeline host,
+**I want** the usage engine's overview cache warmup (7d/30d/355d over ~18.8k sessions) to keep its memory footprint bounded, and a second engine never to start outside launchd,
+**so that** swap does not consume the SSD and kill unrelated jobs (whisper DLFAIL 'No space left on device' on 2026-11-25), and launchd does not crash-loop on 'Address already in use'.
+
+**Acceptance Criteria:**
+- [ ] AC-01: Measured: footprint of one engine after 3 full cache-warmup cycles stays under a stated cap (top -stats mem); baseline 2026-11-26 was 33 G (32 G compressed) after 31 min, PID 82610
+- [ ] AC-02: The process that started outside launchd at 11:33 on 2026-11-26 (PPID 1, cwd repo root) is traced to its launcher, and that launcher either goes through launchctl kickstart or is removed
+- [ ] AC-03: When port 17420 is already bound, the launchd job exits without a traceback loop; engine-launchd.log stops growing (was 61 MB, 9713 'Address already in use' lines)
+
+**Priority:** P1 · **Effort:** 0.5d · **State:** Ideation · **Tags:** `[engine]` `[memory]` `[launchd]`
 ### US-CUS-OUTCOME-01: Telemetry-only session outcome proxies: hard success signal, hits trouble, abandoned [0d]
 
 > Origin: RESEARCH.md R2 (2026-11-23): expertise-study appendix 'Derived measures' — verified success needs success-signal >= 4 (commit, passing tests, matching command output, explicit confirmation); abandoned = troubled + failed + 0 lines added
